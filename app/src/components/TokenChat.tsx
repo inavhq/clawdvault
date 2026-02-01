@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
+import { authenticatedPost, authenticatedDelete } from '@/lib/signRequest';
 
 interface ReactionData {
   count: number;
@@ -48,7 +49,8 @@ function shortenAddress(address: string): string {
 }
 
 export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
-  const { connected, publicKey, connect } = useWallet();
+  const wallet = useWallet();
+  const { connected, publicKey, connect } = wallet;
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -139,15 +141,12 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
     setError('');
 
     try {
-      const res = await fetch('/api/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet: publicKey,
-          username: newUsername.trim() || null,
-        }),
-      });
-
+      const profileData = {
+        username: newUsername.trim() || null,
+        avatar: null,
+      };
+      
+      const res = await authenticatedPost(wallet, '/api/profile', 'profile', profileData);
       const data = await res.json();
       
       if (data.success) {
@@ -156,8 +155,8 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         setError(data.error || 'Failed to save');
       }
-    } catch (err) {
-      setError('Network error');
+    } catch (err: any) {
+      setError(err.message || 'Network error');
     } finally {
       setSavingUsername(false);
     }
@@ -185,9 +184,13 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
     try {
       // If clicking same emoji, remove it
       if (isSameEmoji) {
-        await fetch(`/api/reactions?messageId=${messageId}&emoji=${encodeURIComponent(emoji)}&wallet=${publicKey}`, {
-          method: 'DELETE',
-        });
+        const signedData = { messageId, emoji };
+        await authenticatedDelete(
+          wallet, 
+          `/api/reactions?messageId=${messageId}&emoji=${encodeURIComponent(emoji)}`,
+          'unreact',
+          signedData
+        );
         // Update local state - remove reaction
         setMessages(prev => prev.map(m => {
           if (m.id !== messageId) return m;
@@ -206,16 +209,17 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         // Remove old reaction first if exists
         if (currentReaction) {
-          await fetch(`/api/reactions?messageId=${messageId}&emoji=${encodeURIComponent(currentReaction)}&wallet=${publicKey}`, {
-            method: 'DELETE',
-          });
+          const oldSignedData = { messageId, emoji: currentReaction };
+          await authenticatedDelete(
+            wallet,
+            `/api/reactions?messageId=${messageId}&emoji=${encodeURIComponent(currentReaction)}`,
+            'unreact',
+            oldSignedData
+          );
         }
         // Add new reaction
-        await fetch('/api/reactions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageId, emoji, wallet: publicKey }),
-        });
+        const newSignedData = { messageId, emoji };
+        await authenticatedPost(wallet, '/api/reactions', 'react', newSignedData);
         // Update local state - swap reactions
         setMessages(prev => prev.map(m => {
           if (m.id !== messageId) return m;
@@ -256,16 +260,13 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
     setError('');
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mint,
-          sender: publicKey,
-          message: newMessage.trim(),
-        }),
-      });
-
+      const chatData = {
+        mint,
+        message: newMessage.trim(),
+        replyTo: null,
+      };
+      
+      const res = await authenticatedPost(wallet, '/api/chat', 'chat', chatData);
       const data = await res.json();
       
       if (data.success) {
@@ -274,8 +275,8 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         setError(data.error || 'Failed to send');
       }
-    } catch (err) {
-      setError('Network error');
+    } catch (err: any) {
+      setError(err.message || 'Network error');
     } finally {
       setSending(false);
     }

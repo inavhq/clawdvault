@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/prisma';
+import { extractAuth, verifyWalletAuth } from '@/lib/auth';
 
 // GET /api/chat?mint=xxx - Get chat messages for a token
 export async function GET(request: NextRequest) {
@@ -81,8 +82,17 @@ export async function GET(request: NextRequest) {
 // POST /api/chat - Send a chat message
 export async function POST(request: NextRequest) {
   try {
+    // Extract auth headers
+    const auth = extractAuth(request);
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: 'Missing authentication headers (X-Wallet, X-Signature)' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
-    const { mint, sender, message, replyTo } = body;
+    const { mint, message, replyTo } = body;
 
     if (!mint || !message) {
       return NextResponse.json(
@@ -91,12 +101,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!sender) {
+    // Verify signature - the signed data includes mint and message
+    const signedData = { mint, message: message.trim(), replyTo: replyTo || null };
+    if (!verifyWalletAuth(auth.wallet, auth.signature, 'chat', signedData)) {
       return NextResponse.json(
-        { success: false, error: 'Wallet connection required to chat' },
-        { status: 400 }
+        { success: false, error: 'Invalid signature' },
+        { status: 401 }
       );
     }
+
+    const sender = auth.wallet;
 
     // Validate message length
     if (message.length > 500) {

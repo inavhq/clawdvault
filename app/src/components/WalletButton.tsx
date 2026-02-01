@@ -2,13 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
+import { authenticatedPost } from '@/lib/signRequest';
 
 function shortenAddress(address: string): string {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
 export default function WalletButton() {
-  const { connected, connecting, initializing, publicKey, balance, connect, disconnect } = useWallet();
+  const wallet = useWallet();
+  const { connected, connecting, initializing, publicKey, balance, connect, disconnect } = wallet;
   const [showDropdown, setShowDropdown] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
@@ -44,14 +46,11 @@ export default function WalletButton() {
     if (!publicKey || savingUsername) return;
     setSavingUsername(true);
     try {
-      const res = await fetch('/api/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet: publicKey,
-          username: newUsername.trim() || null,
-        }),
-      });
+      const profileData = {
+        username: newUsername.trim() || null,
+        avatar: null,
+      };
+      const res = await authenticatedPost(wallet, '/api/profile', 'profile', profileData);
       const data = await res.json();
       if (data.success) {
         setUsername(data.profile.username);

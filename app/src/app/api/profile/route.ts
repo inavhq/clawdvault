@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/prisma';
+import { extractAuth, verifyWalletAuth } from '@/lib/auth';
 
 // GET /api/profile?wallet=xxx - Get user profile
 export async function GET(request: NextRequest) {
@@ -33,15 +34,28 @@ export async function GET(request: NextRequest) {
 // POST /api/profile - Create or update profile
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { wallet, username, avatar } = body;
-
-    if (!wallet) {
+    // Extract auth headers
+    const auth = extractAuth(request);
+    if (!auth) {
       return NextResponse.json(
-        { success: false, error: 'Missing wallet' },
-        { status: 400 }
+        { success: false, error: 'Missing authentication headers (X-Wallet, X-Signature)' },
+        { status: 401 }
       );
     }
+
+    const body = await request.json();
+    const { username, avatar } = body;
+
+    // Verify signature - signed data includes the profile update
+    const signedData = { username: username || null, avatar: avatar || null };
+    if (!verifyWalletAuth(auth.wallet, auth.signature, 'profile', signedData)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    const wallet = auth.wallet;
 
     // Validate username
     if (username) {
