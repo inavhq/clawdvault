@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { executeTrade, getToken } from '@/lib/db';
-import { TradeRequest, TradeResponse } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+
+interface TradeRequest {
+  mint: string;
+  type: 'buy' | 'sell';
+  amount: number;
+  slippage?: number;
+  referrer?: string;  // Referral code for fee sharing
+}
 
 export async function POST(request: Request) {
   try {
@@ -52,12 +59,13 @@ export async function POST(request: Request) {
       );
     }
     
-    // Execute trade
+    // Execute trade with referrer
     const result = await executeTrade(
       body.mint,
       body.type,
       body.amount,
-      apiKey
+      apiKey,
+      body.referrer  // Pass referrer for fee sharing
     );
     
     if (!result) {
@@ -67,16 +75,20 @@ export async function POST(request: Request) {
       );
     }
     
-    const response: TradeResponse = {
+    return NextResponse.json({
       success: true,
       trade: result.trade,
       signature: result.trade.signature,
       tokens_received: body.type === 'buy' ? result.trade.token_amount : undefined,
       sol_received: body.type === 'sell' ? result.trade.sol_amount : undefined,
       new_price: result.token.price_sol,
-    };
-    
-    return NextResponse.json(response);
+      fees: {
+        total: result.fees.protocol + result.fees.creator + result.fees.referrer,
+        protocol: result.fees.protocol,
+        creator: result.fees.creator,
+        referrer: result.fees.referrer,
+      },
+    });
   } catch (error) {
     console.error('Error executing trade:', error);
     return NextResponse.json(

@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// TOKENS
+// ============================================
+model Token {
+  id        String   @id @default(uuid())
+  mint      String   @unique
+  name      String
+  symbol    String
+  description String?
+  image     String?
+  
+  // Creator info
+  creator     String
+  creatorName String?  @map("creator_name")
+  
+  // Bonding curve state
+  virtualSolReserves   Decimal @default(30.0) @map("virtual_sol_reserves") @db.Decimal(20, 9)
+  virtualTokenReserves Decimal @default(1073000000) @map("virtual_token_reserves") @db.Decimal(20, 0)
+  realSolReserves      Decimal @default(0) @map("real_sol_reserves") @db.Decimal(20, 9)
+  realTokenReserves    Decimal @default(1073000000) @map("real_token_reserves") @db.Decimal(20, 0)
+  
+  // Status
+  graduated    Boolean @default(false)
+  raydiumPool  String? @map("raydium_pool")
+  
+  // Social links
+  twitter  String?
+  telegram String?
+  website  String?
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  trades Trade[]
+  fees   Fee[]
+  
+  @@map("tokens")
+}
+
+// ============================================
+// TRADES
+// ============================================
+model Trade {
+  id        String   @id @default(uuid())
+  tokenId   String   @map("token_id")
+  tokenMint String   @map("token_mint")
+  
+  trader    String
+  tradeType String   @map("trade_type") // 'buy' or 'sell'
+  
+  solAmount   Decimal @map("sol_amount") @db.Decimal(20, 9)
+  tokenAmount Decimal @map("token_amount") @db.Decimal(20, 0)
+  priceSol    Decimal @map("price_sol") @db.Decimal(30, 18)
+  
+  // Fee breakdown
+  totalFee    Decimal @default(0) @map("total_fee") @db.Decimal(20, 9)
+  protocolFee Decimal @default(0) @map("protocol_fee") @db.Decimal(20, 9)
+  creatorFee  Decimal @default(0) @map("creator_fee") @db.Decimal(20, 9)
+  referrerFee Decimal @default(0) @map("referrer_fee") @db.Decimal(20, 9)
+  
+  // Referrer (for fee sharing)
+  referrer String?
+  
+  signature String?
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  fees  Fee[]
+  
+  @@index([tokenMint])
+  @@index([trader])
+  @@index([referrer])
+  @@index([createdAt(sort: Desc)])
+  @@map("trades")
+}
+
+// ============================================
+// FEES (tracking who earns what)
+// ============================================
+model Fee {
+  id        String   @id @default(uuid())
+  tokenId   String   @map("token_id")
+  tradeId   String   @map("trade_id")
+  
+  recipient String           // wallet address
+  feeType   FeeType @map("fee_type")
+  amount    Decimal @db.Decimal(20, 9)
+  
+  // Payout status
+  claimed   Boolean  @default(false)
+  claimedAt DateTime? @map("claimed_at")
+  claimTx   String?   @map("claim_tx")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  
+  @@index([recipient])
+  @@index([feeType])
+  @@index([claimed])
+  @@map("fees")
+}
+
+enum FeeType {
+  PROTOCOL
+  CREATOR
+  REFERRER
+}
+
+// ============================================
+// AGENTS (API keys for moltys)
+// ============================================
+model Agent {
+  id     String @id @default(uuid())
+  wallet String @unique
+  name   String?
+  apiKey String @unique @map("api_key")
+  
+  // Verification
+  moltbookVerified Boolean @default(false) @map("moltbook_verified")
+  moltxVerified    Boolean @default(false) @map("moltx_verified")
+  twitterHandle    String? @map("twitter_handle")
+  
+  // Stats
+  tokensCreated Int     @default(0) @map("tokens_created")
+  totalVolume   Decimal @default(0) @map("total_volume") @db.Decimal(20, 9)
+  totalFees     Decimal @default(0) @map("total_fees") @db.Decimal(20, 9)
+  
+  // Referral tracking
+  referralCode    String  @unique @map("referral_code")
+  referredBy      String? @map("referred_by")
+  referralCount   Int     @default(0) @map("referral_count")
+  referralEarnings Decimal @default(0) @map("referral_earnings") @db.Decimal(20, 9)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("agents")
+}
+
+// ============================================
+// PROTOCOL CONFIG
+// ============================================
+model Config {
+  id    String @id @default("default")
+  
+  // Fee structure (basis points, 100 = 1%)
+  totalFeeBps    Int @default(100) @map("total_fee_bps")     // 1% total
+  protocolFeeBps Int @default(30) @map("protocol_fee_bps")   // 0.3% to protocol
+  creatorFeeBps  Int @default(50) @map("creator_fee_bps")    // 0.5% to creator
+  referrerFeeBps Int @default(20) @map("referrer_fee_bps")   // 0.2% to referrer
+  
+  // Treasury
+  treasuryWallet String @map("treasury_wallet")
+  
+  // Graduation threshold
+  graduationSol Decimal @default(85) @map("graduation_sol") @db.Decimal(20, 9)
+  
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("config")
+}

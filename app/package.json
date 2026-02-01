@@ -4,17 +4,23 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^7.3.0",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
     "@solana/wallet-adapter-wallets": "^0.19.27",
     "@solana/web3.js": "^1.87.6",
     "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^17.2.3",
     "next": "^16.1.6",
+    "prisma": "^7.3.0",
     "react": "^18",
     "react-dom": "^18"
   },

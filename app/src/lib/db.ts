@@ -1,8 +1,6 @@
-import { supabaseAdmin, DbToken, DbTrade, TokenWithStats } from './supabase';
-import { Token, Trade, INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, calculatePrice, calculateMarketCap } from './types';
-
-// Helper to get the admin client
-const db = () => supabaseAdmin.get();
+import { db, calculateFees, INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, GRADUATION_THRESHOLD_SOL } from './prisma';
+import { Token, Trade } from './types';
+import { Prisma, FeeType } from '@prisma/client';
 
 // Helper to generate random mint (for testing without real Solana)
 function generateMint(): string {
@@ -14,37 +12,52 @@ function generateMint(): string {
   return result;
 }
 
-// Convert DB token to API token
-function dbToToken(row: DbToken | TokenWithStats): Token {
-  const price = 'price_sol' in row && row.price_sol 
-    ? Number(row.price_sol)
-    : calculatePrice(Number(row.virtual_sol_reserves), Number(row.virtual_token_reserves));
-  
-  const marketCap = 'market_cap_sol' in row && row.market_cap_sol
-    ? Number(row.market_cap_sol)
-    : calculateMarketCap(Number(row.virtual_sol_reserves), Number(row.virtual_token_reserves), INITIAL_VIRTUAL_TOKENS);
+// Generate referral code
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
+// Calculate price from reserves
+function calculatePrice(virtualSol: number, virtualTokens: number): number {
+  return virtualSol / virtualTokens;
+}
+
+// Calculate market cap
+function calculateMarketCap(virtualSol: number, virtualTokens: number): number {
+  return calculatePrice(virtualSol, virtualTokens) * INITIAL_VIRTUAL_TOKENS;
+}
+
+// Convert Prisma token to API token
+function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number; holders?: number }): Token {
+  const virtualSol = Number(token.virtualSolReserves);
+  const virtualTokens = Number(token.virtualTokenReserves);
+  
   return {
-    id: row.id,
-    mint: row.mint,
-    name: row.name,
-    symbol: row.symbol,
-    description: row.description || undefined,
-    image: row.image || undefined,
-    creator: row.creator,
-    creator_name: row.creator_name || undefined,
-    created_at: row.created_at,
-    virtual_sol_reserves: Number(row.virtual_sol_reserves),
-    virtual_token_reserves: Number(row.virtual_token_reserves),
-    real_sol_reserves: Number(row.real_sol_reserves),
-    real_token_reserves: Number(row.real_token_reserves),
-    price_sol: price,
-    market_cap_sol: marketCap,
-    graduated: row.graduated,
-    raydium_pool: row.raydium_pool || undefined,
-    volume_24h: 'volume_24h' in row ? Number(row.volume_24h) : 0,
-    trades_24h: 'trades_24h' in row ? Number(row.trades_24h) : 0,
-    holders: 'holders' in row ? Number(row.holders) : 1,
+    id: token.id,
+    mint: token.mint,
+    name: token.name,
+    symbol: token.symbol,
+    description: token.description || undefined,
+    image: token.image || undefined,
+    creator: token.creator,
+    creator_name: token.creatorName || undefined,
+    created_at: token.createdAt.toISOString(),
+    virtual_sol_reserves: virtualSol,
+    virtual_token_reserves: virtualTokens,
+    real_sol_reserves: Number(token.realSolReserves),
+    real_token_reserves: Number(token.realTokenReserves),
+    price_sol: calculatePrice(virtualSol, virtualTokens),
+    market_cap_sol: calculateMarketCap(virtualSol, virtualTokens),
+    graduated: token.graduated,
+    raydium_pool: token.raydiumPool || undefined,
+    volume_24h: stats?.volume24h || 0,
+    trades_24h: stats?.trades24h || 0,
+    holders: stats?.holders || 1,
   };
 }
 
@@ -57,83 +70,113 @@ export async function getAllTokens(options?: {
 }): Promise<{ tokens: Token[]; total: number }> {
   const { sort = 'created_at', graduated, page = 1, perPage = 20 } = options || {};
   
-  let query = db().from('token_stats').select('*', { count: 'exact' });
-  
-  // Filter by graduation
+  const where: Prisma.TokenWhereInput = {};
   if (graduated !== undefined) {
-    query = query.eq('graduated', graduated);
+    where.graduated = graduated;
   }
   
-  // Sort
+  let orderBy: Prisma.TokenOrderByWithRelationInput = { createdAt: 'desc' };
   switch (sort) {
     case 'market_cap':
-      query = query.order('market_cap_sol', { ascending: false });
+      orderBy = { virtualSolReserves: 'desc' };
       break;
-    case 'volume':
-      query = query.order('volume_24h', { ascending: false });
-      break;
-    case 'price':
-      query = query.order('price_sol', { ascending: false });
-      break;
+    case 'created_at':
     default:
-      query = query.order('created_at', { ascending: false });
+      orderBy = { createdAt: 'desc' };
   }
   
-  // Paginate
-  const from = (page - 1) * perPage;
-  query = query.range(from, from + perPage - 1);
+  const [tokens, total] = await Promise.all([
+    db().token.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * perPage,
+      take: perPage,
+    }),
+    db().token.count({ where }),
+  ]);
   
-  const { data, error, count } = await query;
+  // Get 24h stats for each token
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   
-  if (error) {
-    console.error('Error fetching tokens:', error);
-    return { tokens: [], total: 0 };
-  }
+  const tokensWithStats = await Promise.all(
+    tokens.map(async (token) => {
+      const [volumeResult, tradeCount, holderCount] = await Promise.all([
+        db().trade.aggregate({
+          where: { tokenMint: token.mint, createdAt: { gte: dayAgo } },
+          _sum: { solAmount: true },
+        }),
+        db().trade.count({
+          where: { tokenMint: token.mint, createdAt: { gte: dayAgo } },
+        }),
+        db().trade.groupBy({
+          by: ['trader'],
+          where: { tokenMint: token.mint },
+        }),
+      ]);
+      
+      return toApiToken(token, {
+        volume24h: Number(volumeResult._sum.solAmount || 0),
+        trades24h: tradeCount,
+        holders: holderCount.length || 1,
+      });
+    })
+  );
   
-  return {
-    tokens: (data || []).map(dbToToken),
-    total: count || 0,
-  };
+  return { tokens: tokensWithStats, total };
 }
 
 // Get single token
 export async function getToken(mint: string): Promise<Token | null> {
-  const { data, error } = await db()
-    .from('token_stats')
-    .select('*')
-    .eq('mint', mint)
-    .single();
+  const token = await db().token.findUnique({
+    where: { mint },
+  });
   
-  if (error || !data) {
-    return null;
-  }
+  if (!token) return null;
   
-  return dbToToken(data);
+  // Get stats
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  
+  const [volumeResult, tradeCount, holderCount] = await Promise.all([
+    db().trade.aggregate({
+      where: { tokenMint: mint, createdAt: { gte: dayAgo } },
+      _sum: { solAmount: true },
+    }),
+    db().trade.count({
+      where: { tokenMint: mint, createdAt: { gte: dayAgo } },
+    }),
+    db().trade.groupBy({
+      by: ['trader'],
+      where: { tokenMint: mint },
+    }),
+  ]);
+  
+  return toApiToken(token, {
+    volume24h: Number(volumeResult._sum.solAmount || 0),
+    trades24h: tradeCount,
+    holders: holderCount.length || 1,
+  });
 }
 
 // Get token trades
 export async function getTokenTrades(mint: string, limit = 50): Promise<Trade[]> {
-  const { data, error } = await db()
-    .from('trades')
-    .select('*')
-    .eq('token_mint', mint)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const trades = await db().trade.findMany({
+    where: { tokenMint: mint },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
   
-  if (error || !data) {
-    return [];
-  }
-  
-  return data.map((t: DbTrade) => ({
+  return trades.map((t) => ({
     id: t.id,
-    token_mint: t.token_mint,
+    token_mint: t.tokenMint,
     trader: t.trader,
-    type: t.trade_type,
-    sol_amount: Number(t.sol_amount),
-    token_amount: Number(t.token_amount),
-    price_sol: Number(t.price_sol),
+    type: t.tradeType as 'buy' | 'sell',
+    sol_amount: Number(t.solAmount),
+    token_amount: Number(t.tokenAmount),
+    price_sol: Number(t.priceSol),
     signature: t.signature || '',
-    created_at: t.created_at,
+    created_at: t.createdAt.toISOString(),
   }));
 }
 
@@ -151,53 +194,55 @@ export async function createToken(data: {
 }): Promise<Token | null> {
   const mint = generateMint();
   
-  const { data: token, error } = await db()
-    .from('tokens')
-    .insert({
-      mint,
-      name: data.name,
-      symbol: data.symbol.toUpperCase(),
-      description: data.description,
-      image: data.image,
-      creator: data.creator,
-      creator_name: data.creator_name,
-      twitter: data.twitter,
-      telegram: data.telegram,
-      website: data.website,
-      virtual_sol_reserves: INITIAL_VIRTUAL_SOL,
-      virtual_token_reserves: INITIAL_VIRTUAL_TOKENS,
-      real_sol_reserves: 0,
-      real_token_reserves: INITIAL_VIRTUAL_TOKENS,
-    })
-    .select()
-    .single();
-  
-  if (error) {
+  try {
+    const token = await db().token.create({
+      data: {
+        mint,
+        name: data.name,
+        symbol: data.symbol.toUpperCase(),
+        description: data.description,
+        image: data.image,
+        creator: data.creator,
+        creatorName: data.creator_name,
+        twitter: data.twitter,
+        telegram: data.telegram,
+        website: data.website,
+        virtualSolReserves: INITIAL_VIRTUAL_SOL,
+        virtualTokenReserves: INITIAL_VIRTUAL_TOKENS,
+        realSolReserves: 0,
+        realTokenReserves: INITIAL_VIRTUAL_TOKENS,
+      },
+    });
+    
+    return toApiToken(token);
+  } catch (error) {
     console.error('Error creating token:', error);
     return null;
   }
-  
-  return dbToToken(token);
 }
 
-// Execute trade
+// Execute trade with fee distribution
 export async function executeTrade(
   mint: string,
   type: 'buy' | 'sell',
   amount: number,
-  trader: string
-): Promise<{ token: Token; trade: Trade } | null> {
+  trader: string,
+  referrer?: string
+): Promise<{ token: Token; trade: Trade; fees: { protocol: number; creator: number; referrer: number } } | null> {
   // Get current token state
-  const { data: token, error: fetchError } = await db()
-    .from('tokens')
-    .select('*')
-    .eq('mint', mint)
-    .single();
+  const token = await db().token.findUnique({
+    where: { mint },
+  });
   
-  if (fetchError || !token) {
+  if (!token) {
     console.error('Token not found:', mint);
     return null;
   }
+  
+  const virtualSol = Number(token.virtualSolReserves);
+  const virtualTokens = Number(token.virtualTokenReserves);
+  const realSol = Number(token.realSolReserves);
+  const realTokens = Number(token.realTokenReserves);
   
   let solAmount: number;
   let tokenAmount: number;
@@ -206,11 +251,7 @@ export async function executeTrade(
   let newRealSol: number;
   let newRealTokens: number;
   
-  const virtualSol = Number(token.virtual_sol_reserves);
-  const virtualTokens = Number(token.virtual_token_reserves);
-  const realSol = Number(token.real_sol_reserves);
-  const realTokens = Number(token.real_token_reserves);
-  
+  // Calculate trade
   if (type === 'buy') {
     solAmount = amount;
     newVirtualSol = virtualSol + solAmount;
@@ -218,97 +259,264 @@ export async function executeTrade(
     newVirtualTokens = invariant / newVirtualSol;
     tokenAmount = virtualTokens - newVirtualTokens;
     
-    // Apply 1% fee
-    const fee = solAmount * 0.01;
-    const solAfterFee = solAmount - fee;
+    // Calculate fees
+    const fees = calculateFees(solAmount, !!referrer);
+    const solAfterFee = solAmount - fees.total;
     
     newRealSol = realSol + solAfterFee;
     newRealTokens = realTokens - tokenAmount;
+    
+    // Execute in transaction
+    const result = await db().$transaction(async (tx) => {
+      // Update token
+      const updatedToken = await tx.token.update({
+        where: { mint },
+        data: {
+          virtualSolReserves: newVirtualSol,
+          virtualTokenReserves: newVirtualTokens,
+          realSolReserves: newRealSol,
+          realTokenReserves: newRealTokens,
+          graduated: newRealSol >= GRADUATION_THRESHOLD_SOL,
+        },
+      });
+      
+      // Create trade
+      const trade = await tx.trade.create({
+        data: {
+          tokenId: token.id,
+          tokenMint: mint,
+          trader,
+          tradeType: type,
+          solAmount,
+          tokenAmount,
+          priceSol: newVirtualSol / newVirtualTokens,
+          totalFee: fees.total,
+          protocolFee: fees.protocol,
+          creatorFee: fees.creator,
+          referrerFee: fees.referrer,
+          referrer: referrer || null,
+          signature: `mock_${Date.now()}`,
+        },
+      });
+      
+      // Create fee records
+      const feeRecords = [];
+      
+      if (fees.protocol > 0) {
+        feeRecords.push({
+          tokenId: token.id,
+          tradeId: trade.id,
+          recipient: 'PROTOCOL_TREASURY', // TODO: Set actual treasury address
+          feeType: FeeType.PROTOCOL,
+          amount: fees.protocol,
+        });
+      }
+      
+      if (fees.creator > 0) {
+        feeRecords.push({
+          tokenId: token.id,
+          tradeId: trade.id,
+          recipient: token.creator,
+          feeType: FeeType.CREATOR,
+          amount: fees.creator,
+        });
+      }
+      
+      if (fees.referrer > 0 && referrer) {
+        feeRecords.push({
+          tokenId: token.id,
+          tradeId: trade.id,
+          recipient: referrer,
+          feeType: FeeType.REFERRER,
+          amount: fees.referrer,
+        });
+      }
+      
+      if (feeRecords.length > 0) {
+        await tx.fee.createMany({ data: feeRecords });
+      }
+      
+      return { updatedToken, trade, fees };
+    });
+    
+    const finalToken = await getToken(mint);
+    
+    return {
+      token: finalToken!,
+      trade: {
+        id: result.trade.id,
+        token_mint: result.trade.tokenMint,
+        trader: result.trade.trader,
+        type: result.trade.tradeType as 'buy' | 'sell',
+        sol_amount: Number(result.trade.solAmount),
+        token_amount: Number(result.trade.tokenAmount),
+        price_sol: Number(result.trade.priceSol),
+        signature: result.trade.signature || '',
+        created_at: result.trade.createdAt.toISOString(),
+      },
+      fees: result.fees,
+    };
   } else {
+    // Sell logic
     tokenAmount = amount;
     newVirtualTokens = virtualTokens + tokenAmount;
     const invariant = virtualSol * virtualTokens;
     newVirtualSol = invariant / newVirtualTokens;
     solAmount = virtualSol - newVirtualSol;
     
-    // Apply 1% fee
-    const fee = solAmount * 0.01;
-    solAmount -= fee;
+    // Calculate fees on SOL out
+    const fees = calculateFees(solAmount, !!referrer);
+    solAmount -= fees.total;
     
     newRealSol = realSol - solAmount;
     newRealTokens = realTokens + tokenAmount;
+    
+    // Execute in transaction
+    const result = await db().$transaction(async (tx) => {
+      const updatedToken = await tx.token.update({
+        where: { mint },
+        data: {
+          virtualSolReserves: newVirtualSol,
+          virtualTokenReserves: newVirtualTokens,
+          realSolReserves: newRealSol,
+          realTokenReserves: newRealTokens,
+        },
+      });
+      
+      const trade = await tx.trade.create({
+        data: {
+          tokenId: token.id,
+          tokenMint: mint,
+          trader,
+          tradeType: type,
+          solAmount,
+          tokenAmount,
+          priceSol: newVirtualSol / newVirtualTokens,
+          totalFee: fees.total,
+          protocolFee: fees.protocol,
+          creatorFee: fees.creator,
+          referrerFee: fees.referrer,
+          referrer: referrer || null,
+          signature: `mock_${Date.now()}`,
+        },
+      });
+      
+      // Create fee records (same as buy)
+      const feeRecords = [];
+      if (fees.protocol > 0) {
+        feeRecords.push({
+          tokenId: token.id,
+          tradeId: trade.id,
+          recipient: 'PROTOCOL_TREASURY',
+          feeType: FeeType.PROTOCOL,
+          amount: fees.protocol,
+        });
+      }
+      if (fees.creator > 0) {
+        feeRecords.push({
+          tokenId: token.id,
+          tradeId: trade.id,
+          recipient: token.creator,
+          feeType: FeeType.CREATOR,
+          amount: fees.creator,
+        });
+      }
+      if (fees.referrer > 0 && referrer) {
+        feeRecords.push({
+          tokenId: token.id,
+          tradeId: trade.id,
+          recipient: referrer,
+          feeType: FeeType.REFERRER,
+          amount: fees.referrer,
+        });
+      }
+      if (feeRecords.length > 0) {
+        await tx.fee.createMany({ data: feeRecords });
+      }
+      
+      return { updatedToken, trade, fees };
+    });
+    
+    const finalToken = await getToken(mint);
+    
+    return {
+      token: finalToken!,
+      trade: {
+        id: result.trade.id,
+        token_mint: result.trade.tokenMint,
+        trader: result.trade.trader,
+        type: result.trade.tradeType as 'buy' | 'sell',
+        sol_amount: Number(result.trade.solAmount),
+        token_amount: Number(result.trade.tokenAmount),
+        price_sol: Number(result.trade.priceSol),
+        signature: result.trade.signature || '',
+        created_at: result.trade.createdAt.toISOString(),
+      },
+      fees: result.fees,
+    };
   }
+}
+
+// Get fees earned by an address
+export async function getFeesEarned(address: string) {
+  const fees = await db().fee.groupBy({
+    by: ['feeType', 'claimed'],
+    where: { recipient: address },
+    _sum: { amount: true },
+  });
   
-  const newPrice = newVirtualSol / newVirtualTokens;
-  const graduated = newRealSol >= 85; // ~$69K threshold
-  
-  // Update token
-  const { error: updateError } = await db()
-    .from('tokens')
-    .update({
-      virtual_sol_reserves: newVirtualSol,
-      virtual_token_reserves: newVirtualTokens,
-      real_sol_reserves: newRealSol,
-      real_token_reserves: newRealTokens,
-      graduated,
-    })
-    .eq('mint', mint);
-  
-  if (updateError) {
-    console.error('Error updating token:', updateError);
-    return null;
-  }
-  
-  // Insert trade
-  const { data: trade, error: tradeError } = await db()
-    .from('trades')
-    .insert({
-      token_id: token.id,
-      token_mint: mint,
-      trader,
-      trade_type: type,
-      sol_amount: solAmount,
-      token_amount: tokenAmount,
-      price_sol: newPrice,
-      signature: `mock_${Date.now()}`,
-    })
-    .select()
-    .single();
-  
-  if (tradeError) {
-    console.error('Error inserting trade:', tradeError);
-    return null;
-  }
-  
-  // Fetch updated token
-  const updatedToken = await getToken(mint);
-  if (!updatedToken) return null;
-  
-  return {
-    token: updatedToken,
-    trade: {
-      id: trade.id,
-      token_mint: trade.token_mint,
-      trader: trade.trader,
-      type: trade.trade_type,
-      sol_amount: Number(trade.sol_amount),
-      token_amount: Number(trade.token_amount),
-      price_sol: Number(trade.price_sol),
-      signature: trade.signature || '',
-      created_at: trade.created_at,
-    },
+  const result = {
+    protocol: { total: 0, claimed: 0, unclaimed: 0 },
+    creator: { total: 0, claimed: 0, unclaimed: 0 },
+    referrer: { total: 0, claimed: 0, unclaimed: 0 },
   };
+  
+  fees.forEach((f) => {
+    const key = f.feeType.toLowerCase() as keyof typeof result;
+    const amount = Number(f._sum.amount || 0);
+    result[key].total += amount;
+    if (f.claimed) {
+      result[key].claimed += amount;
+    } else {
+      result[key].unclaimed += amount;
+    }
+  });
+  
+  return result;
 }
 
 // Validate API key
 export async function validateApiKey(apiKey: string): Promise<boolean> {
-  if (apiKey === 'test_key') return true; // Allow test key
+  if (apiKey === 'test_key') return true;
   
-  const { data, error } = await db()
-    .from('agents')
-    .select('id')
-    .eq('api_key', apiKey)
-    .single();
+  const agent = await db().agent.findUnique({
+    where: { apiKey },
+  });
   
-  return !error && !!data;
+  return !!agent;
+}
+
+// Register agent
+export async function registerAgent(wallet: string, name?: string, referredBy?: string) {
+  const referralCode = generateReferralCode();
+  
+  const agent = await db().agent.create({
+    data: {
+      wallet,
+      name,
+      apiKey: `cv_${generateMint().substring(0, 32)}`,
+      referralCode,
+      referredBy,
+    },
+  });
+  
+  // Update referrer's count if exists
+  if (referredBy) {
+    await db().agent.updateMany({
+      where: { referralCode: referredBy },
+      data: { referralCount: { increment: 1 } },
+    });
+  }
+  
+  return agent;
 }
