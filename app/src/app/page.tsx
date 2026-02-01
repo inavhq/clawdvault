@@ -36,7 +36,7 @@ async function getHomeData() {
     const volumeResult = await db().trade.aggregate({
       _sum: { solAmount: true }
     })
-    const totalVolume = volumeResult._sum.solAmount || 0
+    const totalVolume = Number(volumeResult._sum.solAmount || 0)
     
     // Get king of the hill (highest market cap = highest virtualSolReserves)
     const kingToken = await db().token.findFirst({
