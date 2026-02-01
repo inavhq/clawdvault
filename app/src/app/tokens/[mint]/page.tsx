@@ -10,7 +10,7 @@ import { useWallet } from '@/contexts/WalletContext';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
   const { mint } = use(params);
-  const { connected, publicKey, balance: solBalance, connect, signAndSendTransaction } = useWallet();
+  const { connected, publicKey, balance: solBalance, connect } = useWallet();
   
   const [token, setToken] = useState<Token | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -22,7 +22,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const [tradeResult, setTradeResult] = useState<TradeResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
-  const [mockMode, setMockMode] = useState<boolean>(true);
 
   // Fetch token holdings for connected wallet
   const fetchTokenBalance = useCallback(async () => {
@@ -45,20 +44,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       setTokenBalance(0);
     }
   }, [connected, publicKey, token, mint]);
-
-  // Check network mode on mount
-  useEffect(() => {
-    const checkNetworkMode = async () => {
-      try {
-        const res = await fetch('/api/network');
-        const data = await res.json();
-        setMockMode(data.mockMode !== false);
-      } catch (err) {
-        setMockMode(true); // Default to mock if check fails
-      }
-    };
-    checkNetworkMode();
-  }, []);
 
   useEffect(() => {
     fetchToken();
@@ -151,78 +136,26 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     setTradeResult(null);
 
     try {
-      // Use mock mode API if no on-chain support
-      if (mockMode) {
-        const res = await fetch('/api/trade', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mint: token.mint,
-            type: tradeType,
-            amount: parseFloat(amount),
-            trader: publicKey,
-          }),
-        });
+      // Use mock trade API (updates DB prices) - on-chain atomic swaps need a program
+      // Token creation is on-chain, but trades use DB bonding curve for now
+      const res = await fetch('/api/trade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mint: token.mint,
+          type: tradeType,
+          amount: parseFloat(amount),
+          trader: publicKey,
+        }),
+      });
 
-        const data: TradeResponse = await res.json();
-        setTradeResult(data);
+      const data: TradeResponse = await res.json();
+      setTradeResult(data);
 
-        if (data.success) {
-          setAmount('');
-          fetchToken();
-          fetchTokenBalance();
-        }
-      } else {
-        // On-chain trade flow
-        // Step 1: Prepare transaction
-        const prepareRes = await fetch('/api/trade/prepare', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mint: token.mint,
-            type: tradeType,
-            amount: parseFloat(amount),
-            wallet: publicKey,
-            slippage: 0.01,
-          }),
-        });
-
-        const prepareData = await prepareRes.json();
-        if (!prepareData.success) {
-          setTradeResult({ success: false, error: prepareData.error || 'Failed to prepare trade' });
-          return;
-        }
-
-        // Step 2: Sign and send with wallet
-        const signature = await signAndSendTransaction(prepareData.transaction);
-        if (!signature) {
-          setTradeResult({ success: false, error: 'Transaction cancelled or failed' });
-          return;
-        }
-
-        // Step 3: Execute server-side completion
-        const executeRes = await fetch('/api/trade/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mint: token.mint,
-            type: tradeType,
-            signedTransaction: signature, // Note: for signAndSend, this is actually the sig
-            wallet: publicKey,
-            expectedOutput: tradeType === 'buy' ? prepareData.output.tokens : prepareData.output.sol,
-            solAmount: tradeType === 'buy' ? parseFloat(amount) : prepareData.output.sol,
-            tokenAmount: tradeType === 'sell' ? parseFloat(amount) : prepareData.output.tokens,
-          }),
-        });
-
-        const executeData = await executeRes.json();
-        setTradeResult(executeData);
-
-        if (executeData.success) {
-          setAmount('');
-          fetchToken();
-          fetchTokenBalance();
-        }
+      if (data.success) {
+        setAmount('');
+        fetchToken();
+        fetchTokenBalance();
       }
     } catch (err) {
       console.error('Trade error:', err);
