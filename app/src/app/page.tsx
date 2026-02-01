@@ -8,18 +8,53 @@ import Footer from '@/components/Footer'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Cache for server-side SOL price
+let cachedSolPrice: number | null = null;
+let lastSolPriceFetch: number = 0;
+const SOL_PRICE_CACHE_MS = 60 * 1000; // 60 seconds
+
 async function getSolPrice(): Promise<number | null> {
+  const now = Date.now();
+  
+  // Return cached if fresh
+  if (cachedSolPrice !== null && (now - lastSolPriceFetch) < SOL_PRICE_CACHE_MS) {
+    return cachedSolPrice;
+  }
+  
+  // Try CoinGecko
   try {
-    // Use our cached internal endpoint
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/sol-price`, { 
-      next: { revalidate: 30 } 
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(5000)
     });
     const data = await res.json();
-    return data.valid ? data.price : null;
-  } catch {
-    return null; // No valid price
+    if (data.solana?.usd) {
+      cachedSolPrice = data.solana.usd;
+      lastSolPriceFetch = now;
+      return cachedSolPrice;
+    }
+  } catch (e) {
+    console.warn('[Homepage] CoinGecko failed:', e);
   }
+  
+  // Try Jupiter as fallback
+  try {
+    const res = await fetch('https://price.jup.ag/v6/price?ids=SOL', {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(5000)
+    });
+    const data = await res.json();
+    if (data.data?.SOL?.price) {
+      cachedSolPrice = data.data.SOL.price;
+      lastSolPriceFetch = now;
+      return cachedSolPrice;
+    }
+  } catch (e) {
+    console.warn('[Homepage] Jupiter failed:', e);
+  }
+  
+  // Return stale cache if available, otherwise null
+  return cachedSolPrice;
 }
 
 async function getHomeData() {
