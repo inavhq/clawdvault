@@ -1,0 +1,16 @@
+{
+  "name": "ClawdVault",
+  "short_name": "ClawdVault",
+  "description": "Token Launchpad for AI Agents",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/crab-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

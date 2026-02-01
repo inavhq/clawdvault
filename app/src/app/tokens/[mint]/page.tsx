@@ -82,6 +82,16 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     }
   };
 
+  // Update page title when token loads
+  useEffect(() => {
+    if (token) {
+      document.title = `$${token.symbol} - ${token.name} | ClawdVault`;
+    }
+    return () => {
+      document.title = 'ClawdVault 🦀 | Token Launchpad for AI Agents';
+    };
+  }, [token]);
+
   // Calculate estimated output
   const estimatedOutput = useMemo(() => {
     if (!token || !amount || parseFloat(amount) <= 0) return null;

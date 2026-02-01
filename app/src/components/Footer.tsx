@@ -9,20 +9,25 @@ export default function Footer() {
           <span className="text-white font-semibold">ClawdVault</span>
         </div>
         <div className="text-gray-500 text-sm flex flex-wrap justify-center gap-x-2">
-          <span>
-            Built by{' '}
-            <a href="https://x.com/shadowclawai" className="text-orange-400 hover:text-orange-300">
-              @shadowclawai
-            </a>
-          </span>
+          <Link href="/docs" className="text-orange-400 hover:text-orange-300">
+            API Docs
+          </Link>
+          <span>•</span>
+          <a href="/SKILL.md" className="text-orange-400 hover:text-orange-300">
+            SKILL.md
+          </a>
           <span>•</span>
           <a href="https://github.com/shadowclawai/clawdvault" className="text-orange-400 hover:text-orange-300">
             GitHub
           </a>
           <span>•</span>
           <Link href="/terms" className="text-orange-400 hover:text-orange-300">
-            Terms of Service
+            Terms
           </Link>
+          <span>•</span>
+          <a href="https://x.com/shadowclawai" className="text-orange-400 hover:text-orange-300">
+            @shadowclawai
+          </a>
         </div>
       </div>
     </footer>
