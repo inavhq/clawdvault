@@ -7,8 +7,23 @@ import Header from '@/components/Header'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+async function getSolPrice(): Promise<number> {
+  try {
+    const res = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+      { next: { revalidate: 60 } } // Cache for 60 seconds
+    )
+    const data = await res.json()
+    return data.solana?.usd || 100 // Fallback to $100
+  } catch {
+    return 100 // Fallback
+  }
+}
+
 async function getHomeData() {
   try {
+    // Get SOL price first
+    const solPrice = await getSolPrice()
     // Get total tokens
     const totalTokens = await db().token.count()
     
@@ -65,7 +80,8 @@ async function getHomeData() {
       totalVolume,
       kingToken,
       recentTokens,
-      trendingTokens: trendingWithVolume
+      trendingTokens: trendingWithVolume,
+      solPrice
     }
   } catch (error) {
     console.error('Error fetching home data:', error)
@@ -75,7 +91,8 @@ async function getHomeData() {
       totalVolume: 0,
       kingToken: null,
       recentTokens: [],
-      trendingTokens: []
+      trendingTokens: [],
+      solPrice: 100
     }
   }
 }
@@ -84,6 +101,13 @@ function formatNumber(num: number): string {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
   return num.toFixed(2)
+}
+
+function formatUsd(num: number): string {
+  if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`
+  if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`
+  if (num >= 1) return `$${num.toFixed(0)}`
+  return `$${num.toFixed(2)}`
 }
 
 const TOTAL_SUPPLY = 1073000000
@@ -95,7 +119,10 @@ function getMarketCap(token: any): number {
   return price * TOTAL_SUPPLY
 }
 
-function TokenCard({ token, badge }: { token: any, badge?: string }) {
+function TokenCard({ token, badge, solPrice }: { token: any, badge?: string, solPrice: number }) {
+  const mcapSol = getMarketCap(token)
+  const mcapUsd = mcapSol * solPrice
+  
   return (
     <Link 
       href={`/tokens/${token.mint}`}
@@ -126,7 +153,7 @@ function TokenCard({ token, badge }: { token: any, badge?: string }) {
         </div>
         <div className="text-right">
           <div className="text-green-400 text-sm font-medium">
-            {formatNumber(getMarketCap(token))} SOL
+            {formatUsd(mcapUsd)}
           </div>
           <div className="text-gray-500 text-xs">mcap</div>
         </div>
@@ -193,7 +220,7 @@ export default async function Home() {
               <div className="text-gray-500 text-sm">Graduated</div>
             </div>
             <div className="bg-gray-800/30 rounded-xl p-4 text-center">
-              <div className="text-2xl font-bold text-blue-400">{formatNumber(data.totalVolume)} SOL</div>
+              <div className="text-2xl font-bold text-blue-400">{formatUsd(data.totalVolume * data.solPrice)}</div>
               <div className="text-gray-500 text-sm">Volume</div>
             </div>
             <div className="bg-gray-800/30 rounded-xl p-4 text-center">
@@ -238,7 +265,7 @@ export default async function Home() {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-yellow-400">
-                    {formatNumber(getMarketCap(data.kingToken))} SOL
+                    {formatUsd(getMarketCap(data.kingToken) * data.solPrice)}
                   </div>
                   <div className="text-gray-500 text-sm">Market Cap</div>
                 </div>
@@ -260,7 +287,7 @@ export default async function Home() {
               {data.trendingTokens.length > 0 ? (
                 <div className="space-y-3">
                   {data.trendingTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard key={token.mint} token={token} badge="hot" />
+                    <TokenCard key={token.mint} token={token} badge="hot" solPrice={data.solPrice} />
                   ))}
                 </div>
               ) : (
@@ -278,7 +305,7 @@ export default async function Home() {
               {data.recentTokens.length > 0 ? (
                 <div className="space-y-3">
                   {data.recentTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard key={token.mint} token={token} badge="new" />
+                    <TokenCard key={token.mint} token={token} badge="new" solPrice={data.solPrice} />
                   ))}
                 </div>
               ) : (
