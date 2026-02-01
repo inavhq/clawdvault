@@ -36,9 +36,10 @@ export default function TokensPage() {
     try {
       const res = await fetch(`/api/tokens?sort=${sort}`);
       const data: TokenListResponse = await res.json();
-      setTokens(data.tokens);
+      setTokens(data.tokens || []);
     } catch (err) {
       console.error('Failed to fetch tokens:', err);
+      setTokens([]);
     } finally {
       setLoading(false);
     }
@@ -46,6 +47,7 @@ export default function TokensPage() {
 
   // Filter and search tokens
   const filteredTokens = useMemo(() => {
+    if (!tokens || !Array.isArray(tokens)) return [];
     let result = [...tokens];
 
     // Apply tab filter
