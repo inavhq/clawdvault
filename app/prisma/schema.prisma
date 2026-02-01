@@ -176,3 +176,24 @@ model Config {
   
   @@map("config")
 }
+
+// ============================================
+// TOKEN CHAT MESSAGES
+// ============================================
+model ChatMessage {
+  id        String   @id @default(uuid())
+  tokenMint String   @map("token_mint")
+  
+  sender    String   // wallet address or "anonymous"
+  senderName String? @map("sender_name")
+  message   String
+  
+  // Optional reply
+  replyTo   String?  @map("reply_to")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@index([tokenMint])
+  @@index([createdAt(sort: Desc)])
+  @@map("chat_messages")
+}

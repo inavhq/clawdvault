@@ -3,6 +3,7 @@
 import { useState, useEffect, use, useMemo } from 'react';
 import Link from 'next/link';
 import { Token, Trade, TradeResponse } from '@/lib/types';
+import TokenChat from '@/components/TokenChat';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
   const { mint } = use(params);
@@ -331,6 +332,9 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 </div>
                 <div className="font-mono text-sm text-orange-400 break-all">{token.mint}</div>
               </div>
+
+              {/* Token Chat */}
+              <TokenChat mint={token.mint} tokenSymbol={token.symbol} />
             </div>
 
             {/* Trade Panel */}
