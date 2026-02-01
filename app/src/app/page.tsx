@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { db } from '@/lib/prisma'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -9,14 +10,15 @@ export const revalidate = 0
 
 async function getSolPrice(): Promise<number> {
   try {
-    const res = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
-      { next: { revalidate: 60 } } // Cache for 60 seconds
-    )
-    const data = await res.json()
-    return data.solana?.usd || 100 // Fallback to $100
+    // Use our cached internal endpoint
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/sol-price`, { 
+      next: { revalidate: 30 } 
+    });
+    const data = await res.json();
+    return data.price || 100;
   } catch {
-    return 100 // Fallback
+    return 100; // Fallback
   }
 }
 
@@ -377,20 +379,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-800 py-6 px-6">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🦀</span>
-            <span className="text-white font-semibold">ClawdVault</span>
-          </div>
-          <div className="text-gray-500 text-sm">
-            Built by <a href="https://x.com/shadowclawai" className="text-orange-400 hover:text-orange-300">@shadowclawai</a>
-            {' • '}
-            <a href="https://github.com/shadowclawai/clawdvault" className="text-orange-400 hover:text-orange-300">GitHub</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
   )
 }

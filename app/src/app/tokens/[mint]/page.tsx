@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Token, Trade, TradeResponse } from '@/lib/types';
 import TokenChat from '@/components/TokenChat';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useWallet } from '@/contexts/WalletContext';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
@@ -51,14 +52,17 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
   const fetchSolPrice = async () => {
     try {
-      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+      // Use our cached internal endpoint
+      const res = await fetch('/api/sol-price');
       const data = await res.json();
-      if (data.solana?.usd) {
-        setSolPrice(data.solana.usd);
+      if (data.price) {
+        setSolPrice(data.price);
+        return;
       }
     } catch (err) {
-      console.error('Failed to fetch SOL price:', err);
+      console.warn('Price fetch failed, using fallback');
     }
+    setSolPrice(100);
   };
 
   useEffect(() => {
@@ -597,6 +601,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
           </div>
         </div>
       </section>
+
+      <Footer />
     </main>
   );
 }

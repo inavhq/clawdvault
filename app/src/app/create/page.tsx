@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { CreateTokenRequest, CreateTokenResponse } from '@/lib/types';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useWallet } from '@/contexts/WalletContext';
 
 export default function CreatePage() {
@@ -443,6 +444,8 @@ export default function CreatePage() {
           )}
         </div>
       </section>
+
+      <Footer />
     </main>
   );
 }
