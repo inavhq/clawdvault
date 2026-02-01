@@ -8,17 +8,17 @@ export default function Header() {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-gray-800 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+    <header className="border-b border-gray-800 px-4 sm:px-6 py-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2 shrink-0">
           <span className="text-2xl">🦀</span>
-          <span className="text-xl font-bold text-white">ClawdVault</span>
+          <span className="text-lg sm:text-xl font-bold text-white">ClawdVault</span>
         </Link>
         
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-3 sm:gap-6">
           <Link 
             href="/create" 
-            className={`transition ${
+            className={`text-sm sm:text-base whitespace-nowrap transition ${
               pathname === '/create' 
                 ? 'text-white font-medium' 
                 : 'text-gray-400 hover:text-white'
@@ -28,7 +28,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/tokens" 
-            className={`transition ${
+            className={`text-sm sm:text-base transition ${
               pathname?.startsWith('/tokens') 
                 ? 'text-white font-medium' 
                 : 'text-gray-400 hover:text-white'
