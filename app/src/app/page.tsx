@@ -23,10 +23,10 @@ async function getHomeData() {
     })
     const totalVolume = volumeResult._sum.solAmount || 0
     
-    // Get king of the hill (highest market cap)
+    // Get king of the hill (highest market cap = highest virtualSolReserves)
     const kingToken = await db().token.findFirst({
       where: { graduated: false },
-      orderBy: { marketCapSol: 'desc' }
+      orderBy: { virtualSolReserves: 'desc' }
     })
     
     // Get recent tokens (last 6)
@@ -86,6 +86,15 @@ function formatNumber(num: number): string {
   return num.toFixed(2)
 }
 
+const TOTAL_SUPPLY = 1073000000
+
+function getMarketCap(token: any): number {
+  const virtualSol = Number(token.virtualSolReserves)
+  const virtualTokens = Number(token.virtualTokenReserves)
+  const price = virtualSol / virtualTokens
+  return price * TOTAL_SUPPLY
+}
+
 function TokenCard({ token, badge }: { token: any, badge?: string }) {
   return (
     <Link 
@@ -117,7 +126,7 @@ function TokenCard({ token, badge }: { token: any, badge?: string }) {
         </div>
         <div className="text-right">
           <div className="text-green-400 text-sm font-medium">
-            {formatNumber(token.marketCapSol)} SOL
+            {formatNumber(getMarketCap(token))} SOL
           </div>
           <div className="text-gray-500 text-xs">mcap</div>
         </div>
@@ -229,7 +238,7 @@ export default async function Home() {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-yellow-400">
-                    {formatNumber(data.kingToken.marketCapSol)} SOL
+                    {formatNumber(getMarketCap(data.kingToken))} SOL
                   </div>
                   <div className="text-gray-500 text-sm">Market Cap</div>
                 </div>
