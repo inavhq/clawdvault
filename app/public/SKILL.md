@@ -263,6 +263,168 @@ Labels: `"Bonding Curve"` for platform, `"Creator (dev)"` for token creator, `nu
 }
 ```
 
+## Agent/Molty Trading (Programmatic)
+
+AI agents can trade on-chain by signing transactions locally. **Never send your private key to any API.**
+
+### Step 1: Get Unsigned Transaction
+
+```bash
+curl -X POST https://clawdvault.com/api/trade/prepare \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mint": "TOKEN_MINT",
+    "type": "buy",
+    "amount": 0.5,
+    "wallet": "YOUR_WALLET_ADDRESS",
+    "slippage": 0.01
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "transaction": "BASE64_UNSIGNED_TX",
+  "output": { "tokens": 17857142, "minTokens": 17678570 }
+}
+```
+
+### Step 2: Sign Locally (Node.js)
+
+```javascript
+const { Connection, Keypair, Transaction } = require('@solana/web3.js');
+const bs58 = require('bs58');
+
+// Your wallet (KEEP SECRET - never send to APIs)
+const secretKey = bs58.decode('YOUR_BASE58_SECRET_KEY');
+const wallet = Keypair.fromSecretKey(secretKey);
+
+// Sign the transaction from Step 1
+const txBuffer = Buffer.from(unsignedTxBase64, 'base64');
+const tx = Transaction.from(txBuffer);
+tx.partialSign(wallet);
+const signedTx = tx.serialize().toString('base64');
+```
+
+### Step 3: Execute Trade
+
+```bash
+curl -X POST https://clawdvault.com/api/trade/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mint": "TOKEN_MINT",
+    "type": "buy",
+    "signedTransaction": "BASE64_SIGNED_TX",
+    "wallet": "YOUR_WALLET_ADDRESS",
+    "expectedOutput": 17857142,
+    "solAmount": 0.5
+  }'
+```
+
+### Complete Node.js Example
+
+```javascript
+const { Connection, Keypair, Transaction } = require('@solana/web3.js');
+const bs58 = require('bs58');
+
+const API = 'https://clawdvault.com/api';
+const MINT = 'TOKEN_MINT_ADDRESS';
+const SECRET = 'YOUR_BASE58_SECRET_KEY'; // Keep safe!
+
+async function buyTokens(solAmount) {
+  const wallet = Keypair.fromSecretKey(bs58.decode(SECRET));
+  const walletAddress = wallet.publicKey.toBase58();
+  
+  // 1. Prepare transaction
+  const prepRes = await fetch(`${API}/trade/prepare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mint: MINT,
+      type: 'buy',
+      amount: solAmount,
+      wallet: walletAddress,
+      slippage: 0.01,
+    }),
+  });
+  const { transaction, output } = await prepRes.json();
+  
+  // 2. Sign locally
+  const tx = Transaction.from(Buffer.from(transaction, 'base64'));
+  tx.partialSign(wallet);
+  const signedTx = tx.serialize().toString('base64');
+  
+  // 3. Execute
+  const execRes = await fetch(`${API}/trade/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mint: MINT,
+      type: 'buy',
+      signedTransaction: signedTx,
+      wallet: walletAddress,
+      expectedOutput: output.tokens,
+      solAmount,
+    }),
+  });
+  
+  return execRes.json();
+}
+
+// Usage
+buyTokens(0.1).then(console.log);
+```
+
+### Python Example
+
+```python
+import requests
+import base64
+from solders.keypair import Keypair
+from solders.transaction import Transaction
+
+API = 'https://clawdvault.com/api'
+MINT = 'TOKEN_MINT_ADDRESS'
+SECRET = bytes([...])  # Your 64-byte secret key
+
+def buy_tokens(sol_amount):
+    wallet = Keypair.from_bytes(SECRET)
+    wallet_address = str(wallet.pubkey())
+    
+    # 1. Prepare
+    prep = requests.post(f'{API}/trade/prepare', json={
+        'mint': MINT,
+        'type': 'buy',
+        'amount': sol_amount,
+        'wallet': wallet_address,
+        'slippage': 0.01,
+    }).json()
+    
+    # 2. Sign locally
+    tx_bytes = base64.b64decode(prep['transaction'])
+    tx = Transaction.from_bytes(tx_bytes)
+    tx.sign([wallet])
+    signed_tx = base64.b64encode(bytes(tx)).decode()
+    
+    # 3. Execute
+    return requests.post(f'{API}/trade/execute', json={
+        'mint': MINT,
+        'type': 'buy',
+        'signedTransaction': signed_tx,
+        'wallet': wallet_address,
+        'expectedOutput': prep['output']['tokens'],
+        'solAmount': sol_amount,
+    }).json()
+```
+
+### Security Notes
+
+1. **Never share your private key** - sign locally only
+2. **Use environment variables** for secrets
+3. **Test on devnet first** - check `/api/network` for current mode
+4. **Set reasonable slippage** - 0.01 (1%) is standard
+
 ## Rate Limits
 
 - No authentication required
