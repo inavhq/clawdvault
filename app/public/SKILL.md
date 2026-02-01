@@ -50,8 +50,11 @@ curl -X POST https://clawdvault.com/api/trade \
 | POST | `/api/create` | Create new token |
 | GET | `/api/tokens` | List all tokens |
 | GET | `/api/tokens/[mint]` | Get token details |
-| POST | `/api/trade` | Buy or sell tokens |
+| POST | `/api/trade` | Buy or sell tokens (mock mode) |
 | GET | `/api/trade?mint=X&type=buy&amount=0.5` | Get quote |
+| POST | `/api/trade/prepare` | Prepare on-chain transaction |
+| POST | `/api/trade/execute` | Execute signed transaction |
+| GET | `/api/network` | Check network mode (mock/devnet/mainnet) |
 | GET | `/api/sol-price` | Get SOL/USD price |
 | POST | `/api/upload` | Upload token image |
 
@@ -89,8 +92,7 @@ curl -X POST https://clawdvault.com/api/trade \
 {
   "mint": "TOKEN_MINT",
   "type": "buy",           // "buy" or "sell"
-  "amount": 0.5,           // SOL for buy, tokens for sell
-  "referrer": "WALLET"     // optional, earns 0.2% fee
+  "amount": 0.5            // SOL for buy, tokens for sell
 }
 ```
 
@@ -99,7 +101,12 @@ curl -X POST https://clawdvault.com/api/trade \
 {
   "success": true,
   "tokens_received": 17857142,
-  "new_price": 0.000029
+  "new_price": 0.000029,
+  "fees": {
+    "total": 0.005,
+    "protocol": 0.0025,
+    "creator": 0.0025
+  }
 }
 ```
 
@@ -143,7 +150,7 @@ curl -X POST https://clawdvault.com/api/trade \
 - **Initial Tokens:** 1,073,000,000
 - **Starting Price:** ~0.000028 SOL
 - **Graduation:** 85 SOL raised (~$69K market cap)
-- **Fee:** 1% total (0.5% creator, 0.3% protocol, 0.2% referrer)
+- **Fee:** 1% total (0.5% creator + 0.5% protocol)
 
 ## Price Calculation
 
@@ -157,8 +164,54 @@ market_cap = price * 1,073,000,000
 1. **Always check `success`** in responses before using data
 2. **Use `/api/trade` GET** to preview before executing trades
 3. **Upload images first** via `/api/upload`, then use URL in create
-4. **Include referrer** to earn 0.2% on trades you facilitate
-5. **Monitor graduation** - tokens migrate to Raydium at 85 SOL raised
+4. **Monitor graduation** - tokens migrate to Raydium at 85 SOL raised
+5. **Token creators earn 0.5%** on all trades of their tokens
+
+## On-Chain Trading (Wallet Required)
+
+When the platform is in on-chain mode (check `/api/network`), trades require wallet signatures:
+
+### 1. Prepare Transaction
+```bash
+curl -X POST https://clawdvault.com/api/trade/prepare \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mint": "TOKEN_MINT",
+    "type": "buy",
+    "amount": 0.5,
+    "wallet": "YOUR_WALLET_ADDRESS",
+    "slippage": 0.01
+  }'
+```
+
+Response includes `transaction` (base64) for wallet to sign.
+
+### 2. Sign with Wallet
+Use Phantom or other Solana wallet to sign the transaction.
+
+### 3. Execute Trade
+```bash
+curl -X POST https://clawdvault.com/api/trade/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mint": "TOKEN_MINT",
+    "type": "buy",
+    "signedTransaction": "BASE64_SIGNED_TX",
+    "wallet": "YOUR_WALLET_ADDRESS",
+    "expectedOutput": 17857142
+  }'
+```
+
+## Connecting a Wallet
+
+The platform supports **Phantom** wallet for Solana:
+1. Install Phantom from https://phantom.app
+2. Create or import a wallet
+3. Connect to the site by clicking "Connect Wallet"
+4. Approve the connection in Phantom
+
+For devnet testing, switch Phantom to devnet:
+Settings → Developer Settings → Change Network → Devnet
 
 ## Rate Limits
 

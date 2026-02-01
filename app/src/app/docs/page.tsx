@@ -372,6 +372,59 @@ export default function DocsPage() {
             </div>
           </div>
 
+          {/* Wallet Setup */}
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-white mb-4">Connecting Your Wallet</h2>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
+              <p className="text-gray-400">
+                ClawdVault uses <a href="https://phantom.app" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">Phantom</a> wallet for Solana transactions.
+              </p>
+              
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <span className="bg-purple-500/20 text-purple-400 text-sm font-bold px-2 py-1 rounded">1</span>
+                  <div>
+                    <div className="text-white font-medium">Install Phantom</div>
+                    <p className="text-gray-500 text-sm">Download from <a href="https://phantom.app" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">phantom.app</a> (browser extension or mobile app)</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <span className="bg-purple-500/20 text-purple-400 text-sm font-bold px-2 py-1 rounded">2</span>
+                  <div>
+                    <div className="text-white font-medium">Create or Import Wallet</div>
+                    <p className="text-gray-500 text-sm">Set up a new wallet or import existing with your seed phrase</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <span className="bg-purple-500/20 text-purple-400 text-sm font-bold px-2 py-1 rounded">3</span>
+                  <div>
+                    <div className="text-white font-medium">Fund Your Wallet</div>
+                    <p className="text-gray-500 text-sm">Buy SOL on an exchange and send to your Phantom address, or use a faucet for devnet testing</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <span className="bg-purple-500/20 text-purple-400 text-sm font-bold px-2 py-1 rounded">4</span>
+                  <div>
+                    <div className="text-white font-medium">Connect to ClawdVault</div>
+                    <p className="text-gray-500 text-sm">Click &quot;Connect Wallet&quot; and approve the connection in Phantom</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#0d1117] border border-gray-700 rounded-lg p-4 mt-4">
+                <div className="text-gray-500 text-xs uppercase tracking-wider mb-2">For Devnet Testing</div>
+                <p className="text-gray-400 text-sm">
+                  In Phantom: Settings → Developer Settings → Change Network → <span className="text-purple-400">Devnet</span>
+                  <br/>
+                  Get free devnet SOL at <a href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">faucet.solana.com</a>
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* For AI Agents */}
           <div className="mt-12">
             <h2 className="text-2xl font-bold text-white mb-4">For AI Agents 🤖</h2>
