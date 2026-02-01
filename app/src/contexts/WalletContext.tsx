@@ -68,14 +68,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     // Try multiple RPCs in case of rate limiting
+    // Priority: custom env > reliable free tiers > public endpoints
     const rpcUrls = [
       process.env.NEXT_PUBLIC_RPC_URL,
-      'https://api.mainnet-beta.solana.com',
-      'https://solana-mainnet.g.alchemy.com/v2/demo',
+      'https://rpc.ankr.com/solana',                    // Ankr free tier - most reliable
+      'https://solana.public-rpc.com',                  // Public RPC pool
+      'https://api.mainnet-beta.solana.com',            // Official (heavily rate limited)
     ].filter(Boolean) as string[];
 
     for (const rpcUrl of rpcUrls) {
       try {
+        console.log(`[Wallet] Trying RPC: ${rpcUrl}`);
         const response = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -86,43 +89,61 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             params: [publicKey],
           }),
         });
+        
+        if (!response.ok) {
+          console.warn(`[Wallet] RPC ${rpcUrl} returned ${response.status}`);
+          continue;
+        }
+        
         const data = await response.json();
         if (data.result?.value !== undefined) {
           // Convert lamports to SOL
-          setBalance(data.result.value / 1e9);
+          const solBalance = data.result.value / 1e9;
+          console.log(`[Wallet] Balance fetched from ${rpcUrl}: ${solBalance} SOL`);
+          setBalance(solBalance);
           return; // Success, stop trying
         }
         if (data.error) {
-          console.warn(`RPC error from ${rpcUrl}:`, data.error);
+          console.warn(`[Wallet] RPC error from ${rpcUrl}:`, data.error);
         }
       } catch (err) {
-        console.warn(`Failed to fetch balance from ${rpcUrl}:`, err);
+        console.warn(`[Wallet] Failed to fetch from ${rpcUrl}:`, err);
       }
     }
-    // If all RPCs failed, set balance to 0 as fallback
-    console.error('All RPCs failed to fetch balance');
-    setBalance(0);
+    // If all RPCs failed, set balance to null (unknown) instead of 0
+    console.error('[Wallet] All RPCs failed to fetch balance');
+    setBalance(null);
   }, [publicKey]);
 
   // Connect wallet
   const connect = useCallback(async () => {
+    console.log('[Wallet] Connect clicked');
     const provider = getProvider();
+    
     if (!provider) {
+      console.log('[Wallet] No Phantom provider found, opening phantom.app');
       window.open('https://phantom.app/', '_blank');
       return;
     }
 
+    console.log('[Wallet] Phantom provider found, attempting connection...');
+    
     try {
       setConnecting(true);
       const response = await provider.connect();
       const address = response.publicKey.toString();
+      console.log('[Wallet] Connected successfully:', address);
       setPublicKey(address);
       setConnected(true);
       
       // Store in localStorage for reconnection
       localStorage.setItem('walletConnected', 'true');
-    } catch (err) {
-      console.error('Failed to connect wallet:', err);
+    } catch (err: any) {
+      console.error('[Wallet] Connection failed:', err);
+      // User rejected or other error
+      if (err?.code === 4001) {
+        console.log('[Wallet] User rejected connection');
+      }
     } finally {
       setConnecting(false);
     }
