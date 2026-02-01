@@ -71,8 +71,8 @@ async function getHomeData() {
     // Sort trending tokens by their trade volume
     const trendingWithVolume = trendingTokens.map(token => ({
       ...token,
-      volume24h: trendingTrades.find(t => t.tokenMint === token.mint)?._sum.solAmount || 0
-    })).sort((a, b) => (b.volume24h || 0) - (a.volume24h || 0))
+      volume24h: Number(trendingTrades.find(t => t.tokenMint === token.mint)?._sum.solAmount || 0)
+    })).sort((a, b) => b.volume24h - a.volume24h)
     
     return {
       totalTokens,

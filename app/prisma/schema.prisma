@@ -212,8 +212,32 @@ model ChatMessage {
   
   createdAt DateTime @default(now()) @map("created_at")
   
+  // Relations
+  reactions ChatReaction[]
+  
   @@index([tokenMint])
   @@index([sender])
   @@index([createdAt(sort: Desc)])
   @@map("chat_messages")
+}
+
+// ============================================
+// CHAT REACTIONS (emoji reactions on messages)
+// ============================================
+model ChatReaction {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  
+  emoji     String   // The emoji (🔥, 👍, 😂, etc.)
+  wallet    String   // Who reacted
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  // One reaction per emoji per user per message
+  @@unique([messageId, emoji, wallet])
+  @@index([messageId])
+  @@map("chat_reactions")
 }
