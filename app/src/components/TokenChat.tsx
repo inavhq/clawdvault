@@ -402,7 +402,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
                             picker?.classList.toggle('hidden');
                           }}
                         >
-                          {getUserReaction(msg) || '+'}
+                          +
                         </button>
                         <div className="hidden absolute left-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
                           {EMOJI_OPTIONS.map(emoji => {
