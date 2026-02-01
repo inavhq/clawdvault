@@ -372,35 +372,23 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                     Trade on Raydium
                   </a>
                 </div>
-              ) : !connected ? (
-                <div className="text-center py-8">
-                  <div className="text-4xl mb-4">👻</div>
-                  <div className="text-white font-medium mb-2">Connect Wallet</div>
-                  <div className="text-gray-400 text-sm mb-4">
-                    Connect your Phantom wallet to trade
-                  </div>
-                  <button
-                    onClick={connect}
-                    className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white px-6 py-3 rounded-lg font-medium transition"
-                  >
-                    Connect Phantom
-                  </button>
-                </div>
               ) : (
                 <>
-                  {/* User Balance */}
-                  <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Your SOL</span>
-                      <span className="text-white font-mono">
-                        {solBalance !== null ? solBalance.toFixed(4) : '...'}
-                      </span>
+                  {/* User Balance - show if connected */}
+                  {connected && (
+                    <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Your SOL</span>
+                        <span className="text-white font-mono">
+                          {solBalance !== null ? solBalance.toFixed(4) : '...'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-gray-400">Your ${token.symbol}</span>
+                        <span className="text-white font-mono">{formatNumber(tokenBalance)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-gray-400">Your ${token.symbol}</span>
-                      <span className="text-white font-mono">{formatNumber(tokenBalance)}</span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Buy/Sell Toggle */}
                   <div className="flex bg-gray-700 rounded-lg p-1 mb-4">
@@ -432,12 +420,14 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                       <label className="text-gray-400">
                         {tradeType === 'buy' ? 'SOL Amount' : 'Token Amount'}
                       </label>
-                      <span className="text-gray-500">
-                        Max: {tradeType === 'buy' 
-                          ? (solBalance?.toFixed(4) || '0') + ' SOL'
-                          : formatNumber(tokenBalance)
-                        }
-                      </span>
+                      {connected && (
+                        <span className="text-gray-500">
+                          Max: {tradeType === 'buy' 
+                            ? (solBalance?.toFixed(4) || '0') + ' SOL'
+                            : formatNumber(tokenBalance)
+                          }
+                        </span>
+                      )}
                     </div>
                     <div className="relative">
                       <input
@@ -474,7 +464,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                         </button>
                       ))}
                     </div>
-                  ) : (
+                  ) : connected ? (
                     <div className="flex gap-2 mb-4">
                       {[25, 50, 75, 100].map((percent) => (
                         <button
@@ -486,7 +476,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                         </button>
                       ))}
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Estimated Output */}
                   {estimatedOutput && (
@@ -549,17 +539,30 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                   )}
 
                   {/* Trade Button */}
-                  <button
-                    onClick={handleTrade}
-                    disabled={trading || !amount || parseFloat(amount) <= 0}
-                    className={`w-full py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                      tradeType === 'buy'
-                        ? 'bg-green-600 hover:bg-green-500 text-white'
-                        : 'bg-red-600 hover:bg-red-500 text-white'
-                    }`}
-                  >
-                    {trading ? 'Processing...' : tradeType === 'buy' ? 'Buy Tokens' : 'Sell Tokens'}
-                  </button>
+                  {connected ? (
+                    <button
+                      onClick={handleTrade}
+                      disabled={trading || !amount || parseFloat(amount) <= 0}
+                      className={`w-full py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                        tradeType === 'buy'
+                          ? 'bg-green-600 hover:bg-green-500 text-white'
+                          : 'bg-red-600 hover:bg-red-500 text-white'
+                      }`}
+                    >
+                      {trading ? 'Processing...' : tradeType === 'buy' ? 'Buy Tokens' : 'Sell Tokens'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={connect}
+                      className={`w-full py-3 rounded-lg font-semibold transition ${
+                        tradeType === 'buy'
+                          ? 'bg-green-600 hover:bg-green-500 text-white'
+                          : 'bg-red-600 hover:bg-red-500 text-white'
+                      }`}
+                    >
+                      Connect Wallet to {tradeType === 'buy' ? 'Buy' : 'Sell'}
+                    </button>
+                  )}
 
                   <div className="text-gray-500 text-xs text-center mt-4">
                     1% fee on all trades

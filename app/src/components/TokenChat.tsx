@@ -186,7 +186,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
           <span className="font-medium text-white">${tokenSymbol} Chat</span>
           <span className="text-gray-500 text-sm">({messages.length})</span>
         </div>
-        {connected && publicKey ? (
+        {connected && publicKey && (
           <div className="flex items-center gap-2">
             {editingUsername ? (
               <div className="flex items-center gap-1">
@@ -226,13 +226,6 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
             )}
             <span className="text-green-400 text-xs">●</span>
           </div>
-        ) : (
-          <button
-            onClick={connect}
-            className="text-xs bg-orange-500 hover:bg-orange-400 text-white px-3 py-1.5 rounded-lg transition font-medium"
-          >
-            Connect to Chat
-          </button>
         )}
       </div>
 
@@ -249,7 +242,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <div className="text-4xl mb-2">🐺</div>
             <div>No messages yet</div>
-            <div className="text-sm">Connect wallet to chat!</div>
+            <div className="text-sm">{connected ? 'Be the first to chat!' : 'Connect wallet to chat'}</div>
           </div>
         ) : (
           messages.map((msg) => (
@@ -283,17 +276,18 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
         {error && (
           <div className="text-red-400 text-xs mb-2">{error}</div>
         )}
-        {connected && publicKey ? (
-          <form onSubmit={sendMessage}>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                maxLength={500}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-orange-500 focus:outline-none"
-              />
+        <form onSubmit={sendMessage}>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder={connected ? "Type a message..." : "Connect wallet to chat..."}
+              maxLength={500}
+              disabled={!connected}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-orange-500 focus:outline-none disabled:opacity-50"
+            />
+            {connected ? (
               <button
                 type="submit"
                 disabled={!newMessage.trim() || sending}
@@ -301,21 +295,22 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
               >
                 {sending ? '...' : 'Send'}
               </button>
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={connect}
+                className="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap"
+              >
+                Connect
+              </button>
+            )}
+          </div>
+          {connected && (
             <div className="text-xs text-gray-500 mt-2">
               {newMessage.length}/500
             </div>
-          </form>
-        ) : (
-          <div className="text-center py-2">
-            <button
-              onClick={connect}
-              className="bg-orange-500 hover:bg-orange-400 text-white px-6 py-2 rounded-lg text-sm font-medium transition"
-            >
-              Connect Wallet to Chat
-            </button>
-          </div>
-        )}
+          )}
+        </form>
       </div>
     </div>
   );
