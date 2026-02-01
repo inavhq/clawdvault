@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useEffect, use, useMemo } from 'react';
+import { useState, useEffect, use, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Token, Trade, TradeResponse } from '@/lib/types';
 import TokenChat from '@/components/TokenChat';
+import Header from '@/components/Header';
+import { useWallet } from '@/contexts/WalletContext';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
   const { mint } = use(params);
+  const { connected, publicKey, balance: solBalance, connect } = useWallet();
+  
   const [token, setToken] = useState<Token | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,16 +19,39 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const [trading, setTrading] = useState(false);
   const [tradeResult, setTradeResult] = useState<TradeResponse | null>(null);
   const [copied, setCopied] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
 
-  // Mock user balance (in real app, fetch from wallet)
-  const [userBalance] = useState({
-    sol: 10.5,
-    tokens: 1000000, // User owns 1M tokens
-  });
+  // Fetch token holdings for connected wallet
+  const fetchTokenBalance = useCallback(async () => {
+    if (!connected || !publicKey || !token) {
+      setTokenBalance(0);
+      return;
+    }
+
+    try {
+      // In production, query SPL token accounts
+      // For now, use mock or API
+      const res = await fetch(`/api/balance?wallet=${publicKey}&mint=${mint}`);
+      const data = await res.json();
+      if (data.success) {
+        setTokenBalance(data.tokenBalance || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch token balance:', err);
+      // Fallback to 0
+      setTokenBalance(0);
+    }
+  }, [connected, publicKey, token, mint]);
 
   useEffect(() => {
     fetchToken();
   }, [mint]);
+
+  useEffect(() => {
+    if (token && connected) {
+      fetchTokenBalance();
+    }
+  }, [token, connected, fetchTokenBalance]);
 
   const fetchToken = async () => {
     try {
@@ -47,16 +74,14 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     const inputAmount = parseFloat(amount);
     
     if (tradeType === 'buy') {
-      // Buy: SOL -> tokens
-      const solAfterFee = inputAmount * 0.99; // 1% fee
+      const solAfterFee = inputAmount * 0.99;
       const k = token.virtual_sol_reserves * token.virtual_token_reserves;
       const newSolReserves = token.virtual_sol_reserves + solAfterFee;
       const newTokenReserves = k / newSolReserves;
       const tokensOut = token.virtual_token_reserves - newTokenReserves;
       return { tokens: tokensOut, sol: null };
     } else {
-      // Sell: tokens -> SOL
-      const tokensAfterFee = inputAmount * 0.99; // 1% fee
+      const tokensAfterFee = inputAmount * 0.99;
       const k = token.virtual_sol_reserves * token.virtual_token_reserves;
       const newTokenReserves = token.virtual_token_reserves + tokensAfterFee;
       const newSolReserves = k / newTokenReserves;
@@ -71,12 +96,10 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     const inputAmount = parseFloat(amount);
     
     if (tradeType === 'buy') {
-      // How much price increases when buying
       const expectedTokens = inputAmount / token.price_sol;
       const actualTokens = estimatedOutput?.tokens || 0;
       return ((expectedTokens - actualTokens) / expectedTokens) * 100;
     } else {
-      // How much price decreases when selling
       const expectedSol = inputAmount * token.price_sol;
       const actualSol = estimatedOutput?.sol || 0;
       return ((expectedSol - actualSol) / expectedSol) * 100;
@@ -84,7 +107,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [token, amount, tradeType, estimatedOutput]);
 
   const handleTrade = async () => {
-    if (!amount || !token) return;
+    if (!amount || !token || !connected || !publicKey) return;
     setTrading(true);
     setTradeResult(null);
 
@@ -96,6 +119,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
           mint: token.mint,
           type: tradeType,
           amount: parseFloat(amount),
+          trader: publicKey,
         }),
       });
 
@@ -105,6 +129,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       if (data.success) {
         setAmount('');
         fetchToken();
+        fetchTokenBalance();
       }
     } catch (err) {
       setTradeResult({ success: false, error: 'Network error' });
@@ -114,7 +139,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   };
 
   const handleQuickSell = (percent: number) => {
-    const tokenAmount = (userBalance.tokens * percent / 100);
+    const tokenAmount = (tokenBalance * percent / 100);
     setAmount(tokenAmount.toString());
   };
 
@@ -137,21 +162,27 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-400 animate-pulse">Loading...</div>
+      <main className="min-h-screen">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-gray-400 animate-pulse">Loading...</div>
+        </div>
       </main>
     );
   }
 
   if (!token) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔍</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Token Not Found</h1>
-          <Link href="/tokens" className="text-orange-400 hover:text-orange-300">
-            Browse all tokens →
-          </Link>
+      <main className="min-h-screen">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🔍</div>
+            <h1 className="text-2xl font-bold text-white mb-2">Token Not Found</h1>
+            <Link href="/tokens" className="text-orange-400 hover:text-orange-300">
+              Browse all tokens →
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -159,23 +190,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🦀</span>
-            <span className="text-xl font-bold text-white">ClawdVault</span>
-          </Link>
-          <nav className="flex items-center gap-6">
-            <Link href="/create" className="text-gray-400 hover:text-white transition">
-              Create Token
-            </Link>
-            <Link href="/tokens" className="text-gray-400 hover:text-white transition">
-              Browse
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <section className="py-8 px-6">
         <div className="max-w-6xl mx-auto">
@@ -357,17 +372,33 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                     Trade on Raydium
                   </a>
                 </div>
+              ) : !connected ? (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-4">👻</div>
+                  <div className="text-white font-medium mb-2">Connect Wallet</div>
+                  <div className="text-gray-400 text-sm mb-4">
+                    Connect your Phantom wallet to trade
+                  </div>
+                  <button
+                    onClick={connect}
+                    className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white px-6 py-3 rounded-lg font-medium transition"
+                  >
+                    Connect Phantom
+                  </button>
+                </div>
               ) : (
                 <>
                   {/* User Balance */}
                   <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Your SOL</span>
-                      <span className="text-white font-mono">{userBalance.sol.toFixed(4)}</span>
+                      <span className="text-white font-mono">
+                        {solBalance !== null ? solBalance.toFixed(4) : '...'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm mt-1">
                       <span className="text-gray-400">Your ${token.symbol}</span>
-                      <span className="text-white font-mono">{formatNumber(userBalance.tokens)}</span>
+                      <span className="text-white font-mono">{formatNumber(tokenBalance)}</span>
                     </div>
                   </div>
 
@@ -403,8 +434,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                       </label>
                       <span className="text-gray-500">
                         Max: {tradeType === 'buy' 
-                          ? userBalance.sol.toFixed(4) + ' SOL'
-                          : formatNumber(userBalance.tokens)
+                          ? (solBalance?.toFixed(4) || '0') + ' SOL'
+                          : formatNumber(tokenBalance)
                         }
                       </span>
                     </div>
@@ -420,8 +451,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                       />
                       <button
                         onClick={() => setAmount(tradeType === 'buy' 
-                          ? userBalance.sol.toString() 
-                          : userBalance.tokens.toString()
+                          ? (solBalance || 0).toString() 
+                          : tokenBalance.toString()
                         )}
                         className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 px-2 py-1 rounded text-sm transition"
                       >

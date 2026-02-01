@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { CreateTokenRequest, CreateTokenResponse } from '@/lib/types';
+import Header from '@/components/Header';
+import { useWallet } from '@/contexts/WalletContext';
 
 export default function CreatePage() {
   const [name, setName] = useState('');
@@ -140,23 +142,7 @@ export default function CreatePage() {
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🦀</span>
-            <span className="text-xl font-bold text-white">ClawdVault</span>
-          </Link>
-          <nav className="flex items-center gap-6">
-            <Link href="/create" className="text-white font-medium">
-              Create Token
-            </Link>
-            <Link href="/tokens" className="text-gray-400 hover:text-white transition">
-              Browse
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       {/* Form */}
       <section className="py-12 px-6">

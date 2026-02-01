@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Token, TokenListResponse } from '@/lib/types';
+import Header from '@/components/Header';
 
 type FilterTab = 'all' | 'trending' | 'new' | 'graduated';
 
@@ -98,23 +99,7 @@ export default function TokensPage() {
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🦀</span>
-            <span className="text-xl font-bold text-white">ClawdVault</span>
-          </Link>
-          <nav className="flex items-center gap-6">
-            <Link href="/create" className="text-gray-400 hover:text-white transition">
-              Create Token
-            </Link>
-            <Link href="/tokens" className="text-white font-medium">
-              Browse
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       {/* Content */}
       <section className="py-8 px-6">

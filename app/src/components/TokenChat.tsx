@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface ChatMessage {
   id: string;
@@ -39,12 +40,13 @@ function shortenAddress(address: string): string {
 }
 
 export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
+  const { connected, publicKey, connect } = useWallet();
+  
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -84,11 +86,18 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
   // Initial load and polling
   useEffect(() => {
     fetchMessages();
-    
-    // Poll for new messages every 5 seconds
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
+
+  // Fetch profile when connected
+  useEffect(() => {
+    if (connected && publicKey) {
+      fetchProfile(publicKey);
+    } else {
+      setProfile(null);
+    }
+  }, [connected, publicKey, fetchProfile]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -97,27 +106,9 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
     }
   }, [messages]);
 
-  // Try to connect to Phantom wallet
-  const connectWallet = async () => {
-    try {
-      // @ts-ignore - Phantom types
-      const provider = window?.phantom?.solana;
-      if (provider?.isPhantom) {
-        const response = await provider.connect();
-        const wallet = response.publicKey.toString();
-        setWalletAddress(wallet);
-        fetchProfile(wallet);
-      } else {
-        setError('Phantom wallet not found');
-      }
-    } catch (err) {
-      console.error('Wallet connection error:', err);
-    }
-  };
-
   // Save username
   const saveUsername = async () => {
-    if (!walletAddress || savingUsername) return;
+    if (!publicKey || savingUsername) return;
     
     setSavingUsername(true);
     setError('');
@@ -127,7 +118,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          wallet: walletAddress,
+          wallet: publicKey,
           username: newUsername.trim() || null,
         }),
       });
@@ -150,7 +141,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
   // Send message
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || sending || !walletAddress) return;
+    if (!newMessage.trim() || sending || !publicKey) return;
 
     setSending(true);
     setError('');
@@ -161,7 +152,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mint,
-          sender: walletAddress,
+          sender: publicKey,
           message: newMessage.trim(),
         }),
       });
@@ -195,14 +186,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
           <span className="font-medium text-white">${tokenSymbol} Chat</span>
           <span className="text-gray-500 text-sm">({messages.length})</span>
         </div>
-        {!walletAddress ? (
-          <button
-            onClick={connectWallet}
-            className="text-xs bg-orange-500 hover:bg-orange-400 text-white px-3 py-1.5 rounded-lg transition font-medium"
-          >
-            Connect to Chat
-          </button>
-        ) : (
+        {connected && publicKey ? (
           <div className="flex items-center gap-2">
             {editingUsername ? (
               <div className="flex items-center gap-1">
@@ -237,11 +221,18 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
                 className="text-xs text-orange-400 hover:text-orange-300 transition"
                 title="Edit username"
               >
-                {profile?.username || shortenAddress(walletAddress)}
+                {profile?.username || shortenAddress(publicKey)}
               </button>
             )}
             <span className="text-green-400 text-xs">●</span>
           </div>
+        ) : (
+          <button
+            onClick={connect}
+            className="text-xs bg-orange-500 hover:bg-orange-400 text-white px-3 py-1.5 rounded-lg transition font-medium"
+          >
+            Connect to Chat
+          </button>
         )}
       </div>
 
@@ -292,7 +283,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
         {error && (
           <div className="text-red-400 text-xs mb-2">{error}</div>
         )}
-        {walletAddress ? (
+        {connected && publicKey ? (
           <form onSubmit={sendMessage}>
             <div className="flex gap-2">
               <input
@@ -318,7 +309,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
         ) : (
           <div className="text-center py-2">
             <button
-              onClick={connectWallet}
+              onClick={connect}
               className="bg-orange-500 hover:bg-orange-400 text-white px-6 py-2 rounded-lg text-sm font-medium transition"
             >
               Connect Wallet to Chat
