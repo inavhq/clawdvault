@@ -35,11 +35,12 @@ export async function GET() {
     const data = await res.json();
     
     if (data.solana?.usd) {
-      cachedPrice = data.solana.usd;
+      const price = data.solana.usd;
+      cachedPrice = price;
       lastFetch = now;
-      console.log(`[SOL Price] CoinGecko success: $${cachedPrice.toFixed(2)}`);
+      console.log(`[SOL Price] CoinGecko success: $${price.toFixed(2)}`);
       return NextResponse.json({ 
-        price: cachedPrice, 
+        price, 
         valid: true,
         cached: false,
         source: 'coingecko',
@@ -60,11 +61,12 @@ export async function GET() {
     const data = await res.json();
     
     if (data.data?.SOL?.price) {
-      cachedPrice = data.data.SOL.price;
+      const price = data.data.SOL.price;
+      cachedPrice = price;
       lastFetch = now;
-      console.log(`[SOL Price] Jupiter success: $${cachedPrice.toFixed(2)}`);
+      console.log(`[SOL Price] Jupiter success: $${price.toFixed(2)}`);
       return NextResponse.json({ 
-        price: cachedPrice, 
+        price, 
         valid: true,
         cached: false,
         source: 'jupiter',
