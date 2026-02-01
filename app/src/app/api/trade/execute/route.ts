@@ -56,16 +56,24 @@ export async function POST(request: Request) {
     let solAmount: number;
     let tokenAmount: number;
     
+    // Get creator wallet for fee distribution
+    const creatorWallet = token.creator;
+    
     if (body.type === 'buy') {
       // User signed SOL transfer, we send tokens back
       solAmount = body.solAmount || 0;
       tokenAmount = body.expectedOutput;
       
+      // Calculate fee for distribution
+      const feeAmount = solAmount * 0.01; // 1% total fee
+      
       result = await completeBuyTransaction(
         body.signedTransaction,
         body.mint,
         body.wallet,
-        tokenAmount
+        tokenAmount,
+        creatorWallet,
+        feeAmount
       );
       
     } else {
@@ -76,7 +84,8 @@ export async function POST(request: Request) {
       result = await completeSellTransaction(
         body.signedTransaction,
         body.wallet,
-        solAmount
+        solAmount,
+        creatorWallet
       );
     }
 

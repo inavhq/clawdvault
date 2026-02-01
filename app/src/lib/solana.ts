@@ -537,13 +537,15 @@ export async function createBuyTransaction(
 
 /**
  * Execute the second half of a buy after user signed
- * Platform sends tokens to buyer
+ * Platform sends tokens to buyer, distributes fees to creator
  */
 export async function completeBuyTransaction(
   userSignedTx: string,
   mint: string,
   buyer: string,
-  tokenAmount: number
+  tokenAmount: number,
+  creatorWallet?: string,
+  feeAmount?: number
 ): Promise<TradeResult> {
   if (!PLATFORM_WALLET) {
     throw new Error('Platform wallet not configured');
@@ -603,11 +605,47 @@ export async function completeBuyTransaction(
   
   console.log(`✅ Tokens sent to buyer: ${tokenSignature}`);
   
+  // Distribute fees if provided
+  if (feeAmount && feeAmount > 0) {
+    const feeTx = new Transaction();
+    const creatorFee = feeAmount * (CREATOR_FEE_BPS / TOTAL_FEE_BPS);
+    const protocolFee = feeAmount * (PROTOCOL_FEE_BPS / TOTAL_FEE_BPS);
+    
+    // Send creator fee
+    if (creatorWallet && creatorFee > 0) {
+      const creatorPubkey = new PublicKey(creatorWallet);
+      feeTx.add(
+        SystemProgram.transfer({
+          fromPubkey: PLATFORM_WALLET.publicKey,
+          toPubkey: creatorPubkey,
+          lamports: Math.floor(creatorFee * LAMPORTS_PER_SOL),
+        })
+      );
+      console.log(`💰 Creator fee: ${creatorFee.toFixed(6)} SOL → ${creatorWallet}`);
+    }
+    
+    // Send protocol fee
+    if (FEE_RECIPIENT_WALLET && protocolFee > 0 && !FEE_RECIPIENT_WALLET.equals(PLATFORM_WALLET.publicKey)) {
+      feeTx.add(
+        SystemProgram.transfer({
+          fromPubkey: PLATFORM_WALLET.publicKey,
+          toPubkey: FEE_RECIPIENT_WALLET,
+          lamports: Math.floor(protocolFee * LAMPORTS_PER_SOL),
+        })
+      );
+      console.log(`💰 Protocol fee: ${protocolFee.toFixed(6)} SOL → ${FEE_RECIPIENT_WALLET.toBase58()}`);
+    }
+    
+    if (feeTx.instructions.length > 0) {
+      await sendAndConfirmTransaction(connection, feeTx, [PLATFORM_WALLET], { commitment: 'confirmed' });
+    }
+  }
+  
   return {
     signature: tokenSignature,
     solAmount: 0, // Filled by caller
     tokenAmount,
-    fee: 0, // Filled by caller
+    fee: feeAmount || 0,
   };
 }
 
@@ -661,12 +699,13 @@ export async function createSellTransaction(
 
 /**
  * Complete a sell after user signed token transfer
- * Platform sends SOL to seller
+ * Platform sends SOL to seller, distributes fees
  */
 export async function completeSellTransaction(
   userSignedTx: string,
   seller: string,
-  solAmount: number
+  solAmount: number,
+  creatorWallet?: string
 ): Promise<TradeResult> {
   if (!PLATFORM_WALLET) {
     throw new Error('Platform wallet not configured');
@@ -698,6 +737,20 @@ export async function completeSellTransaction(
       lamports: Math.floor(solToSend * LAMPORTS_PER_SOL),
     })
   );
+  
+  // Transfer creator fee
+  if (creatorWallet) {
+    const creatorFee = feeAmount * (CREATOR_FEE_BPS / TOTAL_FEE_BPS);
+    const creatorPubkey = new PublicKey(creatorWallet);
+    solTx.add(
+      SystemProgram.transfer({
+        fromPubkey: PLATFORM_WALLET.publicKey,
+        toPubkey: creatorPubkey,
+        lamports: Math.floor(creatorFee * LAMPORTS_PER_SOL),
+      })
+    );
+    console.log(`💰 Creator fee: ${creatorFee.toFixed(6)} SOL → ${creatorWallet}`);
+  }
   
   // Transfer protocol fee to fee recipient (if different from platform wallet)
   if (FEE_RECIPIENT_WALLET && !FEE_RECIPIENT_WALLET.equals(PLATFORM_WALLET.publicKey)) {
