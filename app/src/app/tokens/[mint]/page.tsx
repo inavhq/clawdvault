@@ -924,7 +924,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                             style={{ width: `${Math.min(holder.percentage, 100)}%` }}
                           />
                         </div>
-                        <div className="text-gray-400 text-xs mt-1 font-mono">{holder.percentage.toFixed(1)}%</div>
+                        <div className="text-gray-400 text-xs mt-1 font-mono">{holder.percentage < 0.1 ? holder.percentage.toFixed(3) : holder.percentage.toFixed(1)}%</div>
                       </div>
                     </div>
                   ))}

@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         totalFee: totalFee,
         protocolFee: protocolFee,
         creatorFee: creatorFee,
-        referrerFee: 0,
+        
         signature: signature,
       },
     });

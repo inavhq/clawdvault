@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Enrich trades with profile data
     const enrichedTrades = trades.map(trade => ({
       id: trade.id,
-      type: trade.tradeType,
+      type: trade.tradeType.toLowerCase(),
       trader: trade.trader,
       username: profileMap.get(trade.trader)?.username || null,
       solAmount: Number(trade.solAmount),

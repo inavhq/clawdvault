@@ -51,7 +51,8 @@ function shortenAddress(address: string): string {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
-function formatNumber(num: number): string {
+function formatNumber(num: number | null | undefined): string {
+  if (num == null || isNaN(num)) return '0';
   if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
   if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
   if (num >= 1_000) return (num / 1_000).toFixed(2) + 'K';
@@ -570,7 +571,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-white font-mono text-sm font-medium">
-                        {formatNumber(trade.token_amount)} {tokenSymbol}
+                        {formatNumber(trade.tokenAmount)} {tokenSymbol}
                       </span>
                       <span className="text-gray-500 text-xs">
                         for
@@ -578,14 +579,14 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                       <span className={`font-mono text-sm ${
                         trade.type === 'buy' ? 'text-green-400' : 'text-red-400'
                       }`}>
-                        {trade.sol_amount.toFixed(4)} SOL
+                        {(trade.solAmount || 0).toFixed(4)} SOL
                       </span>
                     </div>
                   </div>
                   
                   {/* Timestamp */}
                   <div className="text-gray-500 text-xs text-right flex-shrink-0">
-                    {formatTimeAgo(new Date(trade.created_at))}
+                    {formatTimeAgo(new Date(trade.executedAt))}
                   </div>
                 </div>
               ))}

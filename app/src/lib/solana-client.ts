@@ -109,10 +109,19 @@ export async function fetchHoldersClient(
     const balance = parseFloat(acc.uiAmountString || '0');
     if (balance === 0) continue;
     
-    const ownerInfo = Array.isArray(ownersData) 
-      ? ownersData.find((r: any) => r.id === i + 10)
-      : ownersData;
-    const owner = ownerInfo?.result?.value?.data?.parsed?.info?.owner || acc.address;
+    // Find the matching response for this account
+    let owner = acc.address; // Default to token account address
+    try {
+      const ownerInfo = Array.isArray(ownersData) 
+        ? ownersData.find((r: any) => r.id === i + 10)
+        : (i === 0 ? ownersData : null);
+      
+      if (ownerInfo?.result?.value?.data?.parsed?.info?.owner) {
+        owner = ownerInfo.result.value.data.parsed.info.owner;
+      }
+    } catch (e) {
+      console.warn('Failed to get owner for account:', acc.address);
+    }
     
     const percentage = (balance / totalSupply) * 100;
     // Check if owner is the bonding curve PDA or legacy platform wallet
