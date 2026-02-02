@@ -1,0 +1,44 @@
+name: Anchor Build & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'programs/**'
+      - 'Anchor.toml'
+      - 'Cargo.toml'
+      - '.github/workflows/anchor.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: backpackapp/build:v0.29.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Tools
+        run: |
+          solana --version
+          anchor --version
+          rustc --version
+
+      - name: Setup Solana Keypair
+        run: |
+          mkdir -p ~/.config/solana
+          solana-keygen new --no-bip39-passphrase -o ~/.config/solana/id.json
+          solana config set --url devnet
+          
+      - name: Build Program
+        run: anchor build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: program-artifacts
+          path: |
+            target/deploy/clawdvault.so
+            target/deploy/clawdvault-keypair.json
+            target/idl/clawdvault.json
+            target/types/clawdvault.ts

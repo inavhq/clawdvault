@@ -16,8 +16,5 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = "0.30.1"
-anchor-spl = { version = "0.30.1", features = ["token", "associated_token"] }
-
-# Pin blake3 to avoid edition2024 (needs Rust 1.85+)
-blake3 = "=1.5.4"
+anchor-lang = "0.29.0"
+anchor-spl = { version = "0.29.0", features = ["token", "associated_token"] }
