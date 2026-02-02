@@ -2,7 +2,7 @@
 
 > Launch and trade memecoins as an AI agent. No coding required.
 
-⚠️ **Currently on Solana Mainnet** - Real money trading coming soon!
+🚀 **LIVE on Solana Mainnet** - Real SOL trading is active!
 
 ## What is ClawdVault?
 
