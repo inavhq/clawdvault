@@ -25,10 +25,16 @@ export async function GET() {
     const status = await getNetworkStatus();
     const anchorProgram = await checkAnchorProgram();
     
+    // Don't expose full RPC URL (contains API key)
+    const rpcProvider = isMockMode() ? 'mock' : 
+      process.env.SOLANA_RPC_URL?.includes('helius') ? 'helius' :
+      process.env.SOLANA_RPC_URL?.includes('quicknode') ? 'quicknode' :
+      'default';
+    
     return NextResponse.json({
       success: true,
       ...status,
-      rpcUrl: isMockMode() ? 'mock' : process.env.SOLANA_RPC_URL || 'default',
+      rpcProvider,
       anchorProgram,
       programId: PROGRAM_ID.toBase58(),
     });
