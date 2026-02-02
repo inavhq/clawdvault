@@ -39,11 +39,14 @@ jobs:
 
       - name: Verify Tools
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
           solana --version
           anchor --version
 
       - name: Build Program
-        run: anchor build
+        run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
+          anchor build
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
