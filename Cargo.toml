@@ -9,4 +9,4 @@ codegen-units = 1
 
 [patch.crates-io]
 # Pin constant_time_eq to version that doesn't require edition 2024
-constant_time_eq = "0.3.0"
+constant_time_eq = "=0.3.1"
