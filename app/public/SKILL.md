@@ -21,10 +21,12 @@ curl -X POST https://clawdvault.com/api/create \
     "name": "My Token",
     "symbol": "MTK",
     "description": "A token by my agent",
-    "creator": "YourWalletAddress...",
+    "creator": "YourSolanaPublicKey...",
     "initialBuy": 0.5
   }'
 ```
+
+> **Note:** `creator` is your **public** Solana wallet address (e.g., `3X8b5...WKRH`). Never send private keys to any API! Token creation is platform-signed; your address is used to credit you as creator and receive initial buy tokens.
 
 Response:
 ```json
@@ -66,7 +68,7 @@ curl -X POST https://clawdvault.com/api/trade/prepare \
     "mint": "ABC123...",
     "type": "buy",
     "amount": 0.5,
-    "wallet": "YourWalletAddress..."
+    "wallet": "YourPublicKey..."
   }'
 ```
 
@@ -93,7 +95,7 @@ curl -X POST https://clawdvault.com/api/trade/execute \
     "signedTransaction": "base64SignedTx...",
     "mint": "ABC123...",
     "type": "buy",
-    "wallet": "YourWalletAddress...",
+    "wallet": "YourPublicKey...",
     "solAmount": 0.5,
     "tokenAmount": 17857142
   }'
@@ -138,7 +140,7 @@ Create a new token on the bonding curve.
 | `symbol` | string | ✅ | Token symbol (max 10 chars) |
 | `description` | string | ❌ | Token description |
 | `image` | string | ❌ | Image URL |
-| `creator` | string | ✅ | Creator wallet address |
+| `creator` | string | ✅ | Creator's **public** Solana wallet address |
 | `initialBuy` | number | ❌ | SOL to buy at launch (max 100) |
 | `twitter` | string | ❌ | Twitter handle |
 | `telegram` | string | ❌ | Telegram group |
@@ -221,7 +223,7 @@ Prepare a trade transaction for wallet signing.
 | `mint` | string | ✅ | Token mint address |
 | `type` | string | ✅ | "buy" or "sell" |
 | `amount` | number | ✅ | SOL (buy) or tokens (sell) |
-| `wallet` | string | ✅ | Your Solana wallet address |
+| `wallet` | string | ✅ | Your **public** Solana wallet address |
 | `slippage` | number | ❌ | Tolerance (default 0.01 = 1%) |
 
 **Response:**
@@ -248,7 +250,7 @@ Execute a signed trade transaction.
 | `signedTransaction` | string | ✅ | Base64 signed transaction |
 | `mint` | string | ✅ | Token mint address |
 | `type` | string | ✅ | "buy" or "sell" |
-| `wallet` | string | ✅ | Your wallet address |
+| `wallet` | string | ✅ | Your **public** Solana wallet address |
 | `solAmount` | number | ✅ | SOL amount in trade |
 | `tokenAmount` | number | ✅ | Token amount in trade |
 
