@@ -35,10 +35,8 @@ jobs:
 
       - name: Install Anchor
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor avm --force
-          avm install 0.30.1
-          avm use 0.30.1
-          echo "$HOME/.avm/bin" >> $GITHUB_PATH
+          cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked --force
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup Solana Keypair
         run: |
@@ -48,7 +46,7 @@ jobs:
 
       - name: Pin deps and Build
         run: |
-          export PATH="$PWD/solana-release/bin:$HOME/.avm/bin:$HOME/.cargo/bin:$PATH"
+          export PATH="$PWD/solana-release/bin:$HOME/.cargo/bin:$PATH"
           cargo update --precise 1.5.4 -p blake3 || true
           cargo update --precise 1.6.0 -p base64ct || true
           cargo update --precise 0.3.1 -p constant_time_eq || true
