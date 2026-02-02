@@ -151,6 +151,15 @@ pub mod clawdvault {
             None,  // collection_details
         )?;
         
+        // Get account infos for transfers BEFORE mutable borrow of curve
+        let bonding_curve_info = ctx.accounts.bonding_curve.to_account_info();
+        let token_program_info = ctx.accounts.token_program.to_account_info();
+        let token_vault_info = ctx.accounts.token_vault.to_account_info();
+        let creator_token_info = ctx.accounts.creator_token_account.to_account_info();
+        let system_program_info = ctx.accounts.system_program.to_account_info();
+        let creator_info = ctx.accounts.creator.to_account_info();
+        let sol_vault_info = ctx.accounts.sol_vault.to_account_info();
+        
         // Initialize bonding curve state
         let curve = &mut ctx.accounts.bonding_curve;
         curve.creator = creator_key;
@@ -174,7 +183,7 @@ pub mod clawdvault {
         msg!("Mint: {}", mint_key);
         msg!("Creator: {}", creator_key);
         
-        // Handle initial buy if specified
+        // Handle initial buy if specified (do transfers before curve borrow ends)
         if initial_buy_lamports > 0 {
             // Calculate tokens out using bonding curve math
             let sol_after_fee = initial_buy_lamports
@@ -183,29 +192,29 @@ pub mod clawdvault {
                 .checked_div(BPS_DENOMINATOR)
                 .ok_or(ClawdVaultError::MathOverflow)?;
             
-            let new_virtual_sol = curve.virtual_sol_reserves
+            let new_virtual_sol = INITIAL_VIRTUAL_SOL
                 .checked_add(sol_after_fee)
                 .ok_or(ClawdVaultError::MathOverflow)?;
             
-            let invariant = (curve.virtual_sol_reserves as u128)
-                .checked_mul(curve.virtual_token_reserves as u128)
+            let invariant = (INITIAL_VIRTUAL_SOL as u128)
+                .checked_mul(INITIAL_VIRTUAL_TOKENS as u128)
                 .ok_or(ClawdVaultError::MathOverflow)?;
             
             let new_virtual_tokens = invariant
                 .checked_div(new_virtual_sol as u128)
                 .ok_or(ClawdVaultError::MathOverflow)? as u64;
             
-            let tokens_out = curve.virtual_token_reserves
+            let tokens_out = INITIAL_VIRTUAL_TOKENS
                 .checked_sub(new_virtual_tokens)
                 .ok_or(ClawdVaultError::MathOverflow)?;
             
             // Transfer SOL from creator to sol_vault
             system_program::transfer(
                 CpiContext::new(
-                    ctx.accounts.system_program.to_account_info(),
+                    system_program_info.clone(),
                     system_program::Transfer {
-                        from: ctx.accounts.creator.to_account_info(),
-                        to: ctx.accounts.sol_vault.to_account_info(),
+                        from: creator_info.clone(),
+                        to: sol_vault_info.clone(),
                     },
                 ),
                 initial_buy_lamports,
@@ -214,11 +223,11 @@ pub mod clawdvault {
             // Transfer tokens from vault to creator's token account
             token::transfer(
                 CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
+                    token_program_info.clone(),
                     Transfer {
-                        from: ctx.accounts.token_vault.to_account_info(),
-                        to: ctx.accounts.creator_token_account.to_account_info(),
-                        authority: ctx.accounts.bonding_curve.to_account_info(),
+                        from: token_vault_info.clone(),
+                        to: creator_token_info.clone(),
+                        authority: bonding_curve_info.clone(),
                     },
                     signer_seeds,
                 ),
@@ -229,7 +238,7 @@ pub mod clawdvault {
             curve.virtual_sol_reserves = new_virtual_sol;
             curve.virtual_token_reserves = new_virtual_tokens;
             curve.real_sol_reserves = initial_buy_lamports;
-            curve.real_token_reserves = curve.real_token_reserves
+            curve.real_token_reserves = TOTAL_SUPPLY
                 .checked_sub(tokens_out)
                 .ok_or(ClawdVaultError::MathOverflow)?;
             
