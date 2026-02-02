@@ -543,6 +543,7 @@ dependencies = [
  "base64ct",
  "blake3",
  "constant_time_eq",
+ "solana-security-txt",
 ]
 
 [[package]]

@@ -3,6 +3,20 @@ use anchor_lang::system_program;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo};
 use anchor_spl::associated_token::AssociatedToken;
 
+#[cfg(not(feature = "no-entrypoint"))]
+use solana_security_txt::security_txt;
+
+#[cfg(not(feature = "no-entrypoint"))]
+security_txt! {
+    name: "ClawdVault",
+    project_url: "https://clawdvault.com",
+    contacts: "email:security@clawdvault.com,twitter:@shadowclawai",
+    policy: "https://clawdvault.com/security",
+    preferred_languages: "en",
+    source_code: "https://github.com/shadowclawai/clawdvault",
+    auditors: "N/A"
+}
+
 declare_id!("GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM");
 
 // ============================================================================

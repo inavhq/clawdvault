@@ -53,8 +53,8 @@ async function main() {
   });
   anchor.setProvider(provider);
   
-  // Load program
-  const program = new Program(IDL, programId, provider);
+  // Load program (anchor 0.32+ API)
+  const program = new Program(IDL, provider);
   
   // Find config PDA
   const [configPDA] = PublicKey.findProgramAddressSync(
@@ -65,7 +65,7 @@ async function main() {
   
   // Check if already initialized
   try {
-    const config = await program.account.config.fetch(configPDA);
+    const config = await (program.account as any).config.fetch(configPDA);
     console.log("\n✅ Protocol already initialized!");
     console.log(`   Authority: ${config.authority.toBase58()}`);
     console.log(`   Fee recipient: ${config.feeRecipient.toBase58()}`);
@@ -78,6 +78,7 @@ async function main() {
   // Initialize
   console.log("\n🚀 Initializing protocol...");
   
+  // @ts-ignore
   const tx = await program.methods
     .initialize()
     .accounts({
@@ -92,7 +93,7 @@ async function main() {
   console.log(`   Explorer: https://explorer.solana.com/tx/${tx}?cluster=${network}`);
   
   // Verify
-  const config = await program.account.config.fetch(configPDA);
+  const config = await (program.account as any).config.fetch(configPDA);
   console.log("\n📊 Protocol Config:");
   console.log(`   Authority: ${config.authority.toBase58()}`);
   console.log(`   Fee recipient: ${config.feeRecipient.toBase58()}`);
