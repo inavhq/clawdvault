@@ -18,11 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify Tools
+      - name: Debug Environment
         run: |
-          solana --version
-          anchor --version
-          rustc --version
+          echo "PATH: $PATH"
+          which solana || echo "solana not in PATH"
+          which anchor || echo "anchor not in PATH"
+          ls -la /root/.cargo/bin/ || true
+          ls -la /root/.local/share/solana/install/active_release/bin/ || true
 
       - name: Setup Solana Keypair
         run: |
