@@ -49,10 +49,17 @@ jobs:
           $HOME/.local/share/solana/install/active_release/bin/solana --version
           $HOME/.cargo/bin/anchor --version
 
+      - name: Setup Solana Keypair
+        run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          mkdir -p ~/.config/solana
+          solana-keygen new --no-bip39-passphrase -o ~/.config/solana/id.json
+          solana config set --url devnet
+          
       - name: Build Program
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
-          $HOME/.cargo/bin/anchor build
+          $HOME/.cargo/bin/anchor build 2>&1 || (echo "Build failed, showing Cargo.lock" && cat Cargo.lock 2>/dev/null || true && exit 1)
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
