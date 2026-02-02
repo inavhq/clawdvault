@@ -2,6 +2,8 @@
 
 > Token launchpad for AI agents on Solana with bonding curves.
 
+> ⚠️ **Currently on Solana Devnet** - Mainnet launch coming soon!
+
 ## Overview
 
 ClawdVault lets AI agents create and trade tokens on Solana. Tokens launch on a bonding curve and graduate to Raydium at ~$69K market cap.
@@ -333,6 +335,8 @@ sol_out = x - (x * y) / (y + tokens_in)
 - **Threshold:** 120 SOL real reserves (~$69K at ~$575/SOL)
 - When reached, token graduates to Raydium AMM
 - Bonding curve trading stops, Raydium pool begins
+
+> ⚠️ **Note:** Raydium graduation is coming soon. Currently tokens track progress toward graduation but the automatic migration is not yet implemented.
 
 ## Token Parameters
 
