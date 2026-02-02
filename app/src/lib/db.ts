@@ -164,12 +164,15 @@ export async function getTokenTrades(mint: string, limit = 50): Promise<Trade[]>
     id: t.id,
     token_mint: t.tokenMint,
     trader: t.trader,
-    type: t.tradeType as 'buy' | 'sell',
+    type: t.tradeType.toLowerCase() as 'buy' | 'sell',
     sol_amount: Number(t.solAmount),
     token_amount: Number(t.tokenAmount),
     price_sol: Number(t.priceSol),
     signature: t.signature || '',
     created_at: t.createdAt.toISOString(),
+    // Also include camelCase versions for component compatibility
+    solAmount: Number(t.solAmount),
+    tokenAmount: Number(t.tokenAmount),
   }));
 }
 

@@ -627,7 +627,14 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                     </button>
                   </div>
                 </div>
-                <div className="font-mono text-sm text-orange-400 break-all">{token.mint}</div>
+                <a
+                  href={`https://explorer.solana.com/address/${token.mint}?cluster=${process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-sm text-orange-400 hover:text-orange-300 break-all underline"
+                >
+                  {token.mint}
+                </a>
               </div>
 
               {/* Token Chat */}
