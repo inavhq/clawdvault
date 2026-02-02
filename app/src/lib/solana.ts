@@ -154,10 +154,12 @@ export function getConnection(): Connection {
 }
 
 /**
- * Check if we're in mock mode (no platform wallet configured)
+ * Check if we're in mock mode (no RPC URL configured)
+ * Non-custodial design: users sign their own transactions, no platform wallet needed
  */
 export function isMockMode(): boolean {
-  return !PLATFORM_WALLET;
+  // If SOLANA_RPC_URL is explicitly set, we're in live mode
+  return !process.env.SOLANA_RPC_URL;
 }
 
 /**
