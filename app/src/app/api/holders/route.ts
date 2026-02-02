@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { isMockMode, getPlatformWalletPubkey } from '@/lib/solana';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
+import { isMockMode } from '@/lib/solana';
+import { findBondingCurvePDA } from '@/lib/anchor/client';
 
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
@@ -40,7 +42,11 @@ export async function GET(request: NextRequest) {
   try {
     const connection = new Connection(RPC_URL, 'confirmed');
     const mintPubkey = new PublicKey(mint);
-    const platformWallet = getPlatformWalletPubkey();
+    
+    // Find bonding curve PDA and its token vault
+    const [bondingCurvePDA] = findBondingCurvePDA(mintPubkey);
+    const bondingCurveVault = await getAssociatedTokenAddress(mintPubkey, bondingCurvePDA, true);
+    const bondingCurveOwner = bondingCurvePDA.toBase58();
 
     // Get largest token accounts (top holders)
     const largestAccounts = await connection.getTokenLargestAccounts(mintPubkey);
@@ -63,17 +69,17 @@ export async function GET(request: NextRequest) {
       const accountInfo = await connection.getParsedAccountInfo(account.address);
       const owner = (accountInfo.value?.data as any)?.parsed?.info?.owner;
       
-      // Check if this is the platform wallet (bonding curve) or creator
-      const isPlatform = owner === platformWallet;
+      // Check if this is the bonding curve vault or creator
+      const isBondingCurve = owner === bondingCurveOwner;
       const isCreator = creator && owner === creator;
       
-      if (isPlatform) {
+      if (isBondingCurve) {
         bondingCurveBalance = balance;
       }
 
       // Determine label
       let label: string | undefined;
-      if (isPlatform) {
+      if (isBondingCurve) {
         label = 'Bonding Curve';
       } else if (isCreator) {
         label = 'Creator (dev)';
