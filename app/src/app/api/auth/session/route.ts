@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = extractAuth(request);
     
-    if (!auth.wallet || !auth.signature) {
+    if (!auth || !auth.wallet || !auth.signature) {
       return NextResponse.json(
         { success: false, error: 'Wallet signature required' },
         { status: 401 }

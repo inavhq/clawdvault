@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     console.log(`✅ Token created on-chain: ${signature}`);
     
     // Look up creator's username from user_profiles
-    const creatorName = body.creatorName || await getUsername(body.creator);
+    const creatorName = body.creatorName || await getUsername(body.creator) || undefined;
     
     // Record the token in database
     const token = await createToken({

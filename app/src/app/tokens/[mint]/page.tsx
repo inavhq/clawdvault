@@ -429,7 +429,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     // Sum SOL from all trades: buys add, sells subtract (after 1% fee)
     let totalSol = 0;
     for (const trade of trades) {
-      const solAmount = trade.solAmount || trade.sol_amount || 0;
+      const solAmount = trade.sol_amount || 0;
       const netSol = solAmount * 0.99; // After 1% fee
       if (trade.type === 'buy') {
         totalSol += netSol;

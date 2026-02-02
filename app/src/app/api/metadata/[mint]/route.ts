@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTokenByMint } from '@/lib/db';
+import { getToken } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,7 @@ export async function GET(
     }
 
     // Get token from database
-    const token = await getTokenByMint(mint);
+    const token = await getToken(mint);
     
     if (!token) {
       return NextResponse.json({ error: 'Token not found' }, { status: 404 });

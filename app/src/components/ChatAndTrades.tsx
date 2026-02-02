@@ -576,7 +576,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-white font-mono text-sm font-medium">
-                        {formatNumber(trade.tokenAmount)} {tokenSymbol}
+                        {formatNumber(trade.token_amount)} {tokenSymbol}
                       </span>
                       <span className="text-gray-500 text-xs">
                         for
@@ -584,7 +584,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                       <span className={`font-mono text-sm ${
                         trade.type === 'buy' ? 'text-green-400' : 'text-red-400'
                       }`}>
-                        {(trade.solAmount || 0).toFixed(4)} SOL
+                        {(trade.sol_amount || 0).toFixed(4)} SOL
                       </span>
                     </div>
                   </div>
@@ -592,7 +592,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                   {/* Timestamp & Tx Link */}
                   <div className="text-right flex-shrink-0 flex items-center gap-2">
                     <span className="text-gray-500 text-xs">
-                      {formatTimeAgo(new Date(trade.executedAt))}
+                      {formatTimeAgo(new Date(trade.created_at))}
                     </span>
                     {trade.signature && (
                       <a
