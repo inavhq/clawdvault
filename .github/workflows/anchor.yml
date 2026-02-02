@@ -31,6 +31,11 @@ jobs:
           solana-keygen new --no-bip39-passphrase -o ~/.config/solana/id.json
           solana config set --url devnet
           
+      - name: Pin problematic deps
+        run: |
+          cargo update --precise 1.5.4 -p blake3 || true
+          cargo update --precise 1.6.0 -p base64ct || true
+          
       - name: Build Program
         run: anchor build
 
