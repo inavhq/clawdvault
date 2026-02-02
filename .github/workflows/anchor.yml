@@ -51,16 +51,17 @@ jobs:
       - name: Install Anchor
         run: |
           cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli --locked
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Verify Tools
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
           solana --version
           anchor --version
           rustc --version
 
       - name: Build Program
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
           anchor build
 
       - name: Upload Artifact
@@ -90,17 +91,20 @@ jobs:
       - name: Install Solana
         run: |
           sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Setup Wallet
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          mkdir -p ~/.config/solana
           echo "${{ secrets.DEPLOYER_KEYPAIR }}" > ~/.config/solana/id.json
           solana config set --url devnet
 
       - name: Deploy
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           solana program deploy target/deploy/clawdvault.so --keypair target/deploy/clawdvault-keypair.json
 
       - name: Output Program ID
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           echo "Program ID: $(solana-keygen pubkey target/deploy/clawdvault-keypair.json)"
