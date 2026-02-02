@@ -422,9 +422,25 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     };
   }, [solPrice]);
 
-  const progressPercent = token 
-    ? Math.min((token.real_sol_reserves / 120) * 100, 100)
-    : 0;
+  // Calculate graduation progress dynamically from trades
+  const fundsRaised = useMemo(() => {
+    if (!trades || trades.length === 0) return token?.real_sol_reserves || 0;
+    
+    // Sum SOL from all trades: buys add, sells subtract (after 1% fee)
+    let totalSol = 0;
+    for (const trade of trades) {
+      const solAmount = trade.solAmount || trade.sol_amount || 0;
+      const netSol = solAmount * 0.99; // After 1% fee
+      if (trade.type === 'buy') {
+        totalSol += netSol;
+      } else {
+        totalSol -= netSol;
+      }
+    }
+    return Math.max(0, totalSol);
+  }, [trades, token?.real_sol_reserves]);
+
+  const progressPercent = Math.min((fundsRaised / 120) * 100, 100);
 
   if (loading) {
     return (
@@ -590,7 +606,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                   />
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-2">
-                  <span>{formatValue(token.real_sol_reserves)} raised</span>
+                  <span>{formatValue(fundsRaised)} raised</span>
                   <span>
                     {graduationMarketCap.usd !== null 
                       ? formatUsd(graduationMarketCap.usd) + ' mcap goal'
