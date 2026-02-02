@@ -1,49 +1,43 @@
 import { NextResponse } from 'next/server';
-import { getToken, executeTrade } from '@/lib/db';
-import { 
-  completeBuyTransaction, 
-  completeSellTransaction, 
-  isMockMode 
-} from '@/lib/solana';
+import { Connection, clusterApiUrl, Transaction } from '@solana/web3.js';
+import { getToken, recordTrade } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+// Get connection based on environment
+function getConnection(): Connection {
+  const rpcUrl = process.env.SOLANA_RPC_URL || clusterApiUrl('devnet');
+  return new Connection(rpcUrl, 'confirmed');
+}
+
 interface ExecuteTradeRequest {
+  signedTransaction: string;  // Base64 encoded signed transaction
   mint: string;
   type: 'buy' | 'sell';
-  signedTransaction: string;  // Base64 encoded signed transaction
-  wallet: string;             // User's wallet address
-  expectedOutput: number;     // Expected tokens (buy) or SOL (sell)
-  solAmount?: number;         // SOL involved in trade
-  tokenAmount?: number;       // Tokens involved in trade
+  wallet: string;
+  solAmount: number;
+  tokenAmount: number;
 }
 
 /**
  * Execute a signed trade transaction
  * POST /api/trade/execute
+ * 
+ * Submits the user's signed transaction to the network
  */
 export async function POST(request: Request) {
   try {
-    // Check if we're in mock mode
-    if (isMockMode()) {
-      return NextResponse.json({
-        success: false,
-        error: 'On-chain trading not configured. Use /api/trade for mock trades.',
-        mockMode: true,
-      }, { status: 400 });
-    }
-
     const body: ExecuteTradeRequest = await request.json();
     
     // Validate
-    if (!body.mint || !body.type || !body.signedTransaction || !body.wallet) {
+    if (!body.signedTransaction || !body.mint || !body.type || !body.wallet) {
       return NextResponse.json(
-        { success: false, error: 'mint, type, signedTransaction, and wallet are required' },
+        { success: false, error: 'signedTransaction, mint, type, and wallet are required' },
         { status: 400 }
       );
     }
 
-    // Get token
+    // Verify token exists
     const token = await getToken(body.mint);
     if (!token) {
       return NextResponse.json(
@@ -52,91 +46,73 @@ export async function POST(request: Request) {
       );
     }
 
-    let result;
-    let solAmount: number;
-    let tokenAmount: number;
+    const connection = getConnection();
     
-    // Get creator wallet for fee distribution
-    const creatorWallet = token.creator;
+    // Deserialize the signed transaction
+    const transactionBuffer = Buffer.from(body.signedTransaction, 'base64');
+    const transaction = Transaction.from(transactionBuffer);
     
-    if (body.type === 'buy') {
-      // User signed SOL transfer, we send tokens back
-      solAmount = body.solAmount || 0;
-      tokenAmount = body.expectedOutput;
-      
-      // Calculate fee for distribution
-      const feeAmount = solAmount * 0.01; // 1% total fee
-      
-      result = await completeBuyTransaction(
-        body.signedTransaction,
-        body.mint,
-        body.wallet,
-        tokenAmount,
-        creatorWallet,
-        feeAmount
-      );
-      
-    } else {
-      // User signed token transfer, we send SOL back
-      tokenAmount = body.tokenAmount || 0;
-      solAmount = body.expectedOutput;
-      
-      result = await completeSellTransaction(
-        body.signedTransaction,
-        body.wallet,
-        solAmount,
-        creatorWallet
-      );
-    }
-
-    // Update database with the trade
-    const dbResult = await executeTrade(
-      body.mint,
-      body.type,
-      body.type === 'buy' ? solAmount : tokenAmount,
-      body.wallet,
-      result.signature
-    );
-
-    if (!dbResult) {
-      // Trade executed on-chain but DB update failed
-      // This is a partial failure - funds moved but not tracked
-      console.error('DB update failed after on-chain execution');
+    // Send the transaction
+    console.log(`📤 Submitting ${body.type} transaction for ${body.mint}...`);
+    
+    const signature = await connection.sendRawTransaction(transactionBuffer, {
+      skipPreflight: false,
+      preflightCommitment: 'confirmed',
+    });
+    
+    console.log(`📝 Transaction submitted: ${signature}`);
+    
+    // Wait for confirmation
+    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+    
+    if (confirmation.value.err) {
+      console.error('❌ Transaction failed:', confirmation.value.err);
       return NextResponse.json({
-        success: true,
-        warning: 'Trade executed but database update failed',
-        signature: result.signature,
-        solAmount: result.solAmount || solAmount,
-        tokenAmount: result.tokenAmount || tokenAmount,
-      });
+        success: false,
+        error: 'Transaction failed on-chain',
+        signature,
+        details: confirmation.value.err,
+      }, { status: 400 });
     }
-
+    
+    console.log(`✅ Transaction confirmed: ${signature}`);
+    
+    // Record the trade in database
+    try {
+      await recordTrade({
+        mint: body.mint,
+        type: body.type,
+        wallet: body.wallet,
+        solAmount: body.solAmount,
+        tokenAmount: body.tokenAmount,
+        signature,
+        timestamp: new Date(),
+      });
+    } catch (dbError) {
+      console.error('Warning: Failed to record trade in database:', dbError);
+      // Don't fail the request - trade succeeded on-chain
+    }
+    
+    // Get transaction details for response
+    const txDetails = await connection.getTransaction(signature, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
+    });
+    
     return NextResponse.json({
       success: true,
-      signature: result.signature,
-      trade: {
-        id: dbResult.trade.id,
-        type: body.type,
-        solAmount: dbResult.trade.sol_amount,
-        tokenAmount: dbResult.trade.token_amount,
-        price: dbResult.trade.price_sol,
-      },
-      newPrice: dbResult.token.price_sol,
-      fees: {
-        total: dbResult.fees.protocol + dbResult.fees.creator,
-        protocol: dbResult.fees.protocol,
-        creator: dbResult.fees.creator,
-      },
+      signature,
+      explorer: `https://explorer.solana.com/tx/${signature}?cluster=${
+        process.env.SOLANA_NETWORK || 'devnet'
+      }`,
+      slot: confirmation.context?.slot,
+      blockTime: txDetails?.blockTime,
     });
-
+    
   } catch (error) {
     console.error('Error executing trade:', error);
-    
-    // Try to provide more specific error
-    const errorMessage = error instanceof Error ? error.message : 'Failed to execute trade';
-    
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'Failed to execute trade: ' + (error as Error).message },
       { status: 500 }
     );
   }

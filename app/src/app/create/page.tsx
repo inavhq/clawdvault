@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { CreateTokenRequest, CreateTokenResponse } from '@/lib/types';
 import Header from '@/components/Header';
@@ -8,7 +8,8 @@ import Footer from '@/components/Footer';
 import { useWallet } from '@/contexts/WalletContext';
 
 export default function CreatePage() {
-  const { connected, publicKey, connect } = useWallet();
+  const { connected, publicKey, connect, signTransaction } = useWallet();
+  const [anchorAvailable, setAnchorAvailable] = useState<boolean | null>(null);
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [description, setDescription] = useState('');
@@ -24,6 +25,20 @@ export default function CreatePage() {
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if Anchor program is available on network
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        const res = await fetch('/api/network');
+        const data = await res.json();
+        setAnchorAvailable(data.anchorProgram === true && data.mockMode === false);
+      } catch {
+        setAnchorAvailable(false);
+      }
+    };
+    checkNetwork();
+  }, []);
 
   const handleFileUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -113,6 +128,79 @@ export default function CreatePage() {
     setResult(null);
 
     try {
+      // If Anchor program is available, use non-custodial flow
+      if (anchorAvailable && publicKey) {
+        console.log('🔗 Using on-chain Anchor flow');
+        
+        // Step 1: Prepare unsigned transaction
+        const prepareRes = await fetch('/api/token/prepare-create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creator: publicKey,
+            name,
+            symbol,
+            uri: image || '',
+          }),
+        });
+        
+        const prepareData = await prepareRes.json();
+        
+        if (!prepareData.success) {
+          setError(prepareData.error || 'Failed to prepare transaction');
+          return;
+        }
+        
+        console.log('📝 Transaction prepared, mint:', prepareData.mint);
+        
+        // Step 2: Sign transaction with wallet
+        const signedTx = await signTransaction(prepareData.transaction);
+        
+        if (!signedTx) {
+          setError('Transaction signing cancelled or failed');
+          return;
+        }
+        
+        console.log('✍️ Transaction signed, submitting...');
+        
+        // Step 3: Execute signed transaction
+        const executeRes = await fetch('/api/token/execute-create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            signedTransaction: signedTx,
+            mint: prepareData.mint,
+            creator: publicKey,
+            name,
+            symbol,
+            description: description || undefined,
+            image: image || undefined,
+            twitter: twitter || undefined,
+            telegram: telegram || undefined,
+            website: website || undefined,
+          }),
+        });
+        
+        const executeData = await executeRes.json();
+        
+        if (executeData.success) {
+          setResult({
+            success: true,
+            token: executeData.token,
+            mint: executeData.mint,
+            signature: executeData.signature,
+            onChain: true,
+          });
+        } else {
+          setError(executeData.error || 'Failed to create token');
+        }
+        
+        return;
+      }
+      
+      // Fallback: use old custodial/mock flow
+      console.log('📦 Using mock/custodial flow');
+      
       const body: CreateTokenRequest = {
         name,
         symbol,
@@ -144,7 +232,8 @@ export default function CreatePage() {
         setError(data.error || 'Failed to create token');
       }
     } catch (err) {
-      setError('Network error');
+      console.error('Create error:', err);
+      setError('Network error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -392,6 +481,11 @@ export default function CreatePage() {
                 <p className="text-gray-500 text-sm mb-3">
                   Buy tokens with SOL when your token launches. You'll be the first holder!
                 </p>
+                {anchorAvailable && (
+                  <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-3 mb-3 text-yellow-400 text-sm">
+                    ⚠️ Initial buy coming soon for on-chain mode. For now, buy after creating.
+                  </div>
+                )}
                 <div className="flex gap-2 mb-3">
                   {['0', '0.1', '0.5', '1', '2', '5'].map((amount) => (
                     <button
@@ -438,6 +532,22 @@ export default function CreatePage() {
                   <li>• 1% fee on all trades</li>
                   <li>• Graduates to Raydium at ~$69K market cap</li>
                 </ul>
+                {/* Network mode indicator */}
+                <div className="mt-3 pt-3 border-t border-gray-700 flex items-center gap-2">
+                  {anchorAvailable === null ? (
+                    <span className="text-gray-500">Checking network...</span>
+                  ) : anchorAvailable ? (
+                    <>
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      <span className="text-green-400">Solana Devnet (On-chain)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                      <span className="text-yellow-400">Mock Mode (Testing)</span>
+                    </>
+                  )}
+                </div>
               </div>
 
               {connected ? (

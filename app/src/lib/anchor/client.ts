@@ -19,9 +19,8 @@ import {
   getAssociatedTokenAddress,
 } from '@solana/spl-token';
 
-// Program ID - UPDATE AFTER DEPLOYMENT
-// Placeholder until real program deployed (use anchor build keypair after deploy)
-export const PROGRAM_ID = new PublicKey('GMdG56oR3Qpc8NT6TwAtwdwNggxRADn6VAYbotLF1aM');
+// Program ID - DEPLOYED TO DEVNET 2026-02-02
+export const PROGRAM_ID = new PublicKey('GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM');
 
 // Seeds
 const CONFIG_SEED = Buffer.from('config');
@@ -198,6 +197,100 @@ export class ClawdVaultClient {
   
   constructor(connection: Connection) {
     this.connection = connection;
+  }
+  
+  /**
+   * Build a create token transaction
+   * 
+   * The mint keypair must be generated client-side and signed by the user
+   * Anchor discriminator for "create_token": sha256("global:create_token")[0..8]
+   */
+  async buildCreateTokenTransaction(
+    creator: PublicKey,
+    mintKeypair: { publicKey: PublicKey },
+    name: string,
+    symbol: string,
+    uri: string
+  ): Promise<Transaction> {
+    const [configPDA] = findConfigPDA();
+    const [curvePDA] = findBondingCurvePDA(mintKeypair.publicKey);
+    const [solVaultPDA] = findSolVaultPDA(mintKeypair.publicKey);
+    const tokenVault = await findTokenVaultAddress(mintKeypair.publicKey, curvePDA);
+    
+    // Anchor discriminator for "create_token" = first 8 bytes of sha256("global:create_token")
+    const discriminator = Buffer.from([84, 52, 204, 228, 24, 140, 234, 75]);
+    
+    // Encode strings with length prefix (Borsh format)
+    const nameBytes = Buffer.from(name);
+    const symbolBytes = Buffer.from(symbol);
+    const uriBytes = Buffer.from(uri);
+    
+    const data = Buffer.concat([
+      discriminator,
+      Buffer.from([nameBytes.length, 0, 0, 0]), // u32 length
+      nameBytes,
+      Buffer.from([symbolBytes.length, 0, 0, 0]), // u32 length
+      symbolBytes,
+      Buffer.from([uriBytes.length, 0, 0, 0]), // u32 length
+      uriBytes,
+    ]);
+    
+    // Calculate rent for mint account
+    const mintRent = await this.connection.getMinimumBalanceForRentExemption(82); // Mint size
+    
+    // Create mint account instruction
+    const createMintIx = SystemProgram.createAccount({
+      fromPubkey: creator,
+      newAccountPubkey: mintKeypair.publicKey,
+      space: 82, // Mint account size
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID,
+    });
+    
+    // Initialize mint instruction (bonding curve PDA is mint authority)
+    const initMintData = Buffer.alloc(67);
+    initMintData.writeUInt8(0, 0); // InitializeMint instruction
+    initMintData.writeUInt8(6, 1); // decimals
+    curvePDA.toBuffer().copy(initMintData, 2); // mint authority
+    initMintData.writeUInt8(1, 34); // has freeze authority
+    curvePDA.toBuffer().copy(initMintData, 35); // freeze authority
+    
+    const initMintIx = new TransactionInstruction({
+      programId: TOKEN_PROGRAM_ID,
+      keys: [
+        { pubkey: mintKeypair.publicKey, isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false },
+      ],
+      data: initMintData,
+    });
+    
+    // Create token instruction
+    const createTokenIx = new TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: creator, isSigner: true, isWritable: true },
+        { pubkey: configPDA, isSigner: false, isWritable: true },
+        { pubkey: mintKeypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: curvePDA, isSigner: false, isWritable: true },
+        { pubkey: solVaultPDA, isSigner: false, isWritable: true },
+        { pubkey: tokenVault, isSigner: false, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: new PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+    
+    const tx = new Transaction()
+      .add(createMintIx)
+      .add(initMintIx)
+      .add(createTokenIx);
+    
+    tx.feePayer = creator;
+    tx.recentBlockhash = (await this.connection.getLatestBlockhash()).blockhash;
+    
+    return tx;
   }
   
   /**

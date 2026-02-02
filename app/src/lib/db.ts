@@ -478,3 +478,48 @@ export async function registerAgent(wallet: string, name?: string) {
   
   return agent;
 }
+
+// Record a trade from on-chain execution
+export interface RecordTradeParams {
+  mint: string;
+  type: 'buy' | 'sell';
+  wallet: string;
+  solAmount: number;
+  tokenAmount: number;
+  signature?: string;
+  timestamp?: Date;
+}
+
+export async function recordTrade(params: RecordTradeParams) {
+  const token = await db().token.findUnique({
+    where: { mint: params.mint },
+  });
+  
+  if (!token) {
+    throw new Error('Token not found');
+  }
+  
+  const { protocolFee, creatorFee, totalFee } = calculateFees(params.solAmount);
+  
+  const trade = await db().trade.create({
+    data: {
+      tokenId: token.id,
+      tokenMint: params.mint,
+      trader: params.wallet,
+      tradeType: params.type,
+      solAmount: params.solAmount,
+      tokenAmount: params.tokenAmount,
+      priceSol: calculatePrice(
+        Number(token.virtualSolReserves),
+        Number(token.virtualTokenReserves)
+      ),
+      totalFee,
+      protocolFee,
+      creatorFee,
+      signature: params.signature,
+      createdAt: params.timestamp || new Date(),
+    },
+  });
+  
+  return trade;
+}

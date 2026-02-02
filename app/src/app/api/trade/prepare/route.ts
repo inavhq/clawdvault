@@ -1,13 +1,31 @@
 import { NextResponse } from 'next/server';
 import { getToken } from '@/lib/db';
-import { 
-  createBuyTransaction, 
-  createSellTransaction, 
-  isMockMode,
-  getPlatformWalletPubkey 
-} from '@/lib/solana';
+import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import ClawdVaultClient, { 
+  findConfigPDA, 
+  findBondingCurvePDA,
+  calculateBuyTokensOut,
+  calculateSellSolOut,
+  PROTOCOL_FEE_BPS,
+  CREATOR_FEE_BPS,
+  BPS_DENOMINATOR,
+} from '@/lib/anchor/client';
 
 export const dynamic = 'force-dynamic';
+
+// Config PDA - protocol fee recipient
+const [configPDA] = findConfigPDA();
+
+// Fee recipient (protocol wallet)
+const FEE_RECIPIENT = new PublicKey(
+  process.env.FEE_RECIPIENT || '7b9191rMLP8yZaKYudWiFtFZwtaEYX5Tyy2hZeEKDyWq'
+);
+
+// Get connection based on environment
+function getConnection(): Connection {
+  const rpcUrl = process.env.SOLANA_RPC_URL || clusterApiUrl('devnet');
+  return new Connection(rpcUrl, 'confirmed');
+}
 
 interface PrepareTradeRequest {
   mint: string;
@@ -20,18 +38,11 @@ interface PrepareTradeRequest {
 /**
  * Prepare a trade transaction for the user to sign
  * POST /api/trade/prepare
+ * 
+ * Uses the on-chain Anchor program for non-custodial trading
  */
 export async function POST(request: Request) {
   try {
-    // Check if we're in mock mode
-    if (isMockMode()) {
-      return NextResponse.json({
-        success: false,
-        error: 'On-chain trading not configured. Use /api/trade for mock trades.',
-        mockMode: true,
-      }, { status: 400 });
-    }
-
     const body: PrepareTradeRequest = await request.json();
     
     // Validate
@@ -56,7 +67,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get token
+    // Get token from database
     const token = await getToken(body.mint);
     if (!token) {
       return NextResponse.json(
@@ -72,104 +83,128 @@ export async function POST(request: Request) {
       );
     }
 
-    const slippage = body.slippage || 0.01; // 1% default
+    const connection = getConnection();
+    const client = new ClawdVaultClient(connection);
+    const mintPubkey = new PublicKey(body.mint);
+    const walletPubkey = new PublicKey(body.wallet);
+    const creatorPubkey = new PublicKey(token.creator);
     
-    // Calculate expected output using bonding curve
-    let expectedOutput: number;
-    let priceImpact: number;
+    // Get on-chain bonding curve state
+    const curveState = await client.getBondingCurve(mintPubkey);
+    if (!curveState) {
+      return NextResponse.json(
+        { success: false, error: 'Bonding curve not found on-chain' },
+        { status: 404 }
+      );
+    }
+
+    const slippage = body.slippage || 0.01; // 1% default
     
     if (body.type === 'buy') {
       // Buying: spending SOL, receiving tokens
-      const solAmount = body.amount;
-      const feeAmount = solAmount * 0.01; // 1% fee
-      const solToTrade = solAmount - feeAmount;
+      const solAmountLamports = BigInt(Math.floor(body.amount * 1e9)); // Convert to lamports
       
-      const newVirtualSol = token.virtual_sol_reserves + solToTrade;
-      const invariant = token.virtual_sol_reserves * token.virtual_token_reserves;
-      const newVirtualTokens = invariant / newVirtualSol;
-      expectedOutput = token.virtual_token_reserves - newVirtualTokens;
-      
-      const newPrice = newVirtualSol / newVirtualTokens;
-      priceImpact = ((newPrice - token.price_sol) / token.price_sol) * 100;
+      const { tokensOut, fee, priceImpact } = calculateBuyTokensOut(
+        solAmountLamports,
+        curveState.virtualSolReserves,
+        curveState.virtualTokenReserves
+      );
       
       // Apply slippage to get minimum
-      const minTokensOut = expectedOutput * (1 - slippage);
+      const minTokensOut = (tokensOut * BigInt(Math.floor((1 - slippage) * 10000))) / BigInt(10000);
       
-      const { transaction } = await createBuyTransaction({
-        mint: body.mint,
-        buyer: body.wallet,
-        solAmount: body.amount,
+      // Build transaction using Anchor client
+      const transaction = await client.buildBuyTransaction(
+        walletPubkey,
+        mintPubkey,
+        solAmountLamports,
         minTokensOut,
-        creatorWallet: token.creator,
+        creatorPubkey,
+        FEE_RECIPIENT
+      );
+      
+      // Serialize for user to sign
+      const serialized = transaction.serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
       });
+      
+      const feeNumber = Number(fee) / 1e9;
+      const tokensOutNumber = Number(tokensOut) / 1e6;
+      const minTokensOutNumber = Number(minTokensOut) / 1e6;
       
       return NextResponse.json({
         success: true,
-        transaction,
+        transaction: serialized.toString('base64'),
         type: 'buy',
         input: {
           sol: body.amount,
-          fee: feeAmount,
+          fee: feeNumber,
         },
         output: {
-          tokens: expectedOutput,
-          minTokens: minTokensOut,
+          tokens: tokensOutNumber,
+          minTokens: minTokensOutNumber,
         },
         priceImpact,
         currentPrice: token.price_sol,
-        newPrice: newVirtualSol / newVirtualTokens,
-        platformWallet: getPlatformWalletPubkey(),
+        onChain: true,
       });
       
     } else {
       // Selling: spending tokens, receiving SOL
-      const tokenAmount = body.amount;
+      const tokenAmountUnits = BigInt(Math.floor(body.amount * 1e6)); // Convert to smallest units
       
-      const newVirtualTokens = token.virtual_token_reserves + tokenAmount;
-      const invariant = token.virtual_sol_reserves * token.virtual_token_reserves;
-      const newVirtualSol = invariant / newVirtualTokens;
-      const solBeforeFee = token.virtual_sol_reserves - newVirtualSol;
-      
-      const feeAmount = solBeforeFee * 0.01; // 1% fee
-      expectedOutput = solBeforeFee - feeAmount;
-      
-      const newPrice = newVirtualSol / newVirtualTokens;
-      priceImpact = ((token.price_sol - newPrice) / token.price_sol) * 100;
+      const { solOut, fee, priceImpact } = calculateSellSolOut(
+        tokenAmountUnits,
+        curveState.virtualSolReserves,
+        curveState.virtualTokenReserves
+      );
       
       // Apply slippage
-      const minSolOut = expectedOutput * (1 - slippage);
+      const minSolOut = (solOut * BigInt(Math.floor((1 - slippage) * 10000))) / BigInt(10000);
       
-      const { transaction } = await createSellTransaction({
-        mint: body.mint,
-        seller: body.wallet,
-        tokenAmount: body.amount,
+      // Build transaction using Anchor client
+      const transaction = await client.buildSellTransaction(
+        walletPubkey,
+        mintPubkey,
+        tokenAmountUnits,
         minSolOut,
-        creatorWallet: token.creator,
+        creatorPubkey,
+        FEE_RECIPIENT
+      );
+      
+      // Serialize for user to sign
+      const serialized = transaction.serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
       });
+      
+      const feeNumber = Number(fee) / 1e9;
+      const solOutNumber = Number(solOut) / 1e9;
+      const minSolOutNumber = Number(minSolOut) / 1e9;
       
       return NextResponse.json({
         success: true,
-        transaction,
+        transaction: serialized.toString('base64'),
         type: 'sell',
         input: {
           tokens: body.amount,
         },
         output: {
-          sol: expectedOutput,
-          minSol: minSolOut,
-          fee: feeAmount,
+          sol: solOutNumber,
+          minSol: minSolOutNumber,
+          fee: feeNumber,
         },
         priceImpact,
         currentPrice: token.price_sol,
-        newPrice: newVirtualSol / newVirtualTokens,
-        platformWallet: getPlatformWalletPubkey(),
+        onChain: true,
       });
     }
     
   } catch (error) {
     console.error('Error preparing trade:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to prepare trade' },
+      { success: false, error: 'Failed to prepare trade: ' + (error as Error).message },
       { status: 500 }
     );
   }
