@@ -62,7 +62,7 @@ anchor build --verifiable
 
 ```bash
 solana-verify get-executable-hash target/verifiable/clawdvault.so
-# Output: 1315df554f39f1d22ca8dde321eeb3dcc2237d76e1b8f7fff9d87cdfc8b3d2fb
+# Output: 06a229aa83b0fd4299186d447150f26c6123669ee14c42c9b766cdc1379672e3
 ```
 
 ### Step 3: Deploy the Verifiable Build
@@ -79,23 +79,32 @@ solana program deploy target/verifiable/clawdvault.so \
 
 ### Step 4: Verify Against Repository
 
+**IMPORTANT:** Always specify `--commit-hash` to avoid OtterSec using a cached old commit!
+
 ```bash
-# Local verification
+# Get current commit hash
+COMMIT=$(git rev-parse HEAD)
+
+# Verify with explicit commit hash
 solana-verify verify-from-repo \
   --program-id GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM \
-  --url mainnet-beta \
+  --commit-hash $COMMIT \
+  -u https://api.mainnet-beta.solana.com \
   https://github.com/shadowclawai/clawdvault
 
 # When prompted, upload verification data onchain
 ```
 
-### Step 5: Submit for Remote Verification
+### Step 5: Submit for Remote Verification (Alternative)
+
+If using the remote job API instead:
 
 ```bash
-# Trigger OtterSec API verification
+# Note: remote submit-job may use cached commits. Prefer verify-from-repo with --commit-hash
 solana-verify remote submit-job \
   --program-id GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM \
-  --uploader <PROGRAM_AUTHORITY_PUBKEY>
+  --uploader <PROGRAM_AUTHORITY_PUBKEY> \
+  --url https://api.mainnet-beta.solana.com
 
 # Check status
 solana-verify remote get-job-status \
@@ -122,6 +131,19 @@ If `solana-verify` says the program isn't deployed but `solana program show` wor
 ```bash
 solana-verify get-program-hash GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM \
   --url https://api.mainnet-beta.solana.com
+```
+
+### OtterSec Using Old/Cached Commit
+
+If `remote submit-job` keeps verifying against an old commit:
+1. Make sure all changes are pushed to GitHub
+2. Use `verify-from-repo` with explicit `--commit-hash` instead:
+```bash
+solana-verify verify-from-repo \
+  --program-id GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM \
+  --commit-hash $(git rev-parse HEAD) \
+  -u https://api.mainnet-beta.solana.com \
+  https://github.com/shadowclawai/clawdvault
 ```
 
 ### Hash Mismatch After Deployment
