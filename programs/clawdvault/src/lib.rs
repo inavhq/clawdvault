@@ -628,32 +628,6 @@ pub mod clawdvault {
         
         Ok(())
     }
-
-    /// Force graduate a token (ADMIN ONLY - FOR TESTING)
-    /// TODO: Remove this before production deployment
-    pub fn force_graduate(ctx: Context<ForceGraduate>) -> Result<()> {
-        let curve = &mut ctx.accounts.bonding_curve;
-        
-        require!(!curve.graduated, ClawdVaultError::AlreadyGraduated);
-        
-        msg!("⚠️ ADMIN: Force graduating token (testing only)");
-        msg!("Mint: {}", curve.mint);
-        msg!("Current SOL reserves: {}", curve.real_sol_reserves);
-        
-        // Set graduated flag
-        curve.graduated = true;
-        
-        // Emit graduation event
-        emit!(GraduationEvent {
-            mint: curve.mint,
-            sol_raised: curve.real_sol_reserves,
-            timestamp: Clock::get()?.unix_timestamp,
-        });
-        
-        msg!("✅ Token force graduated!");
-        
-        Ok(())
-    }
 }
 
 // ============================================================================
@@ -1000,32 +974,6 @@ pub struct ReleaseForMigration<'info> {
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-}
-
-/// Force graduate a token (ADMIN ONLY - FOR TESTING)
-/// TODO: Remove before production
-#[derive(Accounts)]
-pub struct ForceGraduate<'info> {
-    /// Protocol authority (only authority can force graduate)
-    #[account(
-        constraint = authority.key() == config.authority @ ClawdVaultError::Unauthorized,
-    )]
-    pub authority: Signer<'info>,
-    
-    /// Protocol config
-    #[account(
-        seeds = [b"config"],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, Config>,
-    
-    /// Bonding curve to graduate
-    #[account(
-        mut,
-        seeds = [CURVE_SEED, bonding_curve.mint.as_ref()],
-        bump = bonding_curve.bump,
-    )]
-    pub bonding_curve: Account<'info, BondingCurve>,
 }
 
 // ============================================================================

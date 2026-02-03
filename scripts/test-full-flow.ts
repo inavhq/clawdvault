@@ -4,8 +4,10 @@
  * Tests:
  * 1. Create token (on-chain + DB)
  * 2. Bonding curve trade (buy)
- * 3. Force graduate token
- * 4. Jupiter trade (on graduated token)
+ * 3. Check graduation status (requires 120 SOL to graduate naturally)
+ * 4. Jupiter trade (only if graduated)
+ * 
+ * NOTE: force_graduate has been removed. Tokens graduate naturally at 120 SOL.
  * 
  * Usage: DEVNET=1 npx tsx scripts/test-full-flow.ts
  */
@@ -203,53 +205,6 @@ async function testBondingCurveTrade(mint: PublicKey) {
   }
 }
 
-async function forceGraduate(mint: PublicKey) {
-  console.log('\n🎓 Force graduating token...');
-  
-  const [configPDA] = PublicKey.findProgramAddressSync([Buffer.from('config')], PROGRAM_ID);
-  const [curvePDA] = PublicKey.findProgramAddressSync([Buffer.from('bonding_curve'), mint.toBuffer()], PROGRAM_ID);
-
-  // Check current state
-  const curveAccount = await connection.getAccountInfo(curvePDA);
-  if (!curveAccount) {
-    console.error('❌ Bonding curve not found');
-    return;
-  }
-  
-  if (curveAccount.data[112] === 1) {
-    console.log('⚠️ Token already graduated');
-    return;
-  }
-
-  // Force graduate
-  const discriminator = Buffer.from([0xa6, 0xf2, 0x26, 0xc6, 0xf6, 0x69, 0x69, 0x8d]);
-  const keys = [
-    { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
-    { pubkey: configPDA, isSigner: false, isWritable: false },
-    { pubkey: curvePDA, isSigner: false, isWritable: true },
-  ];
-  
-  const ix = new TransactionInstruction({ programId: PROGRAM_ID, keys, data: discriminator });
-  const tx = new Transaction().add(ix);
-  tx.feePayer = wallet.publicKey;
-  tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-  const sig = await sendAndConfirmTransaction(connection, tx, [wallet]);
-  console.log('✅ Token force graduated:', sig);
-
-  // Update DB
-  const updateRes = await fetch(`${API_BASE}/api/tokens/${mint.toBase58()}/graduate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  
-  if (updateRes.ok) {
-    console.log('✅ DB updated to graduated');
-  } else {
-    console.log('⚠️ DB update skipped (endpoint may not exist)');
-  }
-}
-
 async function testJupiterTrade(mint: PublicKey) {
   console.log('\n🚀 Testing Jupiter trade on graduated token...');
   
@@ -335,15 +290,29 @@ async function main() {
     // Step 2: Test bonding curve trade
     await testBondingCurveTrade(mint);
 
-    // Step 3: Force graduate
-    await forceGraduate(mint);
-
-    // Step 4: Test Jupiter trade
-    await testJupiterTrade(mint);
+    // Step 3: Check graduation status
+    console.log('\n🎓 Checking graduation status...');
+    const [curvePDA] = PublicKey.findProgramAddressSync([Buffer.from('bonding_curve'), mint.toBuffer()], PROGRAM_ID);
+    const curveAccount = await connection.getAccountInfo(curvePDA);
+    const isGraduated = curveAccount && curveAccount.data[112] === 1;
+    const realSol = curveAccount ? Number(curveAccount.data.readBigUInt64LE(88)) / 1e9 : 0;
+    
+    console.log(`   Real SOL reserves: ${realSol.toFixed(4)} SOL`);
+    console.log(`   Progress to graduation: ${(realSol / 120 * 100).toFixed(2)}%`);
+    
+    if (isGraduated) {
+      console.log('✅ Token is graduated!');
+      // Step 4: Test Jupiter trade
+      await testJupiterTrade(mint);
+    } else {
+      console.log('⚠️ Token not yet graduated (needs 120 SOL)');
+      console.log('   Skipping Jupiter trade test');
+    }
 
     console.log('\n============================');
     console.log('✅ Full flow test complete!');
     console.log('Token:', mint.toBase58());
+    console.log('Graduated:', isGraduated);
 
   } catch (err) {
     console.error('❌ Test failed:', err);

@@ -1,17 +1,20 @@
 /**
  * Test Graduation Flow on Devnet
  * 
- * Prerequisites:
- * 1. Deploy updated program to devnet: anchor deploy --provider.cluster devnet
- * 2. Have a token created (can use existing or create new)
+ * This script tests the release_for_migration flow for tokens that have
+ * naturally graduated (reached 120 SOL threshold).
  * 
- * Usage: npx tsx scripts/test-graduation.ts [mint]
+ * Prerequisites:
+ * 1. Deploy program to devnet
+ * 2. Have a token that has graduated (120 SOL threshold reached)
+ * 
+ * Usage: npx tsx scripts/test-graduation.ts <mint>
  */
 
-import { Connection, PublicKey, Keypair, clusterApiUrl, sendAndConfirmTransaction } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, clusterApiUrl, sendAndConfirmTransaction, Transaction } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount } from '@solana/spl-token';
 import * as fs from 'fs';
-import ClawdVaultClient, { findBondingCurvePDA, findConfigPDA } from '../app/src/lib/anchor/client';
+import ClawdVaultClient, { findBondingCurvePDA, findConfigPDA, PROGRAM_ID } from '../app/src/lib/anchor/client';
 
 const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
 
@@ -29,16 +32,12 @@ async function main() {
     // List existing tokens
     console.log('\nFetching existing bonding curves...\n');
     
-    const PROGRAM_ID = new PublicKey('GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM');
     const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
       filters: [{ dataSize: 123 }],
     });
     
     if (accounts.length === 0) {
-      console.log('No tokens found on devnet. Create one first:');
-      console.log('  1. Go to https://clawdvault.com (with devnet config)');
-      console.log('  2. Create a token');
-      console.log('  3. Run this script with the mint address');
+      console.log('No tokens found on devnet. Create one first on the app.');
       return;
     }
     
@@ -48,7 +47,9 @@ async function main() {
       const mint = new PublicKey(data.slice(40, 72)).toBase58();
       const realSol = Number(data.readBigUInt64LE(88)) / 1e9;
       const graduated = data[112] === 1;
-      console.log(`  ${mint} - ${realSol.toFixed(4)} SOL ${graduated ? '✅ GRADUATED' : ''}`);
+      const migrated = data.length > 113 ? data[113] === 1 : false;
+      const status = migrated ? '🔄 MIGRATED' : graduated ? '✅ GRADUATED' : '';
+      console.log(`  ${mint} - ${realSol.toFixed(4)} SOL ${status}`);
     }
     console.log('\nUsage: npx tsx scripts/test-graduation.ts <mint>');
     return;
@@ -71,78 +72,77 @@ async function main() {
   const graduated = data[112] === 1;
   const migrated = data.length > 113 ? data[113] === 1 : false;
   const realSol = Number(data.readBigUInt64LE(88)) / 1e9;
+  const realTokens = Number(data.readBigUInt64LE(96));
   
   console.log('Current state:');
   console.log('  Graduated:', graduated);
   console.log('  Migrated:', migrated);
   console.log('  SOL reserves:', realSol);
+  console.log('  Token reserves:', realTokens);
   
-  // Step 1: Force graduate if not already
   if (!graduated) {
-    console.log('\n📝 Step 1: Force graduating token...');
-    
-    const forceGradTx = await client.buildForceGraduateTx(authority.publicKey, mint);
-    const sig1 = await sendAndConfirmTransaction(connection, forceGradTx, [authority]);
-    console.log('✅ Force graduated:', sig1);
-    
-    // Verify
-    const updated = await connection.getAccountInfo(curvePDA);
-    if (updated && updated.data[112] === 1) {
-      console.log('✅ Graduation confirmed on-chain!');
-    }
-  } else {
-    console.log('\n✅ Token already graduated, skipping step 1');
+    console.log('\n⚠️ Token not graduated yet!');
+    console.log('   Needs 120 SOL in real_sol_reserves to graduate naturally.');
+    console.log(`   Current: ${realSol.toFixed(4)} SOL (${(realSol / 120 * 100).toFixed(1)}%)`);
+    return;
   }
   
-  // Step 2: Create migration wallet token account
-  console.log('\n📝 Step 2: Ensuring migration token account exists...');
+  if (migrated) {
+    console.log('\n✅ Token already migrated to Raydium!');
+    return;
+  }
   
-  const migrationTokenAccount = await getAssociatedTokenAddress(mint, authority.publicKey);
+  // Token is graduated but not migrated - we can test release_for_migration
+  console.log('\n📝 Testing release_for_migration...');
+  
+  // Step 1: Ensure migration wallet has token account
+  const migrationWallet = authority.publicKey; // Using authority as migration wallet for testing
+  const migrationTokenAccount = await getAssociatedTokenAddress(mint, migrationWallet);
+  
   try {
     await getAccount(connection, migrationTokenAccount);
-    console.log('✅ Token account exists');
+    console.log('✅ Migration token account exists');
   } catch {
-    console.log('Creating token account...');
+    console.log('Creating migration token account...');
     const createAtaIx = createAssociatedTokenAccountInstruction(
       authority.publicKey,
       migrationTokenAccount,
-      authority.publicKey,
+      migrationWallet,
       mint
     );
-    const tx = new (await import('@solana/web3.js')).Transaction().add(createAtaIx);
+    const tx = new Transaction().add(createAtaIx);
     tx.feePayer = authority.publicKey;
     tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
     const sig = await sendAndConfirmTransaction(connection, tx, [authority]);
-    console.log('✅ Created:', sig);
+    console.log('✅ Created ATA:', sig);
   }
   
-  // Step 3: Release assets for migration
-  console.log('\n📝 Step 3: Releasing assets for migration...');
+  // Step 2: Call release_for_migration
+  console.log('\n📝 Calling release_for_migration...');
   
   const releaseTx = await client.buildReleaseForMigrationTx(
     authority.publicKey,
     mint,
-    authority.publicKey // Using same wallet for simplicity
+    migrationWallet
   );
   
-  try {
-    const sig3 = await sendAndConfirmTransaction(connection, releaseTx, [authority]);
-    console.log('✅ Assets released:', sig3);
-  } catch (err: any) {
-    if (err.message?.includes('AlreadyMigrated')) {
-      console.log('⚠️ Token already migrated');
-    } else {
-      throw err;
+  const releaseSig = await sendAndConfirmTransaction(connection, releaseTx, [authority]);
+  console.log('✅ Assets released:', releaseSig);
+  
+  // Verify
+  const finalAccount = await connection.getAccountInfo(curvePDA);
+  if (finalAccount) {
+    const finalData = finalAccount.data;
+    const finalMigrated = finalData.length > 113 ? finalData[113] === 1 : false;
+    console.log('\nFinal state:');
+    console.log('  Migrated:', finalMigrated);
+    
+    if (finalMigrated) {
+      console.log('\n🎉 Migration test successful!');
+      console.log('   SOL and tokens released to migration wallet');
+      console.log('   Ready for Raydium pool creation');
     }
   }
-  
-  // Step 4: Create Raydium pool (optional - requires Raydium SDK)
-  console.log('\n📝 Step 4: Raydium pool creation...');
-  console.log('⚠️ Skipping - run /api/graduate endpoint for full flow with Raydium');
-  
-  console.log('\n✅ Test complete!');
-  console.log('\nTo test full Raydium integration:');
-  console.log(`  curl -X POST http://localhost:3000/api/graduate -H "Content-Type: application/json" -d '{"mint": "${mint.toBase58()}"}'`);
 }
 
 main().catch(console.error);

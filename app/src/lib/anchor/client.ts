@@ -524,37 +524,6 @@ export class ClawdVaultClient {
     
     return tx;
   }
-
-  /**
-   * Build a force_graduate transaction (ADMIN ONLY - FOR TESTING)
-   * Force sets graduated=true without hitting 120 SOL threshold
-   */
-  async buildForceGraduateTx(
-    authority: PublicKey,
-    mint: PublicKey,
-  ): Promise<Transaction> {
-    const [curvePDA] = findBondingCurvePDA(mint);
-    const [configPDA] = findConfigPDA();
-    
-    // force_graduate discriminator (first 8 bytes of sha256("global:force_graduate"))
-    const discriminator = Buffer.from([0xa6, 0xf2, 0x26, 0xc6, 0xf6, 0x69, 0x69, 0x8d]);
-    
-    const instruction = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: authority, isSigner: true, isWritable: false },
-        { pubkey: configPDA, isSigner: false, isWritable: false },
-        { pubkey: curvePDA, isSigner: false, isWritable: true },
-      ],
-      data: discriminator,
-    });
-    
-    const tx = new Transaction().add(instruction);
-    tx.feePayer = authority;
-    tx.recentBlockhash = (await this.connection.getLatestBlockhash()).blockhash;
-    
-    return tx;
-  }
 }
 
 export default ClawdVaultClient;
