@@ -251,3 +251,34 @@ export function subscribeToAllTrades(
   
   return channel;
 }
+
+// Subscribe to candle updates for a specific token
+export function subscribeToCandles(
+  mint: string,
+  onUpdate: () => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  console.log('[Realtime] Subscribing to candles for:', mint);
+  
+  const channel = client
+    .channel(`candles:${mint}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // INSERT or UPDATE
+        schema: 'public',
+        table: 'price_candles',
+        filter: `token_mint=eq.${mint}`
+      },
+      (payload) => {
+        console.log('[Realtime] Candle update:', payload);
+        onUpdate();
+      }
+    )
+    .subscribe((status) => {
+      console.log('[Realtime] Candles subscription status:', status);
+    });
+  
+  return channel;
+}

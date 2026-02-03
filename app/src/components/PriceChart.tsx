@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineData, CandlestickData, ColorType } from 'lightweight-charts';
+import { subscribeToCandles, unsubscribeChannel } from '@/lib/supabase-client';
 
 interface Candle {
   time: number;
@@ -69,14 +70,11 @@ export default function PriceChart({
 
   // Calculate ATH and OHLCV from visible candles
   const { athPrice, athTime, ohlcv } = useMemo(() => {
-    if (candles.length === 0) {
-      return { athPrice: 0, athTime: null, ohlcv: null };
-    }
-    
     // Find ATH from all candles (use 24h candles for broader view)
     const allCandles = candles24h.length > candles.length ? candles24h : candles;
-    let maxPrice = 0;
+    let maxPrice = currentPrice; // Start with current price as baseline
     let maxTime: number | null = null;
+    
     allCandles.forEach(c => {
       if (c.high > maxPrice) {
         maxPrice = c.high;
@@ -85,6 +83,10 @@ export default function PriceChart({
     });
     
     // OHLCV for the visible range (last candle)
+    if (candles.length === 0) {
+      return { athPrice: maxPrice, athTime: maxTime, ohlcv: null };
+    }
+    
     const last = candles[candles.length - 1];
     const totalVolume = candles.reduce((sum, c) => sum + c.volume, 0);
     
@@ -99,50 +101,57 @@ export default function PriceChart({
         volume: totalVolume,
       }
     };
-  }, [candles, candles24h]);
+  }, [candles, candles24h, currentPrice]);
 
   // Calculate ATH progress (how close current price is to ATH)
   const athProgress = athPrice > 0 ? (currentPrice / athPrice) * 100 : 100;
 
-  // Fetch candles for chart display
-  useEffect(() => {
-    const fetchCandles = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/candles?mint=${mint}&interval=${timeInterval}&limit=200`);
-        const data = await res.json();
-        setCandles(data.candles?.length > 0 ? data.candles : []);
-      } catch (err) {
-        console.error('Failed to fetch candles:', err);
-        setCandles([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCandles();
-    const refreshInterval = window.setInterval(fetchCandles, 30000);
-    return () => window.clearInterval(refreshInterval);
+  // Fetch candles function (reusable)
+  const fetchCandles = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/candles?mint=${mint}&interval=${timeInterval}&limit=200`);
+      const data = await res.json();
+      setCandles(data.candles?.length > 0 ? data.candles : []);
+    } catch (err) {
+      console.error('Failed to fetch candles:', err);
+      setCandles([]);
+    }
   }, [mint, timeInterval]);
 
-  // Fetch 24h candles separately for accurate 24h change calculation
-  useEffect(() => {
-    const fetch24hCandles = async () => {
-      try {
-        // Fetch 1h candles for past 24+ hours
-        const res = await fetch(`/api/candles?mint=${mint}&interval=1h&limit=30`);
-        const data = await res.json();
-        setCandles24h(data.candles?.length > 0 ? data.candles : []);
-      } catch (err) {
-        console.error('Failed to fetch 24h candles:', err);
-      }
-    };
-
-    fetch24hCandles();
-    // Refresh 24h data every 5 minutes
-    const refreshInterval = window.setInterval(fetch24hCandles, 5 * 60 * 1000);
-    return () => window.clearInterval(refreshInterval);
+  const fetch24hCandles = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/candles?mint=${mint}&interval=1h&limit=30`);
+      const data = await res.json();
+      setCandles24h(data.candles?.length > 0 ? data.candles : []);
+    } catch (err) {
+      console.error('Failed to fetch 24h candles:', err);
+    }
   }, [mint]);
+
+  // Initial fetch and realtime subscription for candles
+  useEffect(() => {
+    setLoading(true);
+    fetchCandles().finally(() => setLoading(false));
+    fetch24hCandles();
+
+    // Subscribe to realtime candle updates
+    const candleChannel = subscribeToCandles(mint, () => {
+      console.log('[PriceChart] Candle update received, refetching...');
+      fetchCandles();
+      fetch24hCandles();
+    });
+
+    // Also poll every 30s as backup
+    const refreshInterval = window.setInterval(() => {
+      fetchCandles();
+      fetch24hCandles();
+    }, 30000);
+
+    return () => {
+      window.clearInterval(refreshInterval);
+      unsubscribeChannel(candleChannel);
+    };
+  }, [mint, timeInterval, fetchCandles, fetch24hCandles]);
 
   // Create/update chart
   useEffect(() => {
