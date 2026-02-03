@@ -84,6 +84,19 @@ pub mod clawdvault {
         Ok(())
     }
 
+    /// Resize config account (one-time migration for adding migration_operator field)
+    pub fn resize_config(ctx: Context<ResizeConfig>) -> Result<()> {
+        let config = &mut ctx.accounts.config;
+        
+        // Set migration_operator to authority as default
+        config.migration_operator = config.authority;
+        
+        msg!("Config resized!");
+        msg!("Migration operator set to authority: {}", config.authority);
+        
+        Ok(())
+    }
+
     /// Set migration operator (authority only)
     pub fn set_migration_operator(ctx: Context<SetMigrationOperator>, new_operator: Pubkey) -> Result<()> {
         let config = &mut ctx.accounts.config;
@@ -751,6 +764,31 @@ pub struct TransferAuthority<'info> {
         bump = config.bump,
     )]
     pub config: Account<'info, Config>,
+}
+
+#[derive(Accounts)]
+/// Resize config account (one-time migration)
+#[derive(Accounts)]
+pub struct ResizeConfig<'info> {
+    /// Authority pays for reallocation
+    #[account(
+        mut,
+        constraint = authority.key() == config.authority @ ClawdVaultError::Unauthorized,
+    )]
+    pub authority: Signer<'info>,
+    
+    /// Protocol config to resize
+    #[account(
+        mut,
+        seeds = [b"config"],
+        bump = config.bump,
+        realloc = Config::LEN,
+        realloc::payer = authority,
+        realloc::zero = false,
+    )]
+    pub config: Account<'info, Config>,
+    
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
