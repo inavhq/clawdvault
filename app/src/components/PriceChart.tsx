@@ -96,7 +96,7 @@ export default function PriceChart({
     });
     
     // If no candles, use current price as fallback
-    if (maxPrice === 0 && effectivePrice > 0) {
+    if (maxPrice === 0 && currentPrice > 0) {
       maxPrice = currentPrice;
     }
     
