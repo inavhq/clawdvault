@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Connection, clusterApiUrl, Transaction, PublicKey } from '@solana/web3.js';
-import { getToken, recordTrade } from '@/lib/db';
+import { getToken, recordTrade, getTradeBySignature } from '@/lib/db';
 import { PROGRAM_ID } from '@/lib/anchor/client';
 
 export const dynamic = 'force-dynamic';
@@ -159,6 +159,21 @@ export async function POST(request: Request) {
     }
     
     console.log(`✅ Transaction confirmed: ${signature}`);
+    
+    // Check for duplicate submission (prevents recording same trade twice)
+    const isDuplicate = await getTradeBySignature(signature);
+    if (isDuplicate) {
+      console.log(`⚠️ Duplicate trade submission detected: ${signature}`);
+      return NextResponse.json({
+        success: true,
+        signature,
+        explorer: `https://explorer.solana.com/tx/${signature}?cluster=${
+          process.env.SOLANA_NETWORK || 'devnet'
+        }`,
+        duplicate: true,
+        message: 'Trade already recorded',
+      });
+    }
     
     // Get transaction details including logs
     const txDetails = await connection.getTransaction(signature, {

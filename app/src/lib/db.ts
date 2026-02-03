@@ -176,6 +176,15 @@ export async function getTokenTrades(mint: string, limit = 50): Promise<Trade[]>
   }));
 }
 
+// Check if trade with signature already exists (duplicate prevention)
+export async function getTradeBySignature(signature: string): Promise<boolean> {
+  const trade = await db().trade.findUnique({
+    where: { signature },
+    select: { id: true },
+  });
+  return trade !== null;
+}
+
 // Create token
 export async function createToken(data: {
   mint?: string;  // Optional: use this if provided (for on-chain tokens)

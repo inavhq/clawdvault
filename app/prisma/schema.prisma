@@ -70,7 +70,7 @@ model Trade {
   protocolFee Decimal @default(0) @map("protocol_fee") @db.Decimal(20, 9)
   creatorFee  Decimal @default(0) @map("creator_fee") @db.Decimal(20, 9)
   
-  signature String?
+  signature String? @unique  // Unique constraint prevents duplicate trades
   
   createdAt DateTime @default(now()) @map("created_at")
   
