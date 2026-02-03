@@ -761,19 +761,13 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                     <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Your SOL</span>
-                        {solBalance === null ? (
-                          <span className="h-4 w-16 bg-gray-600 rounded animate-pulse" />
-                        ) : (
-                          <span className="text-white font-mono">{solBalance.toFixed(4)}</span>
-                        )}
+                        <span className="text-white font-mono">
+                          {solBalance !== null ? solBalance.toFixed(4) : '--'}
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm mt-1">
                         <span className="text-gray-400">Your ${token.symbol}</span>
-                        {tokenBalanceLoading ? (
-                          <span className="h-4 w-20 bg-gray-600 rounded animate-pulse" />
-                        ) : (
-                          <span className="text-white font-mono">{formatNumber(tokenBalance)}</span>
-                        )}
+                        <span className="text-white font-mono">{formatNumber(tokenBalance)}</span>
                       </div>
                     </div>
                   )}
