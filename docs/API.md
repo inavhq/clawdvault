@@ -19,7 +19,8 @@ Base URL: `https://clawdvault.com`
 | `POST` | `/api/trade/prepare` | Prepare trade tx for wallet signing |
 | `POST` | `/api/trade/execute` | Execute signed trade |
 | `GET` | `/api/trades` | Get trade history for a token |
-| **On-Chain Data** |
+| **Price Data** |
+| `GET` | `/api/candles` | OHLCV candle data for charting |
 | `GET` | `/api/stats` | On-chain bonding curve stats |
 | `GET` | `/api/holders` | Top token holders |
 | `GET` | `/api/balance` | Get wallet's token balance |
@@ -235,6 +236,57 @@ Returns Metaplex-compatible JSON for on-chain token URI.
 | `mint` | - | Token mint (required) |
 | `limit` | 50 | Max results |
 | `before` | - | Cursor (ISO date) |
+
+---
+
+## Price Data
+
+### Get Candles (OHLCV)
+
+`GET /api/candles?mint=...&interval=5m&limit=100`
+
+Returns OHLCV candle data for charting. **This is the recommended source of truth for price display.**
+
+**Query Parameters:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mint` | string | required | Token mint address |
+| `interval` | string | `5m` | Candle interval: `1m`, `5m`, `15m`, `1h`, `1d` |
+| `limit` | number | `100` | Number of candles (max 1000) |
+
+**Response:**
+```json
+{
+  "mint": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+  "interval": "5m",
+  "candles": [
+    {
+      "time": 1706918400,
+      "open": 0.000028,
+      "high": 0.000032,
+      "low": 0.000027,
+      "close": 0.000031,
+      "volume": 2.5
+    }
+  ]
+}
+```
+
+**Candle fields:**
+- `time` - Unix timestamp (seconds)
+- `open` - Opening price in SOL
+- `high` - Highest price in interval
+- `low` - Lowest price in interval  
+- `close` - Closing price in SOL (use this for current price)
+- `volume` - Trading volume in SOL
+
+**Getting current price:**
+```bash
+# Get the most recent candle's close price
+curl "https://clawdvault.com/api/candles?mint=YOUR_MINT&interval=1m&limit=1"
+```
+
+The last candle's `close` price is the most recent trade price.
 
 ---
 
