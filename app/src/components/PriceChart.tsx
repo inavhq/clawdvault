@@ -15,12 +15,15 @@ interface Candle {
 interface PriceChartProps {
   mint: string;
   height?: number;
+  totalSupply?: number; // Default 1B for market cap calculation
 }
 
 type ChartType = 'line' | 'candle';
 type Interval = '1m' | '5m' | '15m' | '1h' | '1d';
 
-export default function PriceChart({ mint, height = 300 }: PriceChartProps) {
+const TOTAL_SUPPLY = 1_000_000_000; // 1 billion tokens
+
+export default function PriceChart({ mint, height = 300, totalSupply = TOTAL_SUPPLY }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Line'> | ISeriesApi<'Candlestick'> | null>(null);
@@ -117,12 +120,13 @@ export default function PriceChart({ mint, height = 300 }: PriceChartProps) {
       });
       
       if (candles.length > 0) {
+        // Convert price to market cap (price * total supply)
         const candleData: CandlestickData[] = candles.map(c => ({
           time: c.time as any,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
+          open: c.open * totalSupply,
+          high: c.high * totalSupply,
+          low: c.low * totalSupply,
+          close: c.close * totalSupply,
         }));
         seriesRef.current.setData(candleData);
       }
@@ -136,9 +140,10 @@ export default function PriceChart({ mint, height = 300 }: PriceChartProps) {
       });
       
       if (candles.length > 0) {
+        // Convert price to market cap (price * total supply)
         const lineData: LineData[] = candles.map(c => ({
           time: c.time as any,
-          value: c.close,
+          value: c.close * totalSupply,
         }));
         seriesRef.current.setData(lineData);
       }
@@ -158,7 +163,7 @@ export default function PriceChart({ mint, height = 300 }: PriceChartProps) {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [candles, chartType, height]);
+  }, [candles, chartType, height, totalSupply]);
 
   // Cleanup chart on unmount
   useEffect(() => {
@@ -196,7 +201,9 @@ export default function PriceChart({ mint, height = 300 }: PriceChartProps) {
     <div className="bg-gray-800/50 rounded-xl p-4">
       {/* Controls */}
       <div className="flex justify-between items-center mb-3">
-        <div className="flex gap-1">
+        <div className="flex items-center gap-3">
+          <span className="text-gray-400 text-sm">📈 Market Cap (SOL)</span>
+          <div className="flex gap-1">
           {(['1m', '5m', '15m', '1h', '1d'] as Interval[]).map((i) => (
             <button
               key={i}
@@ -210,6 +217,7 @@ export default function PriceChart({ mint, height = 300 }: PriceChartProps) {
               {i}
             </button>
           ))}
+          </div>
         </div>
         <div className="flex gap-1">
           <button
