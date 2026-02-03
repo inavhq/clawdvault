@@ -279,14 +279,16 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     // k / (virtual_tokens + max_tokens) = virtual_sol - real_sol
     // virtual_tokens + max_tokens = k / (virtual_sol - real_sol)
     // max_tokens = k / (virtual_sol - real_sol) - virtual_tokens
+    // Calculate max tokens that can be sold given real liquidity
+    // Use 95% of real_sol to leave buffer for precision/rounding
+    const safeRealSol = token.real_sol_reserves * 0.95;
     const k = token.virtual_sol_reserves * token.virtual_token_reserves;
-    const minVirtualSol = token.virtual_sol_reserves - token.real_sol_reserves;
-    if (minVirtualSol <= 0) return tokenBalance; // All liquidity available
-    const maxVirtualTokens = k / minVirtualSol;
+    const targetVirtualSol = token.virtual_sol_reserves - safeRealSol;
+    if (targetVirtualSol <= 0) return tokenBalance;
+    const maxVirtualTokens = k / targetVirtualSol;
     const maxTokens = maxVirtualTokens - token.virtual_token_reserves;
-    // Account for 1% fee + 2% safety buffer for rounding/precision
-    const maxTokensWithBuffer = maxTokens * 0.97;
-    return Math.min(maxTokensWithBuffer, tokenBalance);
+    // Floor to avoid any fractional overflow
+    return Math.min(Math.floor(maxTokens), tokenBalance);
   }, [token, tokenBalance]);
 
   const handleTrade = async () => {
