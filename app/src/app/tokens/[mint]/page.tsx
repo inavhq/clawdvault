@@ -384,8 +384,9 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   };
 
   const formatPrice = (price: number) => {
-    if (price < 0.000001) return '<0.000001';
-    if (price < 0.001) return price.toFixed(8);
+    if (price < 0.0000000001) return '<0.0000000001';
+    if (price < 0.000001) return price.toFixed(12);
+    if (price < 0.001) return price.toFixed(9);
     return price.toFixed(6);
   };
 
@@ -399,8 +400,11 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const formatUsd = (n: number) => {
     if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
     if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'K';
-    if (n >= 1) return '$' + n.toFixed(0);
-    return '$' + n.toFixed(2);
+    if (n >= 1) return '$' + n.toFixed(2);
+    if (n >= 0.01) return '$' + n.toFixed(4);
+    if (n >= 0.0001) return '$' + n.toFixed(6);
+    if (n >= 0.000001) return '$' + n.toFixed(8);
+    return '$' + n.toFixed(10);
   };
 
   const formatSol = (n: number) => {
