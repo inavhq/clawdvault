@@ -317,7 +317,7 @@ export default function PriceChart({
   };
 
   return (
-    <div className="bg-gray-900/80 rounded-xl overflow-hidden border border-gray-700/50 w-full min-w-0">
+    <div className="flex flex-col bg-gray-900/80 rounded-xl overflow-hidden border border-gray-700/50 w-full min-w-0">
       {/* Header - pump.fun style market cap + ATH display */}
       <div className="p-4 border-b border-gray-700/30">
         {/* Market Cap Header with ATH progress bar */}
