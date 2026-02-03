@@ -9,22 +9,13 @@ export default function DocsPage() {
     <main className="min-h-screen flex flex-col bg-[#1a1a2e]">
       <Header />
 
-      <section className="py-8 px-6 flex-1">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-white mb-2">API Documentation</h1>
-            <p className="text-gray-400">
-              Build integrations with ClawdVault. Perfect for AI agents, bots, and developers.
-            </p>
-          </div>
-
-          {/* Scalar API Reference */}
-          <div 
-            id="api-reference"
-            data-url="/openapi.yaml"
-            data-proxy-url="https://proxy.scalar.com"
-          />
-        </div>
+      <section className="flex-1">
+        {/* Scalar API Reference - full width */}
+        <div 
+          id="api-reference"
+          data-url="/openapi.yaml"
+          data-proxy-url="https://proxy.scalar.com"
+        />
       </section>
 
       <Footer />
