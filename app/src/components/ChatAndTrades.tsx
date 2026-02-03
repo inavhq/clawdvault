@@ -561,7 +561,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <a 
-                        href={`https://explorer.solana.com/address/${trade.trader}?cluster=devnet`}
+                        href={`https://explorer.solana.com/address/${trade.trader}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-cyan-400 font-mono text-sm hover:underline"
@@ -596,7 +596,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                     </span>
                     {trade.signature && (
                       <a
-                        href={`https://explorer.solana.com/tx/${trade.signature}?cluster=devnet`}
+                        href={`https://explorer.solana.com/tx/${trade.signature}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-gray-500 hover:text-cyan-400 transition"
