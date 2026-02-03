@@ -584,9 +584,9 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-4">
             {/* Stats & Bonding - order-1 on mobile (pump.fun style: stats before trade) */}
-            <div className="lg:col-span-2 space-y-6 order-1">
+            <div className="lg:col-span-2 space-y-4 order-1">
               {/* Price & Market Cap */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-gray-800/50 rounded-xl p-4">
@@ -660,7 +660,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
             </div>
 
             {/* Holder Distribution (mobile only) + Chat - order-3 on mobile */}
-            <div className="lg:col-span-2 space-y-6 order-3">
+            <div className="lg:col-span-2 space-y-4 order-3">
               {/* Holder Distribution - mobile only (desktop version is in sidebar) */}
               <div className="bg-gray-800/50 rounded-xl p-5 lg:hidden">
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
@@ -740,7 +740,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
             </div>
 
             {/* Trade Panel - order-2 on mobile (after stats, before holder dist) */}
-            <div className="space-y-6 order-2 lg:order-2 lg:row-span-2">
+            <div className="space-y-4 order-2 lg:order-2 lg:row-span-2">
               {/* Trade Panel */}
               <div className="bg-gray-800/50 rounded-xl p-6 h-fit lg:sticky lg:top-6">
               <h3 className="text-white font-semibold mb-4">Trade</h3>
