@@ -100,17 +100,18 @@ export default function WalletButton() {
         onClick={connect}
         disabled={connecting}
         title="Connect your Phantom wallet to trade tokens"
-        className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 group"
+        className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:opacity-50 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition flex items-center gap-1.5 sm:gap-2 group"
       >
         {connecting ? (
           <>
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Connecting...</span>
+            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="hidden sm:inline">Connecting...</span>
           </>
         ) : (
           <>
-            <PhantomIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span>Connect Wallet</span>
+            <PhantomIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+            <span className="hidden sm:inline">Connect Wallet</span>
+            <span className="sm:hidden">Connect</span>
           </>
         )}
       </button>
@@ -121,16 +122,16 @@ export default function WalletButton() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-2 sm:px-4 py-2 rounded-lg font-medium transition flex items-center gap-1.5 sm:gap-2"
       >
-        <div className="w-2 h-2 bg-green-400 rounded-full" />
-        <span>{username || shortenAddress(publicKey!)}</span>
+        <div className="w-2 h-2 bg-green-400 rounded-full flex-shrink-0" />
+        <span className="truncate max-w-[60px] sm:max-w-none text-sm sm:text-base">{username || shortenAddress(publicKey!)}</span>
         {balance !== null && (
-          <span className="text-gray-400 text-sm">
-            {balance.toFixed(2)} SOL
+          <span className="text-gray-400 text-xs sm:text-sm whitespace-nowrap">
+            {balance.toFixed(2)} <span className="hidden sm:inline">SOL</span>
           </span>
         )}
-        <span className="text-gray-500">▼</span>
+        <span className="text-gray-500 text-xs">▼</span>
       </button>
 
       {showDropdown && (

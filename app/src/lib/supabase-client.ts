@@ -1,0 +1,149 @@
+'use client';
+
+import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+
+// Client-side Supabase client for realtime subscriptions
+let supabaseClient: SupabaseClient | null = null;
+
+export function getSupabaseClient(): SupabaseClient {
+  if (!supabaseClient) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!url || !key) {
+      throw new Error('Supabase URL and Anon Key are required');
+    }
+    
+    supabaseClient = createClient(url, key, {
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
+    });
+  }
+  return supabaseClient;
+}
+
+// Types for realtime payloads
+export interface RealtimeMessage {
+  id: string;
+  token_mint: string;
+  sender: string;
+  message: string;
+  reply_to: string | null;
+  created_at: string;
+}
+
+export interface RealtimeTrade {
+  id: string;
+  token_mint: string;
+  trader: string;
+  trade_type: 'buy' | 'sell';
+  sol_amount: number;
+  token_amount: number;
+  price_sol: number;
+  signature: string | null;
+  created_at: string;
+}
+
+// Subscribe to chat messages for a specific token
+export function subscribeToChatMessages(
+  mint: string,
+  onInsert: (message: RealtimeMessage) => void,
+  onDelete?: (id: string) => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  const channel = client
+    .channel(`chat:${mint}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `token_mint=eq.${mint}`
+      },
+      (payload) => {
+        onInsert(payload.new as RealtimeMessage);
+      }
+    );
+  
+  if (onDelete) {
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `token_mint=eq.${mint}`
+      },
+      (payload) => {
+        onDelete((payload.old as any).id);
+      }
+    );
+  }
+  
+  channel.subscribe();
+  return channel;
+}
+
+// Subscribe to trades for a specific token
+export function subscribeToTrades(
+  mint: string,
+  onInsert: (trade: RealtimeTrade) => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  const channel = client
+    .channel(`trades:${mint}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'trades',
+        filter: `token_mint=eq.${mint}`
+      },
+      (payload) => {
+        onInsert(payload.new as RealtimeTrade);
+      }
+    )
+    .subscribe();
+  
+  return channel;
+}
+
+// Subscribe to reactions for a token's messages
+export function subscribeToReactions(
+  mint: string,
+  onChange: () => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  // Subscribe to both inserts and deletes on reactions
+  const channel = client
+    .channel(`reactions:${mint}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'message_reactions'
+      },
+      () => {
+        // Trigger refetch of messages to get updated reaction counts
+        onChange();
+      }
+    )
+    .subscribe();
+  
+  return channel;
+}
+
+// Unsubscribe from a channel
+export function unsubscribeChannel(channel: RealtimeChannel): void {
+  const client = getSupabaseClient();
+  client.removeChannel(channel);
+}

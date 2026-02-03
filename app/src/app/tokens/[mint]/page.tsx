@@ -506,6 +506,31 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 <p className="text-gray-400 mt-2">{token.description}</p>
               )}
               
+              {/* Mint Address - inline */}
+              <div className="flex items-center gap-2 mt-2 text-sm">
+                <span className="text-gray-500">CA:</span>
+                <a
+                  href={`https://explorer.solana.com/address/${token.mint}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-orange-400 hover:text-orange-300 truncate max-w-[200px] sm:max-w-none"
+                  title={token.mint}
+                >
+                  {token.mint.slice(0, 8)}...{token.mint.slice(-6)}
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(token.mint);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="text-gray-400 hover:text-white transition"
+                  title="Copy mint address"
+                >
+                  {copied ? '✅' : '📋'}
+                </button>
+              </div>
+              
               {/* Social Links */}
               {(token.twitter || token.telegram || token.website) && (
                 <div className="flex items-center gap-3 mt-3">
@@ -548,8 +573,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Stats - order-2 on mobile so trade panel appears first */}
-            <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
+            {/* Stats & Bonding - order-1 on mobile (pump.fun style: stats before trade) */}
+            <div className="lg:col-span-2 space-y-6 order-1">
               {/* Price & Market Cap */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-gray-800/50 rounded-xl p-4">
@@ -620,7 +645,10 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                   🔜 Raydium graduation coming in future contract update
                 </div>
               </div>
+            </div>
 
+            {/* Holder Distribution, Mint, Chat - order-3 on mobile (after trade panel) */}
+            <div className="lg:col-span-2 space-y-6 order-3">
               {/* Holder Distribution */}
               <div className="bg-gray-800/50 rounded-xl p-5">
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
@@ -692,43 +720,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 )}
               </div>
 
-              {/* Mint Address */}
-              <div className="bg-gray-800/50 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-gray-500 text-sm">Mint Address</div>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={`https://explorer.solana.com/address/${token.mint}?cluster=${process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-400 hover:text-cyan-400 text-sm transition"
-                      title="View on Explorer"
-                    >
-                      🔍
-                    </a>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(token.mint);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className="text-gray-400 hover:text-white text-sm flex items-center gap-1 transition"
-                      title="Copy to clipboard"
-                    >
-                      {copied ? '✅ Copied!' : '📋 Copy'}
-                    </button>
-                  </div>
-                </div>
-                <a
-                  href={`https://explorer.solana.com/address/${token.mint}?cluster=${process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-sm text-orange-400 hover:text-orange-300 break-all underline"
-                >
-                  {token.mint}
-                </a>
-              </div>
-
               {/* Token Chat */}
               {/* Chat & Trades */}
               <ChatAndTrades 
@@ -739,8 +730,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
               />
             </div>
 
-            {/* Right Sidebar - order-1 on mobile so trade panel appears first */}
-            <div className="space-y-6 order-1 lg:order-2">
+            {/* Trade Panel - order-2 on mobile (after stats, before holder dist) */}
+            <div className="space-y-6 order-2 lg:order-2 lg:row-span-2">
               {/* Trade Panel */}
               <div className="bg-gray-800/50 rounded-xl p-6 h-fit lg:sticky lg:top-6">
               <h3 className="text-white font-semibold mb-4">Trade</h3>
