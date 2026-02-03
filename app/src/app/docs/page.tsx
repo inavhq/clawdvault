@@ -277,6 +277,166 @@ export default function DocsPage() {
               </div>
             </section>
 
+            {/* Candles (OHLCV) */}
+            <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="bg-blue-900/30 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+                <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">GET</span>
+                <code className="text-white font-mono">/api/candles?mint=...&amp;interval=5m&amp;limit=100</code>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-400 mb-4">Get OHLCV candle data for charting. This is the recommended source of truth for price display.</p>
+                
+                <h4 className="text-white font-medium mb-2">Query Parameters</h4>
+                <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
+                  <li><code className="text-cyan-400">mint</code> — Token mint address (required)</li>
+                  <li><code className="text-cyan-400">interval</code> — Candle interval: 1m, 5m, 15m, 1h, 1d (default: 5m)</li>
+                  <li><code className="text-cyan-400">limit</code> — Number of candles, max 1000 (default: 100)</li>
+                </ul>
+
+                <h4 className="text-white font-medium mb-2">Response</h4>
+                <CodeBlock title="JSON">{`{
+  "mint": "ABC123...",
+  "interval": "5m",
+  "candles": [
+    {
+      "time": 1706918400,
+      "open": 0.000028,
+      "high": 0.000032,
+      "low": 0.000027,
+      "close": 0.000031,
+      "volume": 2.5
+    }
+  ]
+}`}</CodeBlock>
+                <p className="text-gray-500 text-sm mt-2">Use the last candle&apos;s <code className="text-cyan-400">close</code> price for current price display.</p>
+              </div>
+            </section>
+
+            {/* Trade History */}
+            <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="bg-blue-900/30 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+                <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">GET</span>
+                <code className="text-white font-mono">/api/trades?mint=...</code>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-400 mb-4">Get trade history for a token.</p>
+                
+                <h4 className="text-white font-medium mb-2">Query Parameters</h4>
+                <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
+                  <li><code className="text-cyan-400">mint</code> — Token mint address (required)</li>
+                  <li><code className="text-cyan-400">limit</code> — Max results (default: 50)</li>
+                  <li><code className="text-cyan-400">before</code> — Cursor for pagination (ISO date)</li>
+                </ul>
+
+                <h4 className="text-white font-medium mb-2">Response</h4>
+                <CodeBlock title="JSON">{`{
+  "trades": [
+    {
+      "id": "...",
+      "type": "buy",
+      "sol_amount": 0.5,
+      "token_amount": 17857142,
+      "price": 0.000028,
+      "trader": "WalletAddress...",
+      "signature": "5xyz...",
+      "created_at": "2024-02-03T..."
+    }
+  ]
+}`}</CodeBlock>
+              </div>
+            </section>
+
+            {/* On-Chain Stats */}
+            <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="bg-blue-900/30 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+                <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">GET</span>
+                <code className="text-white font-mono">/api/stats?mint=...</code>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-400 mb-4">Get on-chain bonding curve state directly from Solana.</p>
+                
+                <h4 className="text-white font-medium mb-2">Response</h4>
+                <CodeBlock title="JSON">{`{
+  "success": true,
+  "mint": "ABC123...",
+  "onChain": {
+    "totalSupply": 1000000000,
+    "bondingCurveBalance": 900000000,
+    "circulatingSupply": 100000000,
+    "bondingCurveSol": 5.5,
+    "virtualSolReserves": 35.5,
+    "virtualTokenReserves": 900000000,
+    "price": 0.000039,
+    "marketCap": 39,
+    "graduated": false
+  }
+}`}</CodeBlock>
+              </div>
+            </section>
+
+            {/* Graduation Status */}
+            <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="bg-blue-900/30 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+                <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">GET</span>
+                <code className="text-white font-mono">/api/graduate?mint=...</code>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-400 mb-4">Check if a token has graduated to Raydium. Tokens graduate when bonding curve reaches 120 SOL.</p>
+                
+                <h4 className="text-white font-medium mb-2">Response</h4>
+                <CodeBlock title="JSON">{`{
+  "success": true,
+  "data": {
+    "mint": "ABC123...",
+    "graduated": true,
+    "migratedToRaydium": true,
+    "realSolReserves": "120000000000",
+    "realTokenReserves": "200000000000000",
+    "canMigrate": false
+  }
+}`}</CodeBlock>
+              </div>
+            </section>
+
+            {/* Jupiter Trading */}
+            <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="bg-orange-900/30 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
+                <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">POST</span>
+                <code className="text-white font-mono">/api/trade/jupiter</code>
+                <span className="text-orange-400 text-xs">GRADUATED TOKENS</span>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-400 mb-4">Get a Jupiter swap quote and transaction for graduated tokens. After graduation, tokens trade on Raydium via Jupiter aggregator.</p>
+                
+                <h4 className="text-white font-medium mb-2">Request Body</h4>
+                <CodeBlock title="JSON">{`{
+  "mint": "ABC123...",
+  "action": "buy",
+  "amount": "100000000",
+  "userPublicKey": "YourWallet...",
+  "slippageBps": 50
+}`}</CodeBlock>
+                <ul className="text-gray-400 text-sm space-y-1 mb-4 ml-4">
+                  <li><code className="text-cyan-400">amount</code> — Lamports (buy) or token units (sell)</li>
+                  <li><code className="text-cyan-400">slippageBps</code> — Slippage in basis points (50 = 0.5%)</li>
+                </ul>
+
+                <h4 className="text-white font-medium mb-2">Response</h4>
+                <CodeBlock title="JSON">{`{
+  "success": true,
+  "graduated": true,
+  "quote": {
+    "inAmount": "100000000",
+    "outAmount": "35000000000",
+    "priceImpactPct": "0.5"
+  },
+  "transaction": "base64_versioned_tx...",
+  "lastValidBlockHeight": 123456789
+}`}</CodeBlock>
+                <p className="text-gray-500 text-sm mt-2">Jupiter uses VersionedTransactions. Sign and send to <code className="text-cyan-400">/api/trade/jupiter/execute</code>.</p>
+              </div>
+            </section>
+
             {/* SOL Price */}
             <section className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <div className="bg-blue-900/30 border-b border-gray-800 px-4 py-3 flex items-center gap-3">
