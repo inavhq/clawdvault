@@ -39,17 +39,17 @@ export async function GET(request: NextRequest) {
     // Create wallet -> profile map
     const profileMap = new Map(profiles.map(p => [p.wallet, p]));
 
-    // Enrich trades with profile data
+    // Enrich trades with profile data (snake_case to match frontend types)
     const enrichedTrades = trades.map(trade => ({
       id: trade.id,
       type: trade.tradeType.toLowerCase(),
       trader: trade.trader,
       username: profileMap.get(trade.trader)?.username || null,
-      solAmount: Number(trade.solAmount),
-      tokenAmount: Number(trade.tokenAmount),
-      pricePerToken: Number(trade.priceSol),
+      sol_amount: Number(trade.solAmount),
+      token_amount: Number(trade.tokenAmount),
+      price_sol: Number(trade.priceSol),
       signature: trade.signature,
-      executedAt: trade.createdAt.toISOString(),
+      created_at: trade.createdAt.toISOString(),
     }));
 
     return NextResponse.json({
