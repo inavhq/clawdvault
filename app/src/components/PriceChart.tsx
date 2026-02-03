@@ -49,7 +49,7 @@ export default function PriceChart({
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [chartType, setChartType] = useState<ChartType>('line');
+  const [chartType, setChartType] = useState<ChartType>('candle');
   const [timeInterval, setTimeInterval] = useState<Interval>('5m');
 
   // Calculate price change from first open to last close (24h candles preferred)
@@ -203,6 +203,7 @@ export default function PriceChart({
           borderColor: 'rgba(55, 65, 81, 0.5)',
           timeVisible: true,
           secondsVisible: false,
+          barSpacing: 3, // Narrow candles like pump.fun
         },
         rightPriceScale: {
           borderColor: 'rgba(55, 65, 81, 0.5)',
@@ -228,6 +229,10 @@ export default function PriceChart({
         borderDownColor: '#ef4444',
         wickUpColor: '#22c55e',
         wickDownColor: '#ef4444',
+        priceScaleId: 'right',
+      });
+      seriesRef.current.priceScale().applyOptions({
+        scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
       
       if (candles.length > 0) {
@@ -247,6 +252,10 @@ export default function PriceChart({
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
         priceLineVisible: false,
+        priceScaleId: 'right',
+      });
+      seriesRef.current.priceScale().applyOptions({
+        scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
       
       if (candles.length > 0) {
@@ -258,7 +267,23 @@ export default function PriceChart({
       }
     }
 
-    chartRef.current.timeScale().fitContent();
+    // Set visible range based on chart type
+    if (candles.length > 0) {
+      if (chartType === 'candle') {
+        // Candles: narrow bars, first candle in the middle (pump.fun style)
+        const totalBars = Math.max(candles.length * 2, 100);
+        const halfBars = Math.floor(totalBars / 2);
+        chartRef.current.timeScale().setVisibleLogicalRange({
+          from: -halfBars,
+          to: halfBars,
+        });
+      } else {
+        // Line: fill full width
+        chartRef.current.timeScale().fitContent();
+      }
+    } else {
+      chartRef.current.timeScale().fitContent();
+    }
   }, [candles, chartType, height, totalSupply, priceChange24h, solPrice]);
 
   // Separate resize handling effect - only depends on chart existence
@@ -316,10 +341,13 @@ export default function PriceChart({
     return n.toFixed(2) + ' SOL';
   };
 
-  const formatVolume = (n: number) => {
-    if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(2) + 'K';
-    return n.toFixed(2);
+  const formatVolumeUsd = (solAmount: number) => {
+    const usd = solPrice ? solAmount * solPrice : solAmount;
+    const prefix = solPrice ? '$' : '';
+    const suffix = solPrice ? '' : ' SOL';
+    if (usd >= 1000000) return prefix + (usd / 1000000).toFixed(2) + 'M' + suffix;
+    if (usd >= 1000) return prefix + (usd / 1000).toFixed(2) + 'K' + suffix;
+    return prefix + usd.toFixed(2) + suffix;
   };
 
   return (
@@ -390,7 +418,7 @@ export default function PriceChart({
               C<span className="text-green-400 ml-1">{formatMcap((ohlcv.close * totalSupply) * (solPrice || 1))}</span>
             </span>
             <span className="text-gray-500">
-              Vol<span className="text-cyan-400 ml-1">{formatVolume(ohlcv.volume)}</span>
+              Vol<span className="text-cyan-400 ml-1">{formatVolumeUsd(ohlcv.volume)}</span>
             </span>
           </div>
         )}

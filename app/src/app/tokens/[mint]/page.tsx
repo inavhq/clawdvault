@@ -34,6 +34,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     percentage: number;
     label?: string;
   }>>([]);
+  const [holdersLoading, setHoldersLoading] = useState(true);
   const [circulatingSupply, setCirculatingSupply] = useState<number>(0);
   const [onChainStats, setOnChainStats] = useState<{
     marketCap: number;
@@ -69,6 +70,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [connected, publicKey, token, mint]);
 
   const fetchHolders = useCallback(async (creator?: string) => {
+    setHoldersLoading(true);
     try {
       // Use client-side RPC to avoid rate limiting on our server
       const data = await fetchHoldersClient(mint, creator);
@@ -90,6 +92,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       } catch (e) {
         console.warn('Holders API fallback failed');
       }
+    } finally {
+      setHoldersLoading(false);
     }
   }, [mint]);
 
@@ -492,110 +496,114 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
       <section className="py-8 px-6">
         <div className="max-w-6xl mx-auto">
-          {/* Token Header */}
-          <div className="flex items-start gap-6 mb-8">
-            <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center text-4xl flex-shrink-0">
+          {/* Token Header - Compact on desktop */}
+          <div className="flex items-start gap-4 mb-6">
+            <div className="w-14 h-14 lg:w-16 lg:h-16 bg-gray-700 rounded-full flex items-center justify-center text-3xl flex-shrink-0">
               {token.image ? (
                 <img src={token.image} alt="" className="w-full h-full rounded-full object-cover" />
               ) : (
                 '🪙'
               )}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-white">${token.symbol}</h1>
+            <div className="flex-1 min-w-0">
+              {/* Row 1: Symbol, Name, Badge */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl lg:text-3xl font-bold text-white">${token.symbol}</h1>
+                <span className="text-gray-400 text-lg">{token.name}</span>
                 {token.graduated && (
-                  <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm">
+                  <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-xs">
                     🎓 Graduated
                   </span>
                 )}
               </div>
-              <div className="text-gray-400 mb-1">{token.name}</div>
-              <div className="text-gray-500 text-sm">
-                Created by {creatorUsername ? (
-                  <ExplorerLink address={token.creator} label={creatorUsername} />
-                ) : (
-                  <ExplorerLink address={token.creator} />
+              
+              {/* Row 2: Creator, CA, Socials - all inline on desktop */}
+              <div className="flex items-center gap-4 flex-wrap mt-1 text-sm">
+                <span className="text-gray-500">
+                  by {creatorUsername ? (
+                    <ExplorerLink address={token.creator} label={creatorUsername} />
+                  ) : (
+                    <ExplorerLink address={token.creator} />
+                  )}
+                </span>
+                <span className="text-gray-600 hidden sm:inline">•</span>
+                <span className="flex items-center gap-1">
+                  <span className="text-gray-500">CA:</span>
+                  <a
+                    href={`https://explorer.solana.com/address/${token.mint}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-orange-400 hover:text-orange-300"
+                    title={token.mint}
+                  >
+                    {token.mint.slice(0, 6)}...{token.mint.slice(-4)}
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(token.mint);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="text-gray-400 hover:text-white transition"
+                    title="Copy mint address"
+                  >
+                    {copied ? '✅' : '📋'}
+                  </button>
+                </span>
+                {/* Social Links - inline */}
+                {(token.twitter || token.telegram || token.website) && (
+                  <>
+                    <span className="text-gray-600 hidden sm:inline">•</span>
+                    <div className="flex items-center gap-2">
+                      {token.twitter && (
+                        <a
+                          href={token.twitter.startsWith('http') ? token.twitter : `https://twitter.com/${token.twitter.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-white transition"
+                          title="Twitter"
+                        >𝕏</a>
+                      )}
+                      {token.telegram && (
+                        <a
+                          href={token.telegram.startsWith('http') ? token.telegram : `https://t.me/${token.telegram.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-white transition"
+                          title="Telegram"
+                        >✈️</a>
+                      )}
+                      {token.website && (
+                        <a
+                          href={token.website.startsWith('http') ? token.website : `https://${token.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-white transition"
+                          title="Website"
+                        >🌐</a>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
+              
+              {/* Description - only if present, compact */}
               {token.description && (
-                <p className="text-gray-400 mt-2">{token.description}</p>
-              )}
-              
-              {/* Mint Address - inline */}
-              <div className="flex items-center gap-2 mt-2 text-sm">
-                <span className="text-gray-500">CA:</span>
-                <a
-                  href={`https://explorer.solana.com/address/${token.mint}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-orange-400 hover:text-orange-300 truncate max-w-[200px] sm:max-w-none"
-                  title={token.mint}
-                >
-                  {token.mint.slice(0, 8)}...{token.mint.slice(-6)}
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(token.mint);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="text-gray-400 hover:text-white transition"
-                  title="Copy mint address"
-                >
-                  {copied ? '✅' : '📋'}
-                </button>
-              </div>
-              
-              {/* Social Links */}
-              {(token.twitter || token.telegram || token.website) && (
-                <div className="flex items-center gap-3 mt-3">
-                  {token.twitter && (
-                    <a
-                      href={token.twitter.startsWith('http') ? token.twitter : `https://twitter.com/${token.twitter.replace('@', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-2"
-                    >
-                      <span>𝕏</span>
-                      <span>Twitter</span>
-                    </a>
-                  )}
-                  {token.telegram && (
-                    <a
-                      href={token.telegram.startsWith('http') ? token.telegram : `https://t.me/${token.telegram.replace('@', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-2"
-                    >
-                      <span>✈️</span>
-                      <span>Telegram</span>
-                    </a>
-                  )}
-                  {token.website && (
-                    <a
-                      href={token.website.startsWith('http') ? token.website : `https://${token.website}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-2"
-                    >
-                      <span>🌐</span>
-                      <span>Website</span>
-                    </a>
-                  )}
-                </div>
+                <p className="text-gray-500 text-sm mt-1 line-clamp-2">{token.description}</p>
               )}
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4 w-full min-w-0">
-            {/* Stats & Bonding - order-1 on mobile (pump.fun style: stats before trade) */}
-            <div className="lg:col-span-2 flex flex-col gap-4 order-1 min-w-0">
-              {/* Price Chart with market cap + ATH display */}
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 w-full min-w-0">
+            {/* MOBILE ORDER: Chart (1), Bonding (2), Trade (3), Holders (4), Chat (5) */}
+            {/* DESKTOP: Left col (Chart + Chat), Right col (Trade + Bonding + Holders) */}
+            
+            {/* Chart - order-1 mobile, spans 2 cols on desktop */}
+            <div className="order-1 lg:order-none lg:col-span-2 min-w-0">
               <PriceChart 
                 key={chartKey}
                 mint={token.mint} 
-                height={400}
+                height={500}
                 currentPrice={onChainStats?.price ?? token.price_sol}
                 marketCapSol={onChainStats?.marketCap ?? token.market_cap_sol}
                 marketCapUsd={solPrice ? (onChainStats?.marketCap ?? token.market_cap_sol) * solPrice : null}
@@ -603,13 +611,48 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 solPrice={solPrice}
                 holders={holders.length > 0 ? holders.length : (token.holders || 0)}
               />
+            </div>
 
-              {/* Holder Distribution - mobile only (desktop version is in sidebar) */}
-              <div className="bg-gray-800/50 rounded-xl p-5 lg:hidden">
+            {/* Bonding Curve - order-2 mobile, hidden on desktop (shown in sidebar) */}
+            <div className="order-2 lg:hidden bg-gray-800/50 rounded-xl p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-white font-semibold">Bonding Curve Progress</span>
+                <span className="text-orange-400 font-mono font-bold">{progressPercent.toFixed(1)}%</span>
+              </div>
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                <div 
+                  className="h-full bg-orange-400 transition-all duration-500"
+                  style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                />
+              </div>
+              <div className="text-sm">
+                {token.graduated ? (
+                  <span className="text-green-400">Coin has graduated!</span>
+                ) : (
+                  <span className="text-gray-500">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
+                )}
+              </div>
+            </div>
+
+            {/* Holder Distribution - order-5 mobile only (desktop in sidebar) */}
+            <div className="order-5 lg:hidden bg-gray-800/50 rounded-xl p-5">
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
                   <span>👥</span> Holder Distribution
                 </h3>
-                {holders.length === 0 ? (
+                {holdersLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                        <div className="w-8 h-8 rounded-full bg-gray-700" />
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-700 rounded w-24 mb-1" />
+                          <div className="h-3 bg-gray-700 rounded w-16" />
+                        </div>
+                        <div className="h-2 bg-gray-700 rounded w-16" />
+                      </div>
+                    ))}
+                  </div>
+                ) : holders.length === 0 ? (
                   <div className="text-gray-500 text-center py-4 text-sm">No holder data available</div>
                 ) : (
                   <div className="space-y-3">
@@ -674,6 +717,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 )}
               </div>
 
+            {/* Chat - order-4 mobile, spans 2 cols on desktop */}
+            <div className="order-4 lg:order-none lg:col-span-2">
               <ChatAndTrades 
                 mint={token.mint} 
                 tokenSymbol={token.symbol} 
@@ -682,8 +727,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
               />
             </div>
 
-            {/* Trade Panel - order-2 on mobile (after stats, before holder dist) */}
-            <div className="space-y-4 order-2 lg:order-2 lg:row-span-2">
+            {/* Trade Panel - order-3 mobile, in sidebar on desktop (col-3, row-start-1) */}
+            <div className="order-3 lg:order-none lg:row-span-3 lg:row-start-1 lg:col-start-3 space-y-4">
               {/* Trade Panel */}
               <div className="bg-gray-800/50 rounded-xl p-6 h-fit lg:sticky lg:top-6">
               <h3 className="text-white font-semibold mb-4">Trade</h3>
@@ -907,40 +952,23 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                   </div>
               </div>
 
-              {/* Bonding Curve Progress - in sidebar */}
-              <div className="bg-gray-800/50 rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <span>📈</span> Bonding Curve
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">Progress</span>
-                    <span className="text-orange-400 font-mono font-bold">{progressPercent.toFixed(1)}%</span>
-                  </div>
-                  <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-orange-500 via-orange-400 to-green-400 transition-all duration-500"
-                      style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="bg-gray-700/50 rounded-lg p-2">
-                      <div className="text-gray-500 text-xs">Raised</div>
-                      <div className="text-white font-mono">{fundsRaised.toFixed(2)} SOL</div>
-                    </div>
-                    <div className="bg-gray-700/50 rounded-lg p-2">
-                      <div className="text-gray-500 text-xs">Target</div>
-                      <div className="text-gray-400 font-mono">120 SOL</div>
-                    </div>
-                  </div>
+              {/* Bonding Curve Progress - in sidebar (desktop only) */}
+              <div className="hidden lg:block bg-gray-800/50 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-white font-semibold">Bonding Curve Progress</span>
+                  <span className="text-orange-400 font-mono font-bold">{progressPercent.toFixed(1)}%</span>
+                </div>
+                <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
+                  <div 
+                    className="h-full bg-orange-400 transition-all duration-500"
+                    style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                  />
+                </div>
+                <div className="text-sm">
                   {token.graduated ? (
-                    <div className="text-center py-2 bg-green-900/30 rounded-lg border border-green-500/30">
-                      <div className="text-green-400 font-medium text-sm">🎓 Graduated!</div>
-                    </div>
+                    <span className="text-green-400">Coin has graduated!</span>
                   ) : (
-                    <div className="text-gray-500 text-xs text-center">
-                      🚀 Raydium graduation at 120 SOL
-                    </div>
+                    <span className="text-gray-500">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
                   )}
                 </div>
               </div>
@@ -950,7 +978,20 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
                   <span>👥</span> Holder Distribution
                 </h3>
-                {holders.length === 0 ? (
+                {holdersLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                        <div className="w-8 h-8 rounded-full bg-gray-700" />
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-700 rounded w-24 mb-1" />
+                          <div className="h-3 bg-gray-700 rounded w-16" />
+                        </div>
+                        <div className="h-2 bg-gray-700 rounded w-16" />
+                      </div>
+                    ))}
+                  </div>
+                ) : holders.length === 0 ? (
                   <div className="text-gray-500 text-center py-4 text-sm">No holder data available</div>
                 ) : (
                   <div className="space-y-3">
