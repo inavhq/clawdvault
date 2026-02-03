@@ -9,7 +9,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ExplorerLink from '@/components/ExplorerLink';
 import { useWallet } from '@/contexts/WalletContext';
-import { fetchHoldersClient, fetchBalanceClient } from '@/lib/solana-client';
+import { fetchBalanceClient } from '@/lib/solana-client';
 import { subscribeToTokenStats, unsubscribeChannel } from '@/lib/supabase-client';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
@@ -82,26 +82,18 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const fetchHolders = useCallback(async (creator?: string) => {
     setHoldersLoading(true);
     try {
-      // Use client-side RPC to avoid rate limiting on our server
-      const data = await fetchHoldersClient(mint, creator);
-      setHolders(data.holders || []);
-      setCirculatingSupply(data.circulatingSupply || 0);
+      // Use API endpoint (client-side RPC blocked by Solana Labs CORS)
+      const url = creator 
+        ? `/api/holders?mint=${mint}&creator=${creator}`
+        : `/api/holders?mint=${mint}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setHolders(data.holders || []);
+        setCirculatingSupply(data.circulatingSupply || 0);
+      }
     } catch (err) {
       console.warn('Holders fetch failed:', err);
-      // Fallback to API
-      try {
-        const url = creator 
-          ? `/api/holders?mint=${mint}&creator=${creator}`
-          : `/api/holders?mint=${mint}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.success) {
-          setHolders(data.holders || []);
-          setCirculatingSupply(data.circulatingSupply || 0);
-        }
-      } catch (e) {
-        console.warn('Holders API fallback failed');
-      }
     } finally {
       setHoldersLoading(false);
     }

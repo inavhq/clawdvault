@@ -5,9 +5,11 @@
 import { PublicKey } from '@solana/web3.js';
 
 // Public RPC endpoints (client can use these directly)
+// Note: Solana Labs public RPCs block browser requests (CORS/403)
+// Client-side code should use our API endpoints instead
 const RPC_ENDPOINTS = {
   devnet: 'https://api.devnet.solana.com',
-  mainnet: 'https://api.mainnet-beta.solana.com',
+  mainnet: 'https://api.mainnet-beta.solana.com', // May fail client-side due to CORS
 };
 
 // Get RPC URL based on network
