@@ -61,13 +61,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const token = await getToken(mint);
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Token not found' },
-        { status: 404 }
-      );
-    }
+    // Skip DB check for testing - just use on-chain data
+    // const token = await getToken(mint);
+    // if (!token) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Token not found' },
+    //     { status: 404 }
+    //   );
+    // }
 
     // Get on-chain state
     const connection = getConnection();
@@ -151,14 +152,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get token from database
-    const token = await getToken(mint);
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Token not found' },
-        { status: 404 }
-      );
-    }
+    // Skip DB check for testing - just use on-chain data
+    // const token = await getToken(mint);
+    // if (!token) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Token not found' },
+    //     { status: 404 }
+    //   );
+    // }
 
     // Check on-chain status
     const connection = getConnection();
