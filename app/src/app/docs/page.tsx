@@ -77,11 +77,16 @@ export default function DocsPage() {
                 <h4 className="text-white font-medium mb-2">Response</h4>
                 <CodeBlock title="JSON">{`{
   "success": true,
-  "transaction": "base64_unsigned_tx...",
+  "transaction": "base64_partially_signed_tx...",
   "mint": "NewMintAddress...",
-  "mintKeypair": "base64_mint_secret..."
+  "programId": "GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM",
+  "network": "mainnet-beta",
+  "initialBuy": {
+    "sol": 0.5,
+    "estimatedTokens": 17500000
+  }
 }`}</CodeBlock>
-                <p className="text-gray-500 text-sm mt-2">Sign the transaction locally with your wallet + the mintKeypair, then call execute-create.</p>
+                <p className="text-gray-500 text-sm mt-2">Transaction is pre-signed by mint keypair. Sign with your wallet, then call execute-create.</p>
               </div>
             </section>
 
@@ -113,7 +118,13 @@ export default function DocsPage() {
   "success": true,
   "signature": "5xyz...",
   "mint": "NewMintAddress...",
-  "token": { ... }
+  "token": { ... },
+  "initialBuyTrade": {
+    "id": "trade_id...",
+    "solAmount": 0.5,
+    "tokenAmount": 17500000
+  },
+  "explorer": "https://explorer.solana.com/tx/..."
 }`}</CodeBlock>
               </div>
             </section>
@@ -236,7 +247,8 @@ export default function DocsPage() {
   "input": { "sol": 0.5, "fee": 0.005 },
   "output": { "tokens": 17857142, "minTokens": 17678570 },
   "priceImpact": 1.67,
-  "platformWallet": "Platform..."
+  "currentPrice": 0.000028,
+  "onChain": true
 }`}</CodeBlock>
               </div>
             </section>
@@ -249,31 +261,35 @@ export default function DocsPage() {
                 <span className="text-purple-400 text-xs">ON-CHAIN</span>
               </div>
               <div className="p-4">
-                <p className="text-gray-400 mb-4">Execute a signed trade transaction. Call after user signs the transaction from /prepare.</p>
+                <p className="text-gray-400 mb-4">Execute a signed trade transaction. Amounts are verified from on-chain TradeEvent logs (anti-spoof).</p>
                 
                 <h4 className="text-white font-medium mb-2">Request Body</h4>
                 <CodeBlock title="JSON">{`{
+  "signedTransaction": "base64...",
   "mint": "ABC123...",
   "type": "buy",
-  "signedTransaction": "base64...",
-  "wallet": "YourWallet...",
-  "expectedOutput": 17857142,
-  "solAmount": 0.5
+  "wallet": "YourWallet..."
 }`}</CodeBlock>
 
                 <h4 className="text-white font-medium mb-2">Response</h4>
                 <CodeBlock title="JSON">{`{
   "success": true,
   "signature": "5xyz...",
+  "explorer": "https://explorer.solana.com/tx/...",
+  "slot": 123456789,
+  "blockTime": 1706918400,
   "trade": {
-    "id": "...",
+    "id": "db_trade_id...",
+    "mint": "ABC123...",
+    "trader": "YourWallet...",
     "type": "buy",
-    "solAmount": 0.495,
-    "tokenAmount": 17857142
-  },
-  "newPrice": 0.000029,
-  "fees": { "total": 0.005 }
+    "solAmount": 0.5,
+    "tokenAmount": 17857142,
+    "protocolFee": 0.0025,
+    "creatorFee": 0.0025
+  }
 }`}</CodeBlock>
+                <p className="text-gray-500 text-sm mt-2">Trade amounts in response are parsed from on-chain event, not client input.</p>
               </div>
             </section>
 
