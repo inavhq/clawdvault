@@ -68,6 +68,18 @@ export default function PriceChart({
     return ((lastClose - firstOpen) / firstOpen) * 100;
   }, [candles24h, candles]);
 
+  // Calculate current market cap from last candle close
+  const candleMarketCap = useMemo(() => {
+    const candlesToUse = candles.length > 0 ? candles : candles24h;
+    if (candlesToUse.length === 0) return null;
+    
+    const lastClose = candlesToUse[candlesToUse.length - 1].close;
+    const mcapSol = lastClose * totalSupply;
+    const mcapUsd = solPrice ? mcapSol * solPrice : null;
+    
+    return { sol: mcapSol, usd: mcapUsd };
+  }, [candles, candles24h, totalSupply, solPrice]);
+
   // Calculate ATH and OHLCV from visible candles
   const { athPrice, athTime, ohlcv } = useMemo(() => {
     // Find ATH from all candle highs (use 24h candles for broader view)
@@ -294,13 +306,21 @@ export default function PriceChart({
           <div>
             <div className="text-gray-500 text-xs mb-1">Market Cap</div>
             <div className="text-3xl font-bold text-white">
-              {marketCapUsd ? formatMcap(marketCapUsd) : formatMcapSol(marketCapSol)}
+              {candleMarketCap?.usd 
+                ? formatMcap(candleMarketCap.usd) 
+                : candleMarketCap?.sol 
+                  ? formatMcapSol(candleMarketCap.sol)
+                  : marketCapUsd ? formatMcap(marketCapUsd) : formatMcapSol(marketCapSol)}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className={`text-sm font-medium ${priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {priceChange24h >= 0 ? '+' : ''}{marketCapUsd 
-                  ? formatMcap(Math.abs(priceChange24h / 100 * marketCapUsd))
-                  : formatMcapSol(Math.abs(priceChange24h / 100 * marketCapSol))
+                {priceChange24h >= 0 ? '+' : ''}{candleMarketCap?.usd 
+                  ? formatMcap(Math.abs(priceChange24h / 100 * candleMarketCap.usd))
+                  : candleMarketCap?.sol
+                    ? formatMcapSol(Math.abs(priceChange24h / 100 * candleMarketCap.sol))
+                    : marketCapUsd 
+                      ? formatMcap(Math.abs(priceChange24h / 100 * marketCapUsd))
+                      : formatMcapSol(Math.abs(priceChange24h / 100 * marketCapSol))
                 } ({priceChange24h >= 0 ? '+' : ''}{priceChange24h.toFixed(2)}%)
               </span>
               <span className="text-gray-500 text-sm">24hr</span>
