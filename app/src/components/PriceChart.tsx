@@ -123,6 +123,23 @@ export default function PriceChart({
   // Calculate ATH progress (how close current price is to ATH)
   const athProgress = athPrice > 0 ? (currentPrice / athPrice) * 100 : 100;
 
+  // Adjust last candle's close to match on-chain price (source of truth)
+  const displayCandles = useMemo(() => {
+    if (candles.length === 0 || currentPrice <= 0) return candles;
+    
+    // Clone candles and update last one's close to match on-chain price
+    const adjusted = [...candles];
+    const lastIdx = adjusted.length - 1;
+    adjusted[lastIdx] = {
+      ...adjusted[lastIdx],
+      close: currentPrice,
+      // Also adjust high/low if current price exceeds them
+      high: Math.max(adjusted[lastIdx].high, currentPrice),
+      low: Math.min(adjusted[lastIdx].low, currentPrice),
+    };
+    return adjusted;
+  }, [candles, currentPrice]);
+
   // Fetch candles function (reusable)
   const fetchCandles = useCallback(async () => {
     try {
@@ -235,8 +252,8 @@ export default function PriceChart({
         scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
       
-      if (candles.length > 0) {
-        const candleData: CandlestickData[] = candles.map(c => ({
+      if (displayCandles.length > 0) {
+        const candleData: CandlestickData[] = displayCandles.map(c => ({
           time: c.time as any,
           open: c.open * priceMultiplier,
           high: c.high * priceMultiplier,
@@ -258,8 +275,8 @@ export default function PriceChart({
         scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
       
-      if (candles.length > 0) {
-        const lineData: LineData[] = candles.map(c => ({
+      if (displayCandles.length > 0) {
+        const lineData: LineData[] = displayCandles.map(c => ({
           time: c.time as any,
           value: c.close * priceMultiplier,
         }));
@@ -268,7 +285,7 @@ export default function PriceChart({
     }
 
     // Set visible range based on chart type
-    if (candles.length > 0) {
+    if (displayCandles.length > 0) {
       if (chartType === 'candle') {
         // Candles: narrow bars, first candle in the middle (pump.fun style)
         const totalBars = Math.max(candles.length * 2, 100);
