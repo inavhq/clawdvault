@@ -106,19 +106,29 @@ pub mod clawdvault {
         
         drop(data);
         
-        // Realloc to new size (121 bytes)
+        // Calculate rent needed for new size
         let new_size = 8 + 32 + 32 + 32 + 8 + 8 + 1; // 121
-        config_info.realloc(new_size, false)?;
-        
-        // Transfer rent if needed
         let rent = Rent::get()?;
         let new_min_balance = rent.minimum_balance(new_size);
         let current_balance = config_info.lamports();
+        
+        // Transfer rent via CPI if needed (before realloc)
         if current_balance < new_min_balance {
             let diff = new_min_balance - current_balance;
-            **authority_info.try_borrow_mut_lamports()? -= diff;
-            **config_info.try_borrow_mut_lamports()? += diff;
+            system_program::transfer(
+                CpiContext::new(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: authority_info.to_account_info(),
+                        to: config_info.to_account_info(),
+                    },
+                ),
+                diff,
+            )?;
         }
+        
+        // Realloc to new size
+        config_info.realloc(new_size, false)?;
         
         // Write new format with migration_operator = authority
         let mut data = config_info.try_borrow_mut_data()?;
