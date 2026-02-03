@@ -164,10 +164,9 @@ export async function POST(request: Request) {
       const cappedByLiquidity = solOut > curveState.realSolReserves;
       const effectiveSolOut = cappedByLiquidity ? curveState.realSolReserves : solOut;
       
-      // Apply slippage to effective output (use 0 for partial fills to be safe)
-      const minSolOut = cappedByLiquidity 
-        ? BigInt(0) 
-        : (effectiveSolOut * BigInt(Math.floor((1 - slippage) * 10000))) / BigInt(10000);
+      // Apply slippage - use higher tolerance (15%) for partial fills
+      const effectiveSlippage = cappedByLiquidity ? 0.15 : slippage;
+      const minSolOut = (effectiveSolOut * BigInt(Math.floor((1 - effectiveSlippage) * 10000))) / BigInt(10000);
       
       // Build transaction using Anchor client
       const transaction = await client.buildSellTransaction(
