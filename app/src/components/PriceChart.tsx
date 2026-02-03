@@ -51,6 +51,7 @@ export default function PriceChart({
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('candle');
   const [timeInterval, setTimeInterval] = useState<Interval>('5m');
+  const [hasRealtimeUpdate, setHasRealtimeUpdate] = useState(false);
 
   // Calculate price change from first open to last close (24h candles preferred)
   const priceChange24h = useMemo(() => {
@@ -95,7 +96,7 @@ export default function PriceChart({
     });
     
     // If no candles, use current price as fallback
-    if (maxPrice === 0 && currentPrice > 0) {
+    if (maxPrice === 0 && effectivePrice > 0) {
       maxPrice = currentPrice;
     }
     
@@ -120,8 +121,16 @@ export default function PriceChart({
     };
   }, [candles, candles24h, currentPrice]);
 
+  // Effective price: use candle close after realtime update, otherwise on-chain
+  const effectivePrice = useMemo(() => {
+    if (hasRealtimeUpdate && candles.length > 0) {
+      return candles[candles.length - 1].close;
+    }
+    return currentPrice;
+  }, [hasRealtimeUpdate, candles, currentPrice]);
+
   // Calculate ATH progress (how close current price is to ATH)
-  const athProgress = athPrice > 0 ? (currentPrice / athPrice) * 100 : 100;
+  const athProgress = athPrice > 0 ? (effectivePrice / athPrice) * 100 : 100;
 
   // Fetch candles function (reusable)
   const fetchCandles = useCallback(async () => {
@@ -154,6 +163,7 @@ export default function PriceChart({
     // Subscribe to realtime candle updates
     const candleChannel = subscribeToCandles(mint, () => {
       console.log('[PriceChart] Candle update received, refetching...');
+      setHasRealtimeUpdate(true);
       fetchCandles();
       fetch24hCandles();
     });
@@ -358,7 +368,7 @@ export default function PriceChart({
         <div className="flex items-start justify-between mb-2">
           <div>
             <div className="text-gray-500 text-xs mb-1">Market Cap</div>
-            {currentPrice > 0 ? (
+            {effectivePrice > 0 ? (
               <>
                 <div className="text-3xl font-bold text-white">
                   {candleMarketCap?.usd 
@@ -392,7 +402,7 @@ export default function PriceChart({
           {/* ATH Display */}
           <div className="text-right">
             <div className="text-gray-500 text-xs mb-1">ATH</div>
-            {currentPrice > 0 ? (
+            {effectivePrice > 0 ? (
               <div className="text-green-400 font-bold text-xl">
                 {marketCapUsd && athPrice > 0
                   ? formatMcap(athPrice * totalSupply * (solPrice || 0))
@@ -408,7 +418,7 @@ export default function PriceChart({
         {/* ATH Progress Bar - full width like pump.fun */}
         <div className="mb-4">
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            {currentPrice > 0 ? (
+            {effectivePrice > 0 ? (
               <div 
                 className={`h-full rounded-full transition-all ${athProgress >= 95 ? 'bg-green-500' : 'bg-gradient-to-r from-gray-600 to-green-500'}`}
                 style={{ width: `${Math.min(athProgress, 100)}%` }}
