@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { findBondingCurvePDA, PROGRAM_ID } from '@/lib/anchor/client';
 import { updateToken } from '@/lib/db';
+import { db } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,17 @@ export async function POST(request: Request) {
     });
     
     const newPrice = virtualSolReserves / virtualTokenReserves;
+    
+    // Also fix candles - update all candles for this token to use correct price
+    const candlesFixed = await db().priceCandle.updateMany({
+      where: { tokenMint: mint },
+      data: {
+        close: newPrice,
+        // Set high to max of current high and new price
+      },
+    });
+    
+    console.log(`📊 Fixed ${candlesFixed.count} candles`);
     
     return NextResponse.json({
       success: true,
