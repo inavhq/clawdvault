@@ -323,7 +323,7 @@ export default function PriceChart({
   };
 
   return (
-    <div className="flex flex-col bg-gray-900/80 rounded-xl overflow-hidden border border-gray-700/50 w-full min-w-0">
+    <div className="flex flex-col bg-gray-900/80 rounded-xl overflow-hidden border border-gray-700/50 min-w-0">
       {/* Header - pump.fun style market cap + ATH display */}
       <div className="p-4 border-b border-gray-700/30">
         {/* Market Cap Header with ATH progress bar */}
@@ -449,7 +449,7 @@ export default function PriceChart({
           <span className="text-xs text-gray-600 mt-1">Chart appears after first trade</span>
         </div>
       ) : (
-        <div ref={chartContainerRef} className="dark-scrollbar w-full overflow-hidden" />
+            <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
       )}
     </div>
   );

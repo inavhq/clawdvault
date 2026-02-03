@@ -588,9 +588,9 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4">
+          <div className="grid lg:grid-cols-3 gap-4 w-full min-w-0">
             {/* Stats & Bonding - order-1 on mobile (pump.fun style: stats before trade) */}
-            <div className="lg:col-span-2 space-y-4 order-1">
+            <div className="lg:col-span-2 flex flex-col gap-4 order-1 min-w-0">
               {/* Price Chart with market cap + ATH display */}
               <PriceChart 
                 key={chartKey}
