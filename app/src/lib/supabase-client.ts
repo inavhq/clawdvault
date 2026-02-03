@@ -10,6 +10,8 @@ export function getSupabaseClient(): SupabaseClient {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
+    console.log('[Supabase] Initializing client with URL:', url);
+    
     if (!url || !key) {
       throw new Error('Supabase URL and Anon Key are required');
     }
@@ -149,6 +151,8 @@ export function subscribeToTokenStats(
 ): RealtimeChannel {
   const client = getSupabaseClient();
   
+  console.log('[Realtime] Subscribing to token stats for:', mint);
+  
   const channel = client
     .channel(`token:${mint}`)
     .on(
@@ -160,10 +164,13 @@ export function subscribeToTokenStats(
         filter: `mint=eq.${mint}`
       },
       (payload) => {
+        console.log('[Realtime] Token update received:', payload);
         onUpdate(payload.new);
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log('[Realtime] Subscription status:', status);
+    });
   
   return channel;
 }

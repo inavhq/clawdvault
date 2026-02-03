@@ -443,23 +443,10 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     };
   }, [solPrice]);
 
-  // Calculate graduation progress dynamically from trades
+  // Calculate graduation progress from token's real_sol_reserves (updated via realtime)
   const fundsRaised = useMemo(() => {
-    if (!trades || trades.length === 0) return token?.real_sol_reserves || 0;
-    
-    // Sum SOL from all trades: buys add, sells subtract (after 1% fee)
-    let totalSol = 0;
-    for (const trade of trades) {
-      const solAmount = trade.sol_amount || 0;
-      const netSol = solAmount * 0.99; // After 1% fee
-      if (trade.type === 'buy') {
-        totalSol += netSol;
-      } else {
-        totalSol -= netSol;
-      }
-    }
-    return Math.max(0, totalSol);
-  }, [trades, token?.real_sol_reserves]);
+    return token?.real_sol_reserves || 0;
+  }, [token?.real_sol_reserves]);
 
   const progressPercent = Math.min((fundsRaised / 120) * 100, 100);
 
