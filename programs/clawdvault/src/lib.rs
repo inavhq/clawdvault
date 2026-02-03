@@ -766,7 +766,6 @@ pub struct TransferAuthority<'info> {
     pub config: Account<'info, Config>,
 }
 
-#[derive(Accounts)]
 /// Resize config account (one-time migration)
 #[derive(Accounts)]
 pub struct ResizeConfig<'info> {
