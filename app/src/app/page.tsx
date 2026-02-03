@@ -317,10 +317,10 @@ export default async function Home() {
                     👑
                   </div>
                 )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-2xl font-bold text-white">{data.kingToken.name}</span>
-                    <span className="text-yellow-400">${data.kingToken.symbol}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0 mb-1">
+                    <span className="text-xl sm:text-2xl font-bold text-white">{data.kingToken.name}</span>
+                    <span className="text-yellow-400 text-sm sm:text-base">${data.kingToken.symbol}</span>
                   </div>
                   <p className="text-gray-400 text-sm line-clamp-2">
                     {data.kingToken.description || 'The current king of ClawdVault! 🦀'}
