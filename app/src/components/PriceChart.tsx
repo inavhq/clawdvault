@@ -80,11 +80,12 @@ export default function PriceChart({
     return { sol: mcapSol, usd: mcapUsd };
   }, [candles, candles24h, totalSupply, solPrice]);
 
-  // Calculate ATH and OHLCV from visible candles
-  const { athPrice, athTime, ohlcv } = useMemo(() => {
-    // Find ATH from all candle highs (use 24h candles for broader view)
+  // Calculate ATH, ATL, and OHLCV from visible candles
+  const { athPrice, athTime, atlPrice, ohlcv } = useMemo(() => {
+    // Find ATH/ATL from all candle highs/lows (use 24h candles for broader view)
     const allCandles = candles24h.length > candles.length ? candles24h : candles;
     let maxPrice = 0;
+    let minPrice = Infinity;
     let maxTime: number | null = null;
     
     allCandles.forEach(c => {
@@ -92,16 +93,23 @@ export default function PriceChart({
         maxPrice = c.high;
         maxTime = c.time;
       }
+      if (c.low < minPrice && c.low > 0) {
+        minPrice = c.low;
+      }
     });
     
     // If no candles, use current price as fallback
     if (maxPrice === 0 && currentPrice > 0) {
       maxPrice = currentPrice;
+      minPrice = currentPrice;
+    }
+    if (minPrice === Infinity) {
+      minPrice = 0;
     }
     
     // OHLCV for the visible range (last candle)
     if (candles.length === 0) {
-      return { athPrice: maxPrice, athTime: maxTime, ohlcv: null };
+      return { athPrice: maxPrice, athTime: maxTime, atlPrice: minPrice, ohlcv: null };
     }
     
     const last = candles[candles.length - 1];
@@ -110,6 +118,7 @@ export default function PriceChart({
     return {
       athPrice: maxPrice,
       athTime: maxTime,
+      atlPrice: minPrice,
       ohlcv: {
         open: last.open,
         high: last.high,
@@ -120,8 +129,13 @@ export default function PriceChart({
     };
   }, [candles, candles24h, currentPrice]);
 
-  // Calculate ATH progress (how close current price is to ATH)
-  const athProgress = athPrice > 0 ? (currentPrice / athPrice) * 100 : 100;
+  // Calculate ATH progress normalized against range (ATL to ATH)
+  // 0% = at the low, 100% = at ATH
+  const athProgress = useMemo(() => {
+    const range = athPrice - atlPrice;
+    if (range <= 0) return 100; // No range = at ATH
+    return ((currentPrice - atlPrice) / range) * 100;
+  }, [currentPrice, athPrice, atlPrice]);
 
   // Fetch candles function (reusable)
   const fetchCandles = useCallback(async () => {
