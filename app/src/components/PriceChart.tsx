@@ -51,7 +51,6 @@ export default function PriceChart({
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('candle');
   const [timeInterval, setTimeInterval] = useState<Interval>('5m');
-  const [hasRealtimeUpdate, setHasRealtimeUpdate] = useState(false);
 
   // Calculate price change from first open to last close (24h candles preferred)
   const priceChange24h = useMemo(() => {
@@ -121,13 +120,13 @@ export default function PriceChart({
     };
   }, [candles, candles24h, currentPrice]);
 
-  // Effective price: use candle close after realtime update, otherwise on-chain
+  // Effective price: just use last candle close (simpler, slippage protects trades)
   const effectivePrice = useMemo(() => {
-    if (hasRealtimeUpdate && candles.length > 0) {
+    if (candles.length > 0) {
       return candles[candles.length - 1].close;
     }
-    return currentPrice;
-  }, [hasRealtimeUpdate, candles, currentPrice]);
+    return 0; // No candles = no price yet
+  }, [candles]);
 
   // Calculate ATH progress (how close current price is to ATH)
   const athProgress = athPrice > 0 ? (effectivePrice / athPrice) * 100 : 100;
@@ -163,7 +162,6 @@ export default function PriceChart({
     // Subscribe to realtime candle updates
     const candleChannel = subscribeToCandles(mint, () => {
       console.log('[PriceChart] Candle update received, refetching...');
-      setHasRealtimeUpdate(true);
       fetchCandles();
       fetch24hCandles();
     });
