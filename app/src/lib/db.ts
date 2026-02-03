@@ -523,6 +523,11 @@ export interface RecordTradeParams {
   tokenAmount: number;
   signature?: string;
   timestamp?: Date;
+  // On-chain reserves from TradeEvent (if available, takes precedence)
+  onChainReserves?: {
+    virtualSolReserves: number;
+    virtualTokenReserves: number;
+  };
 }
 
 export async function recordTrade(params: RecordTradeParams) {
