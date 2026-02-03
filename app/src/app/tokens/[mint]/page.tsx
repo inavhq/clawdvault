@@ -841,16 +841,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
               <div className="bg-gray-800/50 rounded-xl p-6 h-fit lg:sticky lg:top-6">
               <h3 className="text-white font-semibold mb-4">Trade</h3>
 
-              {token.graduated && (
-                <div className="text-center py-4 mb-4 bg-green-900/30 rounded-lg border border-green-500/30">
-                  <div className="text-2xl mb-1">🎓</div>
-                  <div className="text-green-300 font-medium text-sm">Graduated to Raydium!</div>
-                  <div className="text-gray-400 text-xs">
-                    Trading via Jupiter aggregator
-                  </div>
-                </div>
-              )}
-              
               {/* Token Price (on-chain initially, then candles after trades) */}
               <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
                 <div className="flex justify-between text-sm">
