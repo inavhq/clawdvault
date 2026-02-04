@@ -4,7 +4,7 @@
 
 import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PROGRAM_ID } from '@/lib/anchor/client';
-import { getTradeBySignature, recordTrade, getToken, createToken } from '@/lib/db';
+import { getTradeBySignature, recordTrade, getToken } from '@/lib/db';
 
 // Event discriminators (first 8 bytes of sha256("event:EventName"))
 const TRADE_EVENT_DISCRIMINATOR = Buffer.from([189, 219, 127, 211, 78, 230, 97, 238]);
@@ -263,23 +263,13 @@ export async function syncTrades(options: {
             continue;
           }
           
-          // Check if token exists in database
+          // Check if token exists in database (don't auto-create, might interfere with registration)
           const existingToken = await getToken(createEvent.mint);
           
           if (!existingToken) {
-            // Create token in database
-            console.log(`🆕 Creating token from on-chain: ${createEvent.symbol}`);
-            try {
-              await createToken({
-                mint: createEvent.mint,
-                name: createEvent.name,
-                symbol: createEvent.symbol,
-                creator: createEvent.creator,
-                // Fetch metadata URI for image/description later if needed
-              });
-            } catch (createErr) {
-              console.error(`Failed to create token ${createEvent.symbol}:`, createErr);
-            }
+            // Token not in DB - skip (will be created via normal registration flow)
+            console.log(`⏭️ Token ${createEvent.symbol} not in DB, skipping (use registration flow)`);
+            continue;
           }
           
           // Check for initial buy in the same transaction
