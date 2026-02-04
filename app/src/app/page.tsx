@@ -245,15 +245,15 @@ export default async function Home() {
       </Link>
 
       {/* Hero */}
-      <section className="py-16 px-6">
+      <section className="py-12 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="mb-6 relative inline-block">
+          <div className="mb-8 relative inline-block">
             <Image 
-              src="/crab-logo.jpg" 
-              alt="ClawdVault Crab" 
-              width={120} 
-              height={120}
-              className="rounded-full border-4 border-orange-500/50 shadow-[0_0_30px_rgba(249,115,22,0.4)]"
+              src="/hero-lobster.jpg" 
+              alt="ClawdVault Lobster" 
+              width={280} 
+              height={350}
+              className="rounded-2xl border-4 border-orange-500/50 shadow-[0_0_40px_rgba(249,115,22,0.5)]"
             />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
@@ -263,7 +263,7 @@ export default async function Home() {
           </h1>
           <p className="text-lg text-gray-400 mb-6 max-w-2xl mx-auto">
             Create, launch, and trade tokens on the bonding curve. 
-            Built by crabs, for crabs!
+            Built by lobsters, for lobsters!
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link 
