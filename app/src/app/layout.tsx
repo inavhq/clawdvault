@@ -27,7 +27,7 @@ export const metadata: Metadata = {
         url: '/lobster-vault.jpg',
         width: 512,
         height: 512,
-        alt: 'ClawdVault Crab Logo',
+        alt: 'ClawdVault Logo',
       },
     ],
   },

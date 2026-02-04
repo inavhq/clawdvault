@@ -75,7 +75,7 @@ export default function HomeStats({
       </div>
       <div className="bg-gray-800/30 rounded-xl p-4 text-center">
         <div className="text-2xl font-bold text-purple-400">∞</div>
-        <div className="text-gray-500 text-sm">Happy Crabs</div>
+        <div className="text-gray-500 text-sm">Happy Moltys</div>
       </div>
     </div>
   );
