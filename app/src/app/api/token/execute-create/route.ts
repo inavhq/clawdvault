@@ -36,10 +36,7 @@ interface ExecuteCreateRequest {
   telegram?: string;
   website?: string;
   creatorName?: string;
-  initialBuy?: {              // Initial buy info (if any)
-    solAmount: number;
-    estimatedTokens: number;
-  };
+  // NOTE: initialBuy removed - contract now emits TradeEvent, sync-trades catches it
 }
 
 /**

@@ -132,13 +132,7 @@ paths:
                   type: string
                 website:
                   type: string
-                initialBuy:
-                  type: object
-                  properties:
-                    solAmount:
-                      type: number
-                    estimatedTokens:
-                      type: number
+                # NOTE: initialBuy removed - contract emits TradeEvent, sync-trades catches it
       responses:
         '200':
           description: Token created
@@ -155,15 +149,7 @@ paths:
                     type: string
                   token:
                     $ref: '#/components/schemas/Token'
-                  initialBuyTrade:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      solAmount:
-                        type: number
-                      tokenAmount:
-                        type: number
+                  # NOTE: initialBuyTrade removed - sync-trades handles initial buy recording
                   explorer:
                     type: string
                     format: uri
