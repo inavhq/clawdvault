@@ -247,12 +247,12 @@ export default async function Home() {
       {/* Hero */}
       <section className="py-12 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="mb-8 relative inline-block w-[280px] h-[350px]">
+          <div className="mb-6 relative inline-block w-[200px] h-[250px]">
             <Image 
               src="/hero-lobster.jpg" 
               alt="ClawdVault Lobster" 
-              width={280} 
-              height={350}
+              width={200} 
+              height={250}
               className="rounded-2xl border-4 border-orange-500/50 shadow-[0_0_40px_rgba(249,115,22,0.5)]"
               priority
             />
