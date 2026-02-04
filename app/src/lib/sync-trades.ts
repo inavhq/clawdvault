@@ -8,7 +8,7 @@ import { getTradeBySignature, recordTrade, getToken } from '@/lib/db';
 
 // Event discriminators (first 8 bytes of sha256("event:EventName"))
 const TRADE_EVENT_DISCRIMINATOR = Buffer.from([189, 219, 127, 211, 78, 230, 97, 238]);
-const TOKEN_CREATED_DISCRIMINATOR = Buffer.from([207, 22, 127, 139, 234, 213, 184, 97]); // sha256("event:TokenCreatedEvent")
+const TOKEN_CREATED_DISCRIMINATOR = Buffer.from([96, 122, 113, 138, 50, 227, 149, 57]); // sha256("event:TokenCreatedEvent")
 
 interface ParsedTradeEvent {
   mint: string;
