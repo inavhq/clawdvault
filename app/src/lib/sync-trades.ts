@@ -2,12 +2,13 @@
  * Core trade sync logic - shared between API route and cron
  */
 
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PROGRAM_ID } from '@/lib/anchor/client';
-import { getTradeBySignature, recordTrade } from '@/lib/db';
+import { getTradeBySignature, recordTrade, getToken, createToken } from '@/lib/db';
 
-// TradeEvent discriminator (first 8 bytes of sha256("event:TradeEvent"))
+// Event discriminators (first 8 bytes of sha256("event:EventName"))
 const TRADE_EVENT_DISCRIMINATOR = Buffer.from([189, 219, 127, 211, 78, 230, 97, 238]);
+const TOKEN_CREATED_DISCRIMINATOR = Buffer.from([207, 22, 127, 139, 234, 213, 184, 97]); // sha256("event:TokenCreatedEvent")
 
 interface ParsedTradeEvent {
   mint: string;
@@ -19,6 +20,15 @@ interface ParsedTradeEvent {
   creatorFee: bigint;
   virtualSolReserves: bigint;
   virtualTokenReserves: bigint;
+  timestamp: bigint;
+}
+
+interface ParsedTokenCreatedEvent {
+  mint: string;
+  creator: string;
+  name: string;
+  symbol: string;
+  uri: string;
   timestamp: bigint;
 }
 
@@ -101,6 +111,72 @@ function parseTradeEventFromLogs(logs: string[]): ParsedTradeEvent | null {
 }
 
 /**
+ * Parse TokenCreatedEvent from transaction logs
+ */
+function parseTokenCreatedEventFromLogs(logs: string[]): ParsedTokenCreatedEvent | null {
+  for (const log of logs) {
+    if (log.startsWith('Program data: ')) {
+      const base64Data = log.slice('Program data: '.length);
+      try {
+        const data = Buffer.from(base64Data, 'base64');
+        
+        if (data.length >= 8 && data.slice(0, 8).equals(TOKEN_CREATED_DISCRIMINATOR)) {
+          let offset = 8;
+          
+          const mint = new PublicKey(data.slice(offset, offset + 32)).toBase58();
+          offset += 32;
+          
+          const creator = new PublicKey(data.slice(offset, offset + 32)).toBase58();
+          offset += 32;
+          
+          // Read name (4-byte length prefix + string)
+          const nameLen = data.readUInt32LE(offset);
+          offset += 4;
+          const name = data.slice(offset, offset + nameLen).toString('utf8');
+          offset += nameLen;
+          
+          // Read symbol (4-byte length prefix + string)
+          const symbolLen = data.readUInt32LE(offset);
+          offset += 4;
+          const symbol = data.slice(offset, offset + symbolLen).toString('utf8');
+          offset += symbolLen;
+          
+          // Read uri (4-byte length prefix + string)
+          const uriLen = data.readUInt32LE(offset);
+          offset += 4;
+          const uri = data.slice(offset, offset + uriLen).toString('utf8');
+          offset += uriLen;
+          
+          const timestamp = data.readBigInt64LE(offset);
+          
+          return { mint, creator, name, symbol, uri, timestamp };
+        }
+      } catch (e) {
+        // Not our event
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse initial buy from transaction logs (look for the msg! output)
+ */
+function parseInitialBuyFromLogs(logs: string[]): { solAmount: number; tokenAmount: number } | null {
+  for (const log of logs) {
+    // Look for: "🎯 Initial buy: X lamports -> Y tokens"
+    const match = log.match(/Initial buy: (\d+) lamports -> (\d+) tokens/);
+    if (match) {
+      return {
+        solAmount: parseInt(match[1]) / LAMPORTS_PER_SOL,
+        tokenAmount: parseInt(match[2]) / 1_000_000, // 6 decimals
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * Sync trades from on-chain to database
  */
 export async function syncTrades(options: {
@@ -149,35 +225,89 @@ export async function syncTrades(options: {
           continue;
         }
         
-        // Parse TradeEvent
+        // Try to parse TradeEvent first
         const tradeEvent = parseTradeEventFromLogs(tx.meta.logMessages);
-        if (!tradeEvent) {
-          continue; // Not a trade transaction (could be token creation, etc.)
-        }
         
-        // Filter by mint if specified
-        if (mintFilter && tradeEvent.mint !== mintFilter) {
+        if (tradeEvent) {
+          // Filter by mint if specified
+          if (mintFilter && tradeEvent.mint !== mintFilter) {
+            continue;
+          }
+          
+          // Record trade with on-chain reserves for accuracy
+          await recordTrade({
+            mint: tradeEvent.mint,
+            type: tradeEvent.isBuy ? 'buy' : 'sell',
+            wallet: tradeEvent.trader,
+            solAmount: Number(tradeEvent.solAmount) / 1e9,
+            tokenAmount: Number(tradeEvent.tokenAmount) / 1e6,
+            signature: sigInfo.signature,
+            timestamp: new Date(Number(tradeEvent.timestamp) * 1000),
+            onChainReserves: {
+              virtualSolReserves: Number(tradeEvent.virtualSolReserves) / 1e9,
+              virtualTokenReserves: Number(tradeEvent.virtualTokenReserves) / 1e6,
+            },
+          });
+          
+          synced++;
+          syncedTrades.push(sigInfo.signature);
+          console.log(`✅ Synced trade: ${sigInfo.signature.slice(0, 8)}... (${tradeEvent.isBuy ? 'BUY' : 'SELL'})`);
           continue;
         }
         
-        // Record new trade with on-chain reserves for accuracy
-        await recordTrade({
-          mint: tradeEvent.mint,
-          type: tradeEvent.isBuy ? 'buy' : 'sell',
-          wallet: tradeEvent.trader,
-          solAmount: Number(tradeEvent.solAmount) / 1e9,
-          tokenAmount: Number(tradeEvent.tokenAmount) / 1e6,
-          signature: sigInfo.signature,
-          timestamp: new Date(Number(tradeEvent.timestamp) * 1000),
-          onChainReserves: {
-            virtualSolReserves: Number(tradeEvent.virtualSolReserves) / 1e9,
-            virtualTokenReserves: Number(tradeEvent.virtualTokenReserves) / 1e6,
-          },
-        });
-        
-        synced++;
-        syncedTrades.push(sigInfo.signature);
-        console.log(`✅ Synced trade: ${sigInfo.signature.slice(0, 8)}... (${tradeEvent.isBuy ? 'BUY' : 'SELL'})`);
+        // Try to parse TokenCreatedEvent (includes initial buy if any)
+        const createEvent = parseTokenCreatedEventFromLogs(tx.meta.logMessages);
+        if (createEvent) {
+          // Filter by mint if specified
+          if (mintFilter && createEvent.mint !== mintFilter) {
+            continue;
+          }
+          
+          // Check if token exists in database
+          const existingToken = await getToken(createEvent.mint);
+          
+          if (!existingToken) {
+            // Create token in database
+            console.log(`🆕 Creating token from on-chain: ${createEvent.symbol}`);
+            try {
+              await createToken({
+                mint: createEvent.mint,
+                name: createEvent.name,
+                symbol: createEvent.symbol,
+                creator: createEvent.creator,
+                // Fetch metadata URI for image/description later if needed
+              });
+            } catch (createErr) {
+              console.error(`Failed to create token ${createEvent.symbol}:`, createErr);
+            }
+          }
+          
+          // Check for initial buy in the same transaction
+          const initialBuy = parseInitialBuyFromLogs(tx.meta.logMessages);
+          if (initialBuy && initialBuy.solAmount > 0) {
+            console.log(`🎯 Found initial buy: ${initialBuy.solAmount} SOL`);
+            
+            try {
+              await recordTrade({
+                mint: createEvent.mint,
+                type: 'buy',
+                wallet: createEvent.creator,
+                solAmount: initialBuy.solAmount,
+                tokenAmount: initialBuy.tokenAmount,
+                signature: sigInfo.signature,
+                timestamp: new Date(Number(createEvent.timestamp) * 1000),
+              });
+              
+              synced++;
+              syncedTrades.push(sigInfo.signature);
+              console.log(`✅ Synced initial buy: ${sigInfo.signature.slice(0, 8)}...`);
+            } catch (tradeErr) {
+              console.error(`Failed to record initial buy:`, tradeErr);
+            }
+          }
+          
+          continue;
+        }
         
       } catch (err) {
         errors++;
