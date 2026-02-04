@@ -322,7 +322,11 @@ export default function TokensPage() {
                     <div className="text-gray-500 text-sm">MCap</div>
                   </div>
                   <div className="text-right hidden lg:block">
-                    <div className="text-blue-400 font-mono">{formatValue(token.volume_24h || 0)}</div>
+                    <div className="text-blue-400 font-mono">
+                      {token.volume_24h && token.volume_24h > 0.001 
+                        ? formatValue(token.volume_24h) 
+                        : '--'}
+                    </div>
                     <div className="text-gray-500 text-sm">24h Vol</div>
                   </div>
 
