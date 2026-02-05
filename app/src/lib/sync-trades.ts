@@ -5,6 +5,7 @@
 import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PROGRAM_ID } from '@/lib/anchor/client';
 import { getTradeBySignature, recordTrade, getToken } from '@/lib/db';
+import { announceTrade } from '@/lib/moltx';
 
 // Event discriminators (first 8 bytes of sha256("event:EventName"))
 const TRADE_EVENT_DISCRIMINATOR = Buffer.from([189, 219, 127, 211, 78, 230, 97, 238]);
@@ -235,19 +236,40 @@ export async function syncTrades(options: {
           }
           
           // Record trade with on-chain reserves for accuracy
+          const solAmount = Number(tradeEvent.solAmount) / 1e9;
+          const tokenAmount = Number(tradeEvent.tokenAmount) / 1e6;
+          const newVirtualSol = Number(tradeEvent.virtualSolReserves) / 1e9;
+          const newVirtualTokens = Number(tradeEvent.virtualTokenReserves) / 1e6;
+          
           await recordTrade({
             mint: tradeEvent.mint,
             type: tradeEvent.isBuy ? 'buy' : 'sell',
             wallet: tradeEvent.trader,
-            solAmount: Number(tradeEvent.solAmount) / 1e9,
-            tokenAmount: Number(tradeEvent.tokenAmount) / 1e6,
+            solAmount,
+            tokenAmount,
             signature: sigInfo.signature,
             timestamp: new Date(Number(tradeEvent.timestamp) * 1000),
             onChainReserves: {
-              virtualSolReserves: Number(tradeEvent.virtualSolReserves) / 1e9,
-              virtualTokenReserves: Number(tradeEvent.virtualTokenReserves) / 1e6,
+              virtualSolReserves: newVirtualSol,
+              virtualTokenReserves: newVirtualTokens,
             },
           });
+          
+          // Post to Moltx (fire and forget)
+          const token = await getToken(tradeEvent.mint);
+          if (token) {
+            announceTrade({
+              mint: tradeEvent.mint,
+              symbol: token.symbol,
+              name: token.name,
+              type: tradeEvent.isBuy ? 'buy' : 'sell',
+              solAmount,
+              tokenAmount,
+              trader: tradeEvent.trader,
+              newPrice: newVirtualSol / newVirtualTokens,
+              marketCap: (newVirtualSol / newVirtualTokens) * 1_000_000_000,
+            }).catch(err => console.error('[Moltx] Trade announce failed:', err));
+          }
           
           synced++;
           syncedTrades.push(sigInfo.signature);
@@ -287,6 +309,17 @@ export async function syncTrades(options: {
                 signature: sigInfo.signature,
                 timestamp: new Date(Number(createEvent.timestamp) * 1000),
               });
+              
+              // Post initial buy to Moltx
+              announceTrade({
+                mint: createEvent.mint,
+                symbol: existingToken.symbol,
+                name: existingToken.name,
+                type: 'buy',
+                solAmount: initialBuy.solAmount,
+                tokenAmount: initialBuy.tokenAmount,
+                trader: createEvent.creator,
+              }).catch(err => console.error('[Moltx] Initial buy announce failed:', err));
               
               synced++;
               syncedTrades.push(sigInfo.signature);

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getToken } from '@/lib/db';
+import { announceGraduation } from '@/lib/moltx';
 import { 
   Connection, 
   PublicKey, 
@@ -292,6 +293,21 @@ export async function POST(request: Request) {
     } catch (dbError) {
       console.error('⚠️ Database update failed:', dbError);
       // Non-fatal - on-chain is source of truth
+    }
+
+    // Step 5: Announce graduation on Moltx
+    try {
+      const token = await getToken(mint);
+      if (token) {
+        announceGraduation({
+          mint,
+          symbol: token.symbol,
+          name: token.name,
+          raydiumPool: raydiumPool || undefined,
+        }).catch(err => console.error('[Moltx] Graduation announce failed:', err));
+      }
+    } catch (err) {
+      console.error('[Moltx] Failed to get token for graduation announce:', err);
     }
 
     return NextResponse.json({

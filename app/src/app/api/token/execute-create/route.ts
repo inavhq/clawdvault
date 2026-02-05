@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Connection, clusterApiUrl, Transaction } from '@solana/web3.js';
 import { createToken } from '@/lib/db';
 import { db } from '@/lib/prisma';
+import { announceNewToken } from '@/lib/moltx';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,6 +119,16 @@ export async function POST(request: Request) {
         }`,
       });
     }
+    
+    // Announce new token on Moltx (fire and forget)
+    announceNewToken({
+      mint: body.mint,
+      name: body.name,
+      symbol: body.symbol,
+      creator: body.creator,
+      creatorName,
+      image: body.image,
+    }).catch(err => console.error('[Moltx] New token announce failed:', err));
     
     // NOTE: Initial buy trades are now handled by sync-trades via TradeEvent
     // The contract emits TradeEvent for initial buys, so sync-trades catches them automatically
