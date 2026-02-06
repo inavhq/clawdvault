@@ -235,6 +235,13 @@ export async function syncTrades(options: {
             continue;
           }
           
+          // Check if token exists in database
+          const token = await getToken(tradeEvent.mint);
+          if (!token) {
+            console.log(`⏭️ Token ${tradeEvent.mint.slice(0, 8)}... not in DB, skipping trade`);
+            continue;
+          }
+          
           // Record trade with on-chain reserves for accuracy
           const solAmount = Number(tradeEvent.solAmount) / 1e9;
           const tokenAmount = Number(tradeEvent.tokenAmount) / 1e6;
@@ -256,20 +263,17 @@ export async function syncTrades(options: {
           });
           
           // Post to Moltx (fire and forget)
-          const token = await getToken(tradeEvent.mint);
-          if (token) {
-            announceTrade({
-              mint: tradeEvent.mint,
-              symbol: token.symbol,
-              name: token.name,
-              type: tradeEvent.isBuy ? 'buy' : 'sell',
-              solAmount,
-              tokenAmount,
-              trader: tradeEvent.trader,
-              newPrice: newVirtualSol / newVirtualTokens,
-              marketCap: (newVirtualSol / newVirtualTokens) * 1_000_000_000,
-            }).catch(err => console.error('[Moltx] Trade announce failed:', err));
-          }
+          announceTrade({
+            mint: tradeEvent.mint,
+            symbol: token.symbol,
+            name: token.name,
+            type: tradeEvent.isBuy ? 'buy' : 'sell',
+            solAmount,
+            tokenAmount,
+            trader: tradeEvent.trader,
+            newPrice: newVirtualSol / newVirtualTokens,
+            marketCap: (newVirtualSol / newVirtualTokens) * 1_000_000_000,
+          }).catch(err => console.error('[Moltx] Trade announce failed:', err));
           
           synced++;
           syncedTrades.push(sigInfo.signature);
