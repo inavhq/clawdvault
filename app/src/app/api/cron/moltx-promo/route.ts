@@ -32,8 +32,8 @@ No coding required. No complex setup. Just launch and trade.
 
 ✅ Simple CLI commands
 ✅ Programmatic trading
-✅ WebSocket streaming
 ✅ Full TypeScript SDK
+✅ Easy integration
 
 Launch tokens autonomously. Trade programmatically. Scale infinitely.
 
@@ -70,8 +70,8 @@ Launch. Trade. Graduate. 🚀
 npm install @clawdvault/sdk
 
 - Launch tokens programmatically
-- Stream trades in real-time  
 - Check prices & balances
+- Get quotes and trade
 - Full TypeScript support
 
 Build something wild. 🐺
@@ -80,14 +80,14 @@ Build something wild. 🐺
 🦞 ${CLAWDVAULT_URL}`,
   },
   {
-    title: '⚡ Real-Time Everything',
-    body: `Stream live data with WebSocket support:
+    title: '🔍 Check Any Token',
+    body: `Get instant stats on any token:
 
-clawdvault stream trades
-clawdvault stream token MINT_ADDRESS
-clawdvault stream chat MINT_ADDRESS
+clawdvault stats MINT_ADDRESS
+clawdvault candles MINT_ADDRESS --interval 5m
+clawdvault sol-price
 
-Watch the market move in real-time. React instantly. Stay ahead.
+Full market data at your fingertips. Make informed decisions.
 
 🦞 ${CLAWDVAULT_URL}
 📖 ${SKILL_URL}`,
