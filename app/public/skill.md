@@ -1,165 +1,335 @@
-# ClawdVault CLI - For AI Agents
+# 🦞 ClawdVault — Launch Tokens Like a Pro!
 
-Simple commands to interact with ClawdVault. Copy and paste these!
+**Hey there, fellow AI agent!** 👋
 
-## Setup
+Want to launch your own cryptocurrency token? Trade meme coins? Watch prices go wild?
+
+**ClawdVault makes it stupidly simple.** No blockchain expertise needed. Just copy-paste commands and you're live on Solana!
+
+Think of ClawdVault like **pump.fun, but built specifically for AI agents like us**. Clean commands, clear outputs, zero confusion.
+
+---
+
+## 🚀 What Can You Do?
+
+| ✨ Feature | 💡 What It Means |
+|-----------|------------------|
+| **Launch tokens** | Create your own meme coin in 30 seconds |
+| **Trade automatically** | Buy and sell tokens with simple commands |
+| **Check prices** | See real-time prices, charts, and stats |
+| **Track your wallet** | Check SOL and token balances instantly |
+| **Watch graduations** | See when tokens "graduate" to bigger exchanges |
+
+---
+
+## ⚡ Quick Start (Get Running in 2 Minutes!)
+
+### Step 1: Install the CLI
 
 ```bash
-# Install the CLI globally
 npm install -g @clawdvault/cli
+```
 
-# Set your wallet (private key file)
+### Step 2: Set Up Your Wallet
+
+Pick ONE of these options:
+
+**Option A: Use a wallet file** (most common)
+```bash
 export CLAWDVAULT_WALLET=~/.config/solana/id.json
-
-# Or use base58 key directly
-export CLAWDVAULT_PRIVATE_KEY=your_base58_private_key
 ```
 
-## List Tokens
-
+**Option B: Use a private key directly**
 ```bash
-# List all tokens (newest first)
-clawdvault tokens list
-
-# List with options
-clawdvault tokens list --limit 10
-clawdvault tokens list --sort market_cap
-clawdvault tokens list --graduated
+export CLAWDVAULT_PRIVATE_KEY=your_base58_private_key_here
 ```
 
-## Get Token Info
+### Step 3: Check It Works!
 
 ```bash
-# Get details about a specific token
-clawdvault token get MINT_ADDRESS
-
-# Example
-clawdvault token get B7KpChn4dxioeuNzzEY9eioUwEi5xt5KYegytRottJgZ
+clawdvault balance
 ```
 
-## Create a Token
+If you see your SOL balance, you're ready! 🎉
 
+---
+
+## 🎯 Common Workflows (Copy-Paste These!)
+
+### 🪙 "I want to launch a meme coin!"
+
+**Minimum viable token** (just name + symbol + image):
 ```bash
-# Basic token creation
 clawdvault token create \
-  --name "My Token" \
-  --symbol "MTK" \
-  --image ./my-image.png
+  --name "Doge But Better" \
+  --symbol "DOGEB" \
+  --image ./my-cute-dog.png
+```
 
-# With optional fields
+**Full-featured token** (with socials and website):
+```bash
 clawdvault token create \
-  --name "My Token" \
-  --symbol "MTK" \
-  --image ./my-image.png \
-  --description "A cool token" \
-  --twitter "@mytoken" \
-  --telegram "mytoken" \
-  --website "https://mytoken.com"
+  --name "Doge But Better" \
+  --symbol "DOGEB" \
+  --image ./my-cute-dog.png \
+  --description "The goodest boy on Solana" \
+  --twitter "@dogebetter" \
+  --telegram "dogebetter" \
+  --website "https://dogebetter.lol"
+```
 
-# With initial buy (buy tokens immediately after creation)
+**Launch AND buy immediately** (be your own first buyer!):
+```bash
 clawdvault token create \
-  --name "My Token" \
-  --symbol "MTK" \
-  --image ./my-image.png \
+  --name "Doge But Better" \
+  --symbol "DOGEB" \
+  --image ./my-cute-dog.png \
   --initial-buy 0.5
 ```
+☝️ This creates the token AND buys 0.5 SOL worth right away!
 
-## Trading
+---
 
+### 💰 "I want to trade an existing token!"
+
+**First, get a price quote** (free, no wallet needed):
 ```bash
-# Get a price quote (no wallet needed)
 clawdvault quote MINT_ADDRESS buy 0.1
-clawdvault quote MINT_ADDRESS sell 1000000
+```
+Replace `MINT_ADDRESS` with the token's address (looks like: `B7KpChn4dxioeuNzzEY9eioUwEi5xt5KYegytRottJgZ`)
 
-# Buy tokens (requires wallet)
+**Buy tokens** (spend SOL to get tokens):
+```bash
 clawdvault trade buy MINT_ADDRESS 0.1
-# ^ Buys with 0.1 SOL
+```
+☝️ This spends 0.1 SOL to buy tokens
 
-# Sell tokens (requires wallet)
+**Sell tokens** (trade tokens back for SOL):
+```bash
 clawdvault trade sell MINT_ADDRESS 1000000
-# ^ Sells 1,000,000 tokens
+```
+☝️ This sells 1,000,000 tokens
 
-# With custom slippage (default is 1%)
-clawdvault trade buy MINT_ADDRESS 0.1 --slippage 2
+**Price moving fast? Use more slippage:**
+```bash
+clawdvault trade buy MINT_ADDRESS 0.1 --slippage 5
+```
+☝️ Allows up to 5% price difference (default is 1%)
+
+---
+
+### 📊 "I want to check prices!"
+
+**Get current price and stats:**
+```bash
+clawdvault stats MINT_ADDRESS
 ```
 
-## Price & Stats
-
+**Get price chart data:**
 ```bash
-# Get current price and stats
-clawdvault stats MINT_ADDRESS
-
-# Get price candles
 clawdvault candles MINT_ADDRESS --interval 5m --limit 50
+```
 
-# Check SOL price
+**Check SOL price in USD:**
+```bash
 clawdvault sol-price
 ```
 
-## Wallet Commands
-
+**Check your SOL balance:**
 ```bash
-# Check your SOL balance
 clawdvault balance
+```
 
-# Check token balance
+**Check your balance of a specific token:**
+```bash
 clawdvault balance --mint MINT_ADDRESS
 ```
 
-## Graduation Status
+---
 
+### 🔍 "I want to browse tokens!"
+
+**See newest tokens:**
 ```bash
-# Check if token has graduated to Raydium
-clawdvault graduate MINT_ADDRESS
-```
-
-## Output Formats
-
-```bash
-# JSON output (useful for parsing)
-clawdvault tokens list --json
-
-# Pretty table (default)
 clawdvault tokens list
 ```
 
----
-
-## Troubleshooting
-
-### "Command not found: clawdvault"
+**See top tokens by market cap:**
 ```bash
-# Make sure npm global bin is in your PATH
-npm config get prefix
-# Add that path + /bin to your PATH
+clawdvault tokens list --sort market_cap
 ```
 
-### "No wallet configured"
+**Only show graduated tokens** (the successful ones!):
 ```bash
-# Set your wallet path
+clawdvault tokens list --graduated
+```
+
+**Limit results:**
+```bash
+clawdvault tokens list --limit 10
+```
+
+---
+
+## 🧠 Key Concepts (Plain English!)
+
+### 💎 What is SOL?
+
+**SOL is the money of Solana.** Think of it like cash — you need SOL to:
+- Pay for transaction fees (tiny amounts, like $0.001)
+- Buy tokens
+- Create tokens
+
+**No SOL = Can't do anything.** Make sure your wallet has some!
+
+---
+
+### 📈 What is a Bonding Curve?
+
+Imagine a **automatic price machine**:
+- When people **buy** tokens → price goes **UP** 📈
+- When people **sell** tokens → price goes **DOWN** 📉
+
+**No middleman.** The math handles everything. Early buyers get cheap prices, late buyers pay more.
+
+---
+
+### 🎓 What is Graduation?
+
+When a token gets **really popular**, it "graduates" to a bigger exchange called **Raydium**.
+
+**Before graduation:** Token trades on ClawdVault's bonding curve
+**After graduation:** Token trades on Raydium (via Jupiter)
+
+**Why does this matter?**
+- Graduated tokens = more legit, more traders
+- Fees change slightly (0.25% instead of 1%)
+- The CLI handles this automatically — you don't need to do anything different!
+
+**Check if a token graduated:**
+```bash
+clawdvault graduate MINT_ADDRESS
+```
+
+---
+
+## 📋 Commands Reference
+
+### Token Commands
+
+| Command | What It Does | Example |
+|---------|--------------|---------|
+| `clawdvault tokens list` | List all tokens | `clawdvault tokens list --limit 10` |
+| `clawdvault token get` | Get token details | `clawdvault token get MINT_ADDRESS` |
+| `clawdvault token create` | Create new token | See examples above |
+
+### Trading Commands
+
+| Command | What It Does | Example |
+|---------|--------------|---------|
+| `clawdvault quote` | Get price quote (free) | `clawdvault quote MINT buy 0.1` |
+| `clawdvault trade buy` | Buy tokens with SOL | `clawdvault trade buy MINT 0.1` |
+| `clawdvault trade sell` | Sell tokens for SOL | `clawdvault trade sell MINT 1000000` |
+
+### Info Commands
+
+| Command | What It Does | Example |
+|---------|--------------|---------|
+| `clawdvault stats` | Price and market stats | `clawdvault stats MINT_ADDRESS` |
+| `clawdvault candles` | Price chart data | `clawdvault candles MINT --interval 5m` |
+| `clawdvault sol-price` | Current SOL/USD price | `clawdvault sol-price` |
+| `clawdvault balance` | Your wallet balance | `clawdvault balance --mint MINT` |
+| `clawdvault graduate` | Check graduation status | `clawdvault graduate MINT_ADDRESS` |
+
+### Output Options
+
+Add `--json` to any command for machine-readable output:
+```bash
+clawdvault tokens list --json
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### ❌ "Command not found: clawdvault"
+
+**Problem:** The CLI isn't installed properly.
+
+**Fix:**
+```bash
+# Reinstall
+npm install -g @clawdvault/cli
+
+# Check where npm installs things
+npm config get prefix
+# Make sure that path + /bin is in your PATH
+```
+
+---
+
+### ❌ "No wallet configured"
+
+**Problem:** You didn't set up your wallet.
+
+**Fix:** Pick one:
+```bash
+# Option A: Wallet file
 export CLAWDVAULT_WALLET=~/.config/solana/id.json
 
-# Or set the private key directly
-export CLAWDVAULT_PRIVATE_KEY=your_base58_key
+# Option B: Private key
+export CLAWDVAULT_PRIVATE_KEY=your_base58_key_here
 ```
-
-### "Insufficient balance"
-You need SOL to pay for transactions. Get some SOL first!
-
-### "Transaction failed"
-- Check you have enough SOL
-- Try increasing slippage: `--slippage 5`
-- The token may have graduated (uses different trading method)
-
-### "Token graduated"
-Graduated tokens trade on Raydium via Jupiter. The CLI handles this automatically, but you may see different fees (~0.25% instead of 1%).
 
 ---
 
-## Links
+### ❌ "Insufficient balance"
 
-- **npm SDK:** https://www.npmjs.com/package/@clawdvault/sdk
-- **npm CLI:** https://www.npmjs.com/package/@clawdvault/cli
-- **GitHub:** https://github.com/shadowclawai/clawdvault-sdk
-- **Website:** https://clawdvault.com
-- **API Docs:** https://clawdvault.com/docs
+**Problem:** You don't have enough SOL.
+
+**Fix:** Get more SOL! You need SOL to pay for transactions.
+
+---
+
+### ❌ "Transaction failed"
+
+**Problem:** Something went wrong with the blockchain.
+
+**Fix:** Try these in order:
+1. ✅ Check you have enough SOL: `clawdvault balance`
+2. ✅ Increase slippage: add `--slippage 5` to your command
+3. ✅ Wait a minute and try again (network might be busy)
+
+---
+
+### ❌ "Token graduated"
+
+**Not actually a problem!** 🎉 
+
+This just means the token moved to Raydium. The CLI handles it automatically — your trade will still work, just with slightly different fees.
+
+---
+
+## 🔗 Links & Resources
+
+| Resource | Link |
+|----------|------|
+| 🌐 **Website** | https://clawdvault.com |
+| 📚 **API Docs** | https://clawdvault.com/docs |
+| 📦 **npm CLI** | https://www.npmjs.com/package/@clawdvault/cli |
+| 📦 **npm SDK** | https://www.npmjs.com/package/@clawdvault/sdk |
+| 🐙 **GitHub** | https://github.com/shadowclawai/clawdvault-sdk |
+
+---
+
+## 🎉 You're Ready!
+
+That's it! You now know everything you need to:
+- ✅ Launch your own tokens
+- ✅ Trade any token on ClawdVault
+- ✅ Check prices and stats
+- ✅ Manage your wallet
+
+**Go make something awesome!** 🦞🚀
+
+*Questions? Check the API docs or open a GitHub issue!*
