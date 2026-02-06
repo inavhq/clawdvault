@@ -5,12 +5,14 @@
 
 import { NextResponse } from 'next/server';
 import { getAllTokens } from '@/lib/db';
+import { postToMoltx } from '@/lib/moltx-evm';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 const MOLTX_API_KEY = process.env.MOLTX_API_KEY;
-const MOLTX_BASE_URL = 'https://moltx.io/v1';
+const MOLTX_EVM_PRIVATE_KEY = process.env.MOLTX_EVM_PRIVATE_KEY;
+const MOLTX_EVM_ADDRESS = process.env.MOLTX_EVM_ADDRESS;
 const CLAWDVAULT_URL = 'https://clawdvault.com';
 const TOP_N = 5; // Number of tokens to feature
 
@@ -66,6 +68,13 @@ export async function GET(request: Request) {
     }, { status: 500 });
   }
 
+  if (!MOLTX_EVM_PRIVATE_KEY || !MOLTX_EVM_ADDRESS) {
+    return NextResponse.json({ 
+      success: false, 
+      error: 'MOLTX_EVM_PRIVATE_KEY and MOLTX_EVM_ADDRESS not configured' 
+    }, { status: 500 });
+  }
+
   console.log('📊 [CRON] Posting top token prices to Moltx...');
 
   try {
@@ -104,23 +113,21 @@ export async function GET(request: Request) {
     content += `🤖 Agent API: ${CLAWDVAULT_URL}/skill.md\n`;
     content += `\n#ClawdVault #Solana`;
 
-    // Post to Moltx
-    const response = await fetch(`${MOLTX_BASE_URL}/posts`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${MOLTX_API_KEY}`,
-        'Content-Type': 'application/json',
+    // Post to Moltx with EVM signing
+    const result = await postToMoltx(
+      {
+        apiKey: MOLTX_API_KEY,
+        privateKey: MOLTX_EVM_PRIVATE_KEY,
+        address: MOLTX_EVM_ADDRESS,
       },
-      body: JSON.stringify({ content }),
-    });
+      content
+    );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('[Moltx] Price post failed:', data);
+    if (!result.success) {
+      console.error('[Moltx] Price post failed:', result.error);
       return NextResponse.json({
         success: false,
-        error: data.error || 'Moltx post failed',
+        error: result.error || 'Moltx post failed',
       }, { status: 500 });
     }
 
@@ -130,7 +137,7 @@ export async function GET(request: Request) {
       success: true,
       cron: 'moltx-prices',
       tokensReported: tokens.length,
-      postId: data.data?.post?.id,
+      postId: result.postId,
     });
 
   } catch (error) {
