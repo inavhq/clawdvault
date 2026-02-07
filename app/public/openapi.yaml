@@ -1415,26 +1415,29 @@ components:
 
     PriceCandle:
       type: object
-      description: OHLCV candle data. All values are in the requested currency (SOL or USD based on currency parameter)
+      description: |
+        OHLCV candlestick data. All values (open, high, low, close, volume) are returned 
+        in the requested currency (SOL or USD) based on the `currency` query parameter.
+        Use `currency=usd` for USD-denominated values, `currency=sol` for SOL-denominated values.
       properties:
         time:
           type: integer
           description: Unix timestamp (seconds)
         open:
           type: number
-          description: Opening price in requested currency
+          description: Opening price in requested currency (SOL or USD)
         high:
           type: number
-          description: Highest price in requested currency
+          description: Highest price in requested currency (SOL or USD)
         low:
           type: number
-          description: Lowest price in requested currency
+          description: Lowest price in requested currency (SOL or USD)
         close:
           type: number
-          description: Closing price in requested currency
+          description: Closing price in requested currency (SOL or USD)
         volume:
           type: number
-          description: Volume in requested currency
+          description: Volume in requested currency (SOL or USD)
 
     SolanaRpcRequest:
       type: object
