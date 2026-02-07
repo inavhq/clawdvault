@@ -332,86 +332,126 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
             <div className="text-sm">{connected ? 'Be the first to chat!' : 'Connect wallet to chat'}</div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className="group px-4 py-1.5 first:pt-4 last:pb-4">
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <span 
-                      className={`font-medium text-sm ${
-                        msg.username ? 'text-orange-400' : 'text-gray-400'
-                      }`}
-                      title={msg.sender}
-                    >
-                      {getDisplayName(msg)}
-                    </span>
-                    <span className="text-gray-600 text-xs">
-                      {formatTimeAgo(new Date(msg.createdAt))}
-                    </span>
-                  </div>
-                  <p className="text-gray-300 text-sm break-words">{msg.message}</p>
-                  
-                  {/* Reactions */}
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {/* Existing reactions */}
-                    {Object.entries(msg.reactions).map(([emoji, data]) => (
-                      <button
-                        key={emoji}
-                        onClick={() => toggleReaction(msg.id, emoji)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition ${
-                          connected && publicKey && data.wallets.includes(publicKey)
-                            ? 'bg-orange-500/30 border border-orange-500/50 text-orange-300'
-                            : 'bg-gray-700/50 hover:bg-gray-700 text-gray-400'
+          messages.map((msg) => {
+            const hasReactions = Object.keys(msg.reactions).length > 0;
+            return (
+              <div key={msg.id} className="group px-4 py-0.5 first:pt-2 last:pb-2">
+                <div className="flex items-start gap-2 relative">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span 
+                        className={`font-medium text-sm ${
+                          msg.username ? 'text-orange-400' : 'text-gray-400'
                         }`}
-                        title={`${data.count} reaction${data.count !== 1 ? 's' : ''}`}
+                        title={msg.sender}
                       >
-                        <span>{emoji}</span>
-                        <span>{data.count}</span>
-                      </button>
-                    ))}
+                        {getDisplayName(msg)}
+                      </span>
+                      <span className="text-gray-600 text-xs">
+                        {formatTimeAgo(new Date(msg.createdAt))}
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-sm break-words pr-6">{msg.message}</p>
                     
-                    {/* Add reaction button - only show on hover or if connected */}
-                    {connected && (
-                      <div className="relative inline-block">
-                        <button
-                          className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded-full text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-400 transition"
-                          onClick={(e) => {
-                            const picker = e.currentTarget.nextElementSibling;
-                            picker?.classList.toggle('hidden');
-                          }}
-                        >
-                          +
-                        </button>
-                        <div className="hidden absolute left-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
-                          {EMOJI_OPTIONS.map(emoji => {
-                            const isSelected = getUserReaction(msg) === emoji;
-                            return (
-                              <button
-                                key={emoji}
-                                onClick={(e) => {
-                                  toggleReaction(msg.id, emoji);
-                                  // Close picker
-                                  e.currentTarget.parentElement?.classList.add('hidden');
-                                }}
-                                className={`p-1.5 rounded transition ${
-                                  isSelected 
-                                    ? 'bg-orange-500/30 ring-1 ring-orange-500' 
-                                    : 'hover:bg-gray-700'
-                                }`}
-                                title={isSelected ? 'Click to remove' : 'Click to react'}
-                              >
-                                {emoji}
-                              </button>
-                            );
-                          })}
-                        </div>
+                    {/* Reactions row - only when reactions exist */}
+                    {hasReactions && (
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        {Object.entries(msg.reactions).map(([emoji, data]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(msg.id, emoji)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition ${
+                              connected && publicKey && data.wallets.includes(publicKey)
+                                ? 'bg-orange-500/30 border border-orange-500/50 text-orange-300'
+                                : 'bg-gray-700/50 hover:bg-gray-700 text-gray-400'
+                            }`}
+                            title={`${data.count} reaction${data.count !== 1 ? 's' : ''}`}
+                          >
+                            <span>{emoji}</span>
+                            <span>{data.count}</span>
+                          </button>
+                        ))}
+                        
+                        {/* + button at end of reactions */}
+                        {connected && (
+                          <div className="relative inline-block">
+                            <button
+                              className="w-5 h-5 flex items-center justify-center text-xs text-gray-400 hover:text-white transition"
+                              onClick={(e) => {
+                                const picker = e.currentTarget.nextElementSibling;
+                                picker?.classList.toggle('hidden');
+                              }}
+                            >
+                              +
+                            </button>
+                            <div className="hidden absolute left-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
+                              {EMOJI_OPTIONS.map(emoji => {
+                                const isSelected = getUserReaction(msg) === emoji;
+                                return (
+                                  <button
+                                    key={emoji}
+                                    onClick={(e) => {
+                                      toggleReaction(msg.id, emoji);
+                                      e.currentTarget.parentElement?.classList.add('hidden');
+                                    }}
+                                    className={`p-1.5 rounded transition ${
+                                      isSelected 
+                                        ? 'bg-orange-500/30 ring-1 ring-orange-500' 
+                                        : 'hover:bg-gray-700'
+                                    }`}
+                                    title={isSelected ? 'Click to remove' : 'Click to react'}
+                                  >
+                                    {emoji}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
+                  
+                  {/* Floating + button when no reactions - absolute positioned */}
+                  {!hasReactions && connected && (
+                    <div className="absolute bottom-0 right-0">
+                      <button
+                        className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-xs text-gray-400 hover:text-white transition"
+                        onClick={(e) => {
+                          const picker = e.currentTarget.nextElementSibling;
+                          picker?.classList.toggle('hidden');
+                        }}
+                      >
+                        +
+                      </button>
+                      <div className="hidden absolute right-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
+                        {EMOJI_OPTIONS.map(emoji => {
+                          const isSelected = getUserReaction(msg) === emoji;
+                          return (
+                            <button
+                              key={emoji}
+                              onClick={(e) => {
+                                toggleReaction(msg.id, emoji);
+                                e.currentTarget.parentElement?.classList.add('hidden');
+                              }}
+                              className={`p-1.5 rounded transition ${
+                                isSelected 
+                                  ? 'bg-orange-500/30 ring-1 ring-orange-500' 
+                                  : 'hover:bg-gray-700'
+                              }`}
+                              title={isSelected ? 'Click to remove' : 'Click to react'}
+                            >
+                              {emoji}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
