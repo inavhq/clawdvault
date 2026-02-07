@@ -376,6 +376,15 @@ export default function TokensPage() {
                   </div>
 
                   {/* Stats */}
+                  {/* User Balance - shown when wallet is connected and user has balance */}
+                  {connected && walletBalances[token.mint] > 0 && (
+                    <div className="text-right hidden md:block">
+                      <div className="text-green-400 font-mono">
+                        {formatNumber(walletBalances[token.mint])}
+                      </div>
+                      <div className="text-gray-500 text-sm">Your Balance</div>
+                    </div>
+                  )}
                   <div className="text-right hidden sm:block">
                     <div className="text-white font-mono">{formatPrice(token.price_sol)}</div>
                     <div className="text-gray-500 text-sm">Price</div>
@@ -407,16 +416,6 @@ export default function TokensPage() {
                     </div>
                     <div className="text-gray-500 text-sm">24h Vol</div>
                   </div>
-                  
-                  {/* User Balance - shown when wallet is connected and user has balance */}
-                  {connected && walletBalances[token.mint] > 0 && (
-                    <div className="text-right hidden md:block">
-                      <div className="text-green-400 font-mono">
-                        {formatNumber(walletBalances[token.mint])}
-                      </div>
-                      <div className="text-gray-500 text-sm">Your Balance</div>
-                    </div>
-                  )}
 
                   {/* Arrow */}
                   <div className="text-gray-600 group-hover:text-orange-400 transition">
