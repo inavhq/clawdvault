@@ -23,8 +23,8 @@ function calculateMarketCap(virtualSol: number, virtualTokens: number): number {
   return calculatePrice(virtualSol, virtualTokens) * INITIAL_VIRTUAL_TOKENS;
 }
 
-// Get 24h price change from candle data
-async function get24hPriceChange(tokenMint: string, currentPriceSol: number): Promise<number | null> {
+// Get 24h price change from candle data (using USD candles)
+async function get24hPriceChange(tokenMint: string, currentPriceUsd: number): Promise<number | null> {
   try {
     // Get candle from ~24h ago
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -37,18 +37,18 @@ async function get24hPriceChange(tokenMint: string, currentPriceSol: number): Pr
         bucketTime: { lte: oneDayAgo }
       },
       orderBy: { bucketTime: 'desc' },
-      select: { close: true, closeUsd: true }
+      select: { closeUsd: true }
     });
     
-    if (!candle24hAgo || !candle24hAgo.close) {
+    if (!candle24hAgo || !candle24hAgo.closeUsd) {
       return null;
     }
     
-    const price24hAgo = Number(candle24hAgo.close);
+    const price24hAgo = Number(candle24hAgo.closeUsd);
     if (price24hAgo === 0) return null;
     
-    // Calculate percentage change
-    const change = ((currentPriceSol - price24hAgo) / price24hAgo) * 100;
+    // Calculate percentage change based on USD prices
+    const change = ((currentPriceUsd - price24hAgo) / price24hAgo) * 100;
     return change;
   } catch (error) {
     console.warn(`Failed to get 24h price change for ${tokenMint}:`, error);
@@ -159,7 +159,7 @@ export async function getAllTokens(options?: {
     closeUsd: c.closeUsd ? Number(c.closeUsd) : undefined
   }]));
 
-  // Fetch 24h old candles for price change calculation
+  // Fetch 24h old candles for price change calculation (using USD candles)
   const candles24hAgo = await db().priceCandle.findMany({
     where: {
       tokenMint: { in: tokenMints },
@@ -170,10 +170,10 @@ export async function getAllTokens(options?: {
     distinct: ['tokenMint'],
     select: {
       tokenMint: true,
-      close: true,
+      closeUsd: true,
     }
   });
-  const candle24hMap = new Map(candles24hAgo.map(c => [c.tokenMint, Number(c.close) || 0]));
+  const candle24hMap = new Map(candles24hAgo.map(c => [c.tokenMint, Number(c.closeUsd) || 0]));
 
   const tokensWithStats = await Promise.all(
     tokens.map(async (token) => {
@@ -192,10 +192,10 @@ export async function getAllTokens(options?: {
       ]);
 
       const lastCandle = lastCandleMap.get(token.mint);
-      const currentPrice = lastCandle?.close ?? calculatePrice(Number(token.virtualSolReserves), Number(token.virtualTokenReserves));
+      const currentPriceUsd = lastCandle?.closeUsd ?? undefined;
       const price24hAgo = candle24hMap.get(token.mint);
-      const priceChange24h = price24hAgo && price24hAgo > 0 
-        ? ((currentPrice - price24hAgo) / price24hAgo) * 100 
+      const priceChange24h = currentPriceUsd && price24hAgo && price24hAgo > 0
+        ? ((currentPriceUsd - price24hAgo) / price24hAgo) * 100
         : null;
 
       return toApiToken(token, {
@@ -245,7 +245,7 @@ export async function getToken(mint: string): Promise<Token | null> {
         bucketTime: { lte: dayAgo }
       },
       orderBy: { bucketTime: 'desc' },
-      select: { close: true },
+      select: { closeUsd: true },
     }),
   ]);
 
@@ -255,11 +255,11 @@ export async function getToken(mint: string): Promise<Token | null> {
     closeUsd: lastCandle.closeUsd ? Number(lastCandle.closeUsd) : undefined
   } : null;
 
-  // Calculate 24h price change
-  const currentPrice = lastCandleData?.close ?? calculatePrice(Number(token.virtualSolReserves), Number(token.virtualTokenReserves));
-  const price24hAgo = candle24hAgo?.close ? Number(candle24hAgo.close) : null;
-  const priceChange24h = price24hAgo && price24hAgo > 0
-    ? ((currentPrice - price24hAgo) / price24hAgo) * 100
+  // Calculate 24h price change using USD candles
+  const currentPriceUsd = lastCandleData?.closeUsd;
+  const price24hAgoUsd = candle24hAgo?.closeUsd ? Number(candle24hAgo.closeUsd) : null;
+  const priceChange24h = currentPriceUsd && price24hAgoUsd && price24hAgoUsd > 0
+    ? ((currentPriceUsd - price24hAgoUsd) / price24hAgoUsd) * 100
     : null;
 
   return toApiToken(token, {
