@@ -4,11 +4,29 @@ import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'clawdvault_age_verified';
 
+/**
+ * Age Gate Component
+ * 
+ * Logic:
+ * - Production: Always show age gate
+ * - Development: Hidden by default, only show if NEXT_PUBLIC_SHOW_AGE_GATE=true
+ */
 export default function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Determine if age gate should be shown
+  const showAgeGate = process.env.NODE_ENV === 'production' || 
+                      process.env.NEXT_PUBLIC_SHOW_AGE_GATE === 'true';
+
   useEffect(() => {
+    // If age gate is disabled (dev mode without SHOW_AGE_GATE), auto-verify
+    if (!showAgeGate) {
+      setVerified(true);
+      setLoading(false);
+      return;
+    }
+
     // Check localStorage on mount
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'true') {
@@ -17,7 +35,7 @@ export default function AgeGate({ children }: { children: React.ReactNode }) {
       setVerified(false);
     }
     setLoading(false);
-  }, []);
+  }, [showAgeGate]);
 
   const handleAccept = () => {
     localStorage.setItem(STORAGE_KEY, 'true');
