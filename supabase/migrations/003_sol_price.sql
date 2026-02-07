@@ -13,9 +13,6 @@ INSERT INTO sol_price (id, price, source, updated_at)
 VALUES ('current', 0, 'coingecko', NOW())
 ON CONFLICT (id) DO NOTHING;
 
--- Enable Row Level Security
-ALTER TABLE sol_price ENABLE ROW LEVEL SECURITY;
-
 -- Public read access
 CREATE POLICY "SOL price is viewable by everyone" 
   ON sol_price FOR SELECT 

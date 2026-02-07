@@ -185,7 +185,6 @@ $$ LANGUAGE plpgsql;
 
 -- Enable RLS
 ALTER TABLE tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE trades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for tokens
