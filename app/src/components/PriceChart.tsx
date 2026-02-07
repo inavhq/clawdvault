@@ -48,8 +48,8 @@ export default function PriceChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Line'> | ISeriesApi<'Candlestick'> | null>(null);
-  // Ref to store visible range for preserving viewport (Issue #36)
-  const visibleRangeRef = useRef<{ from: number; to: number } | null>(null);
+  // Ref to store previous data length for calculating new candles (Issue #36)
+  const prevDataLengthRef = useRef<number>(0);
   
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
@@ -245,13 +245,9 @@ export default function PriceChart({
       });
     }
 
-    // Save current visible range before updating data (Issue #36)
-    if (chartRef.current && candles.length > 0) {
-      const currentRange = chartRef.current.timeScale().getVisibleLogicalRange();
-      if (currentRange) {
-        visibleRangeRef.current = currentRange;
-      }
-    }
+    // Capture current visible range and data length before updating (Issue #36)
+    const oldVisibleRange = chartRef.current?.timeScale().getVisibleLogicalRange();
+    const oldDataLength = prevDataLengthRef.current;
 
     if (seriesRef.current) {
       chartRef.current.removeSeries(seriesRef.current);
@@ -306,13 +302,28 @@ export default function PriceChart({
       }
     }
 
-    // Restore visible range if it exists, otherwise use auto-positioning (Issues #36, #38)
+    // Update the stored data length for next comparison
+    prevDataLengthRef.current = candles.length;
+
+    // Handle viewport preservation with new candle shift (Issue #36)
+    // Works for BOTH line and candle chart types
     if (candles.length > 0 && chartRef.current) {
-      if (visibleRangeRef.current && chartType === 'candle') {
-        // Restore user viewport when new candles arrive (Issue #36)
-        chartRef.current.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
+      const newDataLength = candles.length;
+      const newCandlesCount = newDataLength - oldDataLength;
+
+      if (oldVisibleRange && newCandlesCount > 0) {
+        // Shift the visible range left by the number of new candles
+        // This preserves zoom level while showing the new data
+        const shiftedRange = {
+          from: oldVisibleRange.from + newCandlesCount,
+          to: oldVisibleRange.to + newCandlesCount,
+        };
+        chartRef.current.timeScale().setVisibleLogicalRange(shiftedRange);
+      } else if (oldVisibleRange) {
+        // No new candles, restore previous viewport
+        chartRef.current.timeScale().setVisibleLogicalRange(oldVisibleRange);
       } else {
-        // Let TradingView auto-position (Issue #38 - removed manual 50% offset)
+        // No previous viewport, use auto-positioning (Issue #38)
         chartRef.current.timeScale().fitContent();
       }
     } else if (chartRef.current) {
