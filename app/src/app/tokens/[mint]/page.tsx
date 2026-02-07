@@ -45,11 +45,11 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     solPriceUsd?: number;
     bondingCurveSol: number;
   } | null>(null);
-  const [candlePrice, setCandlePrice] = useState<number>(0);
+  const [candleMarketCap, setCandleMarketCap] = useState<number>(0);
   const [creatorUsername, setCreatorUsername] = useState<string | null>(null);
 
-  // Effective price: on-chain initially, then candles after first update
-  const displayPrice = candlePrice > 0 ? candlePrice : (onChainStats?.price ?? 0);
+  // Effective market cap: on-chain initially, then candles after first update
+  const displayMarketCap = candleMarketCap > 0 ? candleMarketCap : (onChainStats?.marketCapUsd ?? 0);
 
   // Fetch token holdings for connected wallet (client-side RPC)
   const fetchTokenBalance = useCallback(async () => {
@@ -689,12 +689,12 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 key={chartKey}
                 mint={token.mint} 
                 height={500}
-                currentPrice={onChainStats?.priceUsd ?? 0}
+                currentMarketCap={onChainStats?.marketCapUsd ?? 0}
                 marketCapSol={onChainStats?.marketCap ?? 0}
                 marketCapUsd={onChainStats?.marketCapUsd ?? null}
                 volume24h={token.volume_24h || 0}
                 holders={holders.length > 0 ? holders.length : (token.holders || 0)}
-                onPriceUpdate={setCandlePrice}
+                onMarketCapUpdate={setCandleMarketCap}
               />
             </div>
 

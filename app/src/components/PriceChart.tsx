@@ -18,13 +18,13 @@ interface PriceChartProps {
   height?: number;
   totalSupply?: number;
   // Live stats from parent
-  currentPrice?: number;
+  currentMarketCap?: number;
   marketCapSol?: number;
   marketCapUsd?: number | null;
   volume24h?: number;
   holders?: number;
-  // Callback when candle price updates (source of truth)
-  onPriceUpdate?: (price: number) => void;
+  // Callback when market cap updates (source of truth)
+  onMarketCapUpdate?: (marketCap: number) => void;
 }
 
 type ChartType = 'line' | 'candle';
@@ -36,12 +36,12 @@ export default function PriceChart({
   mint, 
   height = 400, 
   totalSupply = TOTAL_SUPPLY,
-  currentPrice = 0,
+  currentMarketCap = 0,
   marketCapSol = 0,
   marketCapUsd = null,
   volume24h = 0,
   holders = 0,
-  onPriceUpdate,
+  onMarketCapUpdate,
 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -121,23 +121,24 @@ export default function PriceChart({
     };
   }, [candles, candles24h, currentPrice]);
 
-  // Effective price: just use last candle close (simpler, slippage protects trades)
-  const effectivePrice = useMemo(() => {
+  // Effective market cap: last candle close * totalSupply (in USD)
+  const effectiveMarketCap = useMemo(() => {
     if (candles.length > 0) {
-      return candles[candles.length - 1].close;
+      return candles[candles.length - 1].close * totalSupply;
     }
-    return 0; // No candles = no price yet
-  }, [candles]);
+    return 0; // No candles = no market cap yet
+  }, [candles, totalSupply]);
 
-  // Notify parent when price updates (candles = source of truth)
+  // Notify parent when market cap updates (candles = source of truth)
   useEffect(() => {
-    if (effectivePrice > 0 && onPriceUpdate) {
-      onPriceUpdate(effectivePrice);
+    if (effectiveMarketCap > 0 && onMarketCapUpdate) {
+      onMarketCapUpdate(effectiveMarketCap);
     }
-  }, [effectivePrice, onPriceUpdate]);
+  }, [effectiveMarketCap, onMarketCapUpdate]);
 
-  // Calculate ATH progress (how close current price is to ATH)
-  const athProgress = athPrice > 0 ? (effectivePrice / athPrice) * 100 : 100;
+  // Calculate ATH progress (how close current market cap is to ATH market cap)
+  const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
+  const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 100;
 
   // Fetch candles function (reusable)
   const fetchCandles = useCallback(async () => {
@@ -236,7 +237,9 @@ export default function PriceChart({
       chartRef.current.removeSeries(seriesRef.current);
     }
 
-    // Candles are now in USD from API (no conversion needed)
+    // Candles are USD price per token from API - convert to market cap for display
+    const mcapMultiplier = totalSupply;
+    
     if (chartType === 'candle') {
       seriesRef.current = chartRef.current.addCandlestickSeries({
         upColor: '#22c55e',
@@ -254,10 +257,10 @@ export default function PriceChart({
       if (candles.length > 0) {
         const candleData: CandlestickData[] = candles.map(c => ({
           time: c.time as any,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
+          open: c.open * mcapMultiplier,
+          high: c.high * mcapMultiplier,
+          low: c.low * mcapMultiplier,
+          close: c.close * mcapMultiplier,
         }));
         seriesRef.current.setData(candleData);
       }
@@ -277,7 +280,7 @@ export default function PriceChart({
       if (candles.length > 0) {
         const lineData: LineData[] = candles.map(c => ({
           time: c.time as any,
-          value: c.close,
+          value: c.close * mcapMultiplier,
         }));
         seriesRef.current.setData(lineData);
       }
