@@ -367,22 +367,34 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     }
   }, [token, amount, tradeType]);
 
-  // Calculate price impact using current price from candles
+  // Calculate price impact using bonding curve formula
   const priceImpact = useMemo(() => {
-    const price = currentPrice?.sol ?? onChainStats?.price ?? 0;
-    if (!token || !amount || parseFloat(amount) <= 0 || price <= 0) return 0;
+    if (!token || !amount || parseFloat(amount) <= 0) return 0;
     const inputAmount = parseFloat(amount);
 
+    // Spot price from virtual reserves
+    const spotPrice = token.virtual_sol_reserves / token.virtual_token_reserves;
+
     if (tradeType === 'buy') {
-      const expectedTokens = inputAmount / price;
-      const actualTokens = estimatedOutput?.tokens || 0;
-      return ((expectedTokens - actualTokens) / expectedTokens) * 100;
+      // For buys: calculate average price paid per token
+      const solAfterFee = inputAmount * 0.99;
+      const tokensOut = estimatedOutput?.tokens || 0;
+      if (tokensOut <= 0) return 0;
+      
+      const avgPrice = solAfterFee / tokensOut;
+      // Price impact is how much higher avg price is vs spot price
+      return ((avgPrice - spotPrice) / spotPrice) * 100;
     } else {
-      const expectedSol = inputAmount * price;
-      const actualSol = estimatedOutput?.sol || 0;
-      return ((expectedSol - actualSol) / expectedSol) * 100;
+      // For sells: calculate average price received per token
+      const tokensAfterFee = inputAmount * 0.99;
+      const solOut = estimatedOutput?.sol || 0;
+      if (solOut <= 0 || tokensAfterFee <= 0) return 0;
+      
+      const avgPrice = solOut / tokensAfterFee;
+      // Price impact is how much lower avg price is vs spot price
+      return ((spotPrice - avgPrice) / spotPrice) * 100;
     }
-  }, [token, amount, tradeType, estimatedOutput, currentPrice?.sol, onChainStats?.price]);
+  }, [token, amount, tradeType, estimatedOutput]);
 
   // Contract now caps sells at available liquidity, so max is just token balance
   const maxSellableTokens = tokenBalance;
