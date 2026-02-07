@@ -410,13 +410,6 @@ export default function PriceChart({
             <div className="text-green-400 font-bold text-xl">
               {athPrice > 0 ? formatMcap(athPrice * totalSupply) : '--'}
             </div>
-            {/* 24h Volume (Issue #37) */}
-            <div className="mt-2">
-              <div className="text-gray-500 text-xs mb-0.5">24h Vol</div>
-              <div className="text-cyan-400 font-semibold text-sm">
-                {volume24h > 0 ? formatVolumeUsd(volume24h) : '--'}
-              </div>
-            </div>
           </div>
         </div>
 
