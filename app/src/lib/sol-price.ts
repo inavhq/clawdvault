@@ -88,7 +88,7 @@ export async function getSolPriceWithMeta(): Promise<{ price: number; source: st
 
 /**
  * Fetch SOL price directly from APIs
- * Uses CoinGecko first, then Jupiter, then Binance
+ * Uses CoinGecko first, then Binance
  */
 async function fetchSolPriceFromApi(): Promise<number | null> {
   const now = Date.now();
@@ -111,26 +111,6 @@ async function fetchSolPriceFromApi(): Promise<number | null> {
     }
   } catch (error) {
     console.warn('[getSolPrice] CoinGecko failed:', error);
-  }
-  
-  // Fallback to Jupiter
-  try {
-    const response = await fetch(
-      'https://price.jup.ag/v6/price?ids=SOL',
-      { signal: AbortSignal.timeout(5000) }
-    );
-    
-    if (response.ok) {
-      const data = await response.json();
-      const price = data.data?.SOL?.price;
-      
-      if (typeof price === 'number' && price > 0) {
-        solPriceCache = { price, timestamp: now, source: 'jupiter' };
-        return price;
-      }
-    }
-  } catch (error) {
-    console.warn('[getSolPrice] Jupiter failed:', error);
   }
   
   // Fallback to Binance
