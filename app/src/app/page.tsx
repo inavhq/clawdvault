@@ -122,21 +122,56 @@ async function getHomeData() {
     ]
     const uniqueMints = Array.from(new Set(allTokenMints))
 
-    const lastCandles = await db().priceCandle.findMany({
-      where: { tokenMint: { in: uniqueMints } },
-      orderBy: { bucketTime: 'desc' },
-      distinct: ['tokenMint'],
-      select: {
-        tokenMint: true,
-        close: true,
-        closeUsd: true
-      }
-    })
+    const [lastCandles, candles24hAgo] = await Promise.all([
+      db().priceCandle.findMany({
+        where: { tokenMint: { in: uniqueMints } },
+        orderBy: { bucketTime: 'desc' },
+        distinct: ['tokenMint'],
+        select: {
+          tokenMint: true,
+          close: true,
+          closeUsd: true
+        }
+      }),
+      db().priceCandle.findMany({
+        where: {
+          tokenMint: { in: uniqueMints },
+          interval: '1h',
+          bucketTime: { lte: oneDayAgo }
+        },
+        orderBy: { bucketTime: 'desc' },
+        distinct: ['tokenMint'],
+        select: {
+          tokenMint: true,
+          close: true,
+        }
+      })
+    ])
 
     const lastCandleMap = new Map(lastCandles.map(c => [c.tokenMint, {
       priceSol: c.close ? Number(c.close) : undefined,
       priceUsd: c.closeUsd ? Number(c.closeUsd) : undefined
     }]))
+
+    // Calculate 24h price changes
+    const priceChange24hMap = new Map<string, number | null>()
+    for (const mint of uniqueMints) {
+      const lastCandle = lastCandleMap.get(mint)
+      const candle24h = candles24hAgo.find(c => c.tokenMint === mint)
+      
+      if (lastCandle?.priceSol && candle24h?.close) {
+        const current = lastCandle.priceSol
+        const past = Number(candle24h.close)
+        if (past > 0) {
+          const change = ((current - past) / past) * 100
+          priceChange24hMap.set(mint, change)
+        } else {
+          priceChange24hMap.set(mint, null)
+        }
+      } else {
+        priceChange24hMap.set(mint, null)
+      }
+    }
 
     return {
       totalTokens,
@@ -146,7 +181,8 @@ async function getHomeData() {
       recentTokens,
       trendingTokens: trendingWithVolume,
       solPrice,
-      lastCandleMap
+      lastCandleMap,
+      priceChange24hMap
     }
   } catch (error) {
     console.error('Error fetching home data:', error)
@@ -158,7 +194,8 @@ async function getHomeData() {
       recentTokens: [],
       trendingTokens: [],
       solPrice: 100,
-      lastCandleMap: new Map()
+      lastCandleMap: new Map(),
+      priceChange24hMap: new Map()
     }
   }
 }
@@ -210,8 +247,18 @@ function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; price
   }
 }
 
-function TokenCard({ token, badge, solPrice, lastCandle }: { token: any, badge?: string, solPrice: number | null, lastCandle?: { priceUsd?: number | null; priceSol?: number | null } }) {
+function TokenCard({ token, badge, solPrice, lastCandle, priceChange24h }: { token: any, badge?: string, solPrice: number | null, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }, priceChange24h?: number | null }) {
   const mcap = getMarketCap(token, lastCandle)
+  
+  // Format 24h price change
+  const formatPriceChange = (change: number | null | undefined) => {
+    if (change === null || change === undefined) return null
+    const sign = change >= 0 ? '+' : ''
+    return `${sign}${change.toFixed(1)}%`
+  }
+  
+  const priceChangeText = formatPriceChange(priceChange24h)
+  const isPositive = priceChange24h !== null && priceChange24h !== undefined && priceChange24h >= 0
   
   return (
     <Link 
@@ -250,7 +297,18 @@ function TokenCard({ token, badge, solPrice, lastCandle }: { token: any, badge?:
               {token.name}
             </span>
           </div>
-          <div className="text-gray-400 text-sm font-mono">${token.symbol}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 text-sm font-mono">${token.symbol}</span>
+            {priceChangeText && (
+              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                isPositive 
+                  ? 'bg-green-500/20 text-green-400' 
+                  : 'bg-red-500/20 text-red-400'
+              }`}>
+                {priceChangeText}
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Market Cap */}
@@ -395,7 +453,14 @@ export default async function Home() {
               {data.trendingTokens.length > 0 ? (
                 <div className="space-y-3">
                   {data.trendingTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard key={token.mint} token={token} badge="hot" solPrice={data.solPrice} lastCandle={data.lastCandleMap.get(token.mint)} />
+                    <TokenCard 
+                      key={token.mint} 
+                      token={token} 
+                      badge="hot" 
+                      solPrice={data.solPrice} 
+                      lastCandle={data.lastCandleMap.get(token.mint)} 
+                      priceChange24h={data.priceChange24hMap.get(token.mint)}
+                    />
                   ))}
                 </div>
               ) : (
@@ -413,7 +478,14 @@ export default async function Home() {
               {data.recentTokens.length > 0 ? (
                 <div className="space-y-3">
                   {data.recentTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard key={token.mint} token={token} badge="new" solPrice={data.solPrice} lastCandle={data.lastCandleMap.get(token.mint)} />
+                    <TokenCard 
+                      key={token.mint} 
+                      token={token} 
+                      badge="new" 
+                      solPrice={data.solPrice} 
+                      lastCandle={data.lastCandleMap.get(token.mint)}
+                      priceChange24h={data.priceChange24hMap.get(token.mint)}
+                    />
                   ))}
                 </div>
               ) : (

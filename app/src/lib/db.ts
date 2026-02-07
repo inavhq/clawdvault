@@ -23,8 +23,46 @@ function calculateMarketCap(virtualSol: number, virtualTokens: number): number {
   return calculatePrice(virtualSol, virtualTokens) * INITIAL_VIRTUAL_TOKENS;
 }
 
+// Get 24h price change from candle data
+async function get24hPriceChange(tokenMint: string, currentPriceSol: number): Promise<number | null> {
+  try {
+    // Get candle from ~24h ago
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    // Find the closest candle to 24h ago (using 1h interval for better coverage)
+    const candle24hAgo = await db().priceCandle.findFirst({
+      where: {
+        tokenMint,
+        interval: '1h',
+        bucketTime: { lte: oneDayAgo }
+      },
+      orderBy: { bucketTime: 'desc' },
+      select: { close: true, closeUsd: true }
+    });
+    
+    if (!candle24hAgo || !candle24hAgo.close) {
+      return null;
+    }
+    
+    const price24hAgo = Number(candle24hAgo.close);
+    if (price24hAgo === 0) return null;
+    
+    // Calculate percentage change
+    const change = ((currentPriceSol - price24hAgo) / price24hAgo) * 100;
+    return change;
+  } catch (error) {
+    console.warn(`Failed to get 24h price change for ${tokenMint}:`, error);
+    return null;
+  }
+}
+
 // Convert Prisma token to API token
-function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number; holders?: number }, lastCandle?: { closeUsd?: number | null; close?: number | null } | null): Token {
+function toApiToken(
+  token: any, 
+  stats?: { volume24h?: number; trades24h?: number; holders?: number }, 
+  lastCandle?: { closeUsd?: number | null; close?: number | null } | null,
+  priceChange24h?: number | null
+): Token {
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
 
@@ -61,6 +99,7 @@ function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number
     volume_24h: stats?.volume24h || 0,
     trades_24h: stats?.trades24h || 0,
     holders: stats?.holders || 1,
+    price_change_24h: priceChange24h ?? null,
   };
 }
 
@@ -120,6 +159,22 @@ export async function getAllTokens(options?: {
     closeUsd: c.closeUsd ? Number(c.closeUsd) : undefined
   }]));
 
+  // Fetch 24h old candles for price change calculation
+  const candles24hAgo = await db().priceCandle.findMany({
+    where: {
+      tokenMint: { in: tokenMints },
+      interval: '1h',
+      bucketTime: { lte: dayAgo }
+    },
+    orderBy: { bucketTime: 'desc' },
+    distinct: ['tokenMint'],
+    select: {
+      tokenMint: true,
+      close: true,
+    }
+  });
+  const candle24hMap = new Map(candles24hAgo.map(c => [c.tokenMint, Number(c.close) || 0]));
+
   const tokensWithStats = await Promise.all(
     tokens.map(async (token) => {
       const [volumeResult, tradeCount, holderCount] = await Promise.all([
@@ -136,11 +191,18 @@ export async function getAllTokens(options?: {
         }),
       ]);
 
+      const lastCandle = lastCandleMap.get(token.mint);
+      const currentPrice = lastCandle?.close ?? calculatePrice(Number(token.virtualSolReserves), Number(token.virtualTokenReserves));
+      const price24hAgo = candle24hMap.get(token.mint);
+      const priceChange24h = price24hAgo && price24hAgo > 0 
+        ? ((currentPrice - price24hAgo) / price24hAgo) * 100 
+        : null;
+
       return toApiToken(token, {
         volume24h: Number(volumeResult._sum.solAmount || 0),
         trades24h: tradeCount,
         holders: holderCount.length || 1,
-      }, lastCandleMap.get(token.mint));
+      }, lastCandle, priceChange24h);
     })
   );
 
@@ -159,7 +221,7 @@ export async function getToken(mint: string): Promise<Token | null> {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [volumeResult, tradeCount, holderCount, lastCandle] = await Promise.all([
+  const [volumeResult, tradeCount, holderCount, lastCandle, candle24hAgo] = await Promise.all([
     db().trade.aggregate({
       where: { tokenMint: mint, createdAt: { gte: dayAgo } },
       _sum: { solAmount: true },
@@ -176,6 +238,15 @@ export async function getToken(mint: string): Promise<Token | null> {
       orderBy: { bucketTime: 'desc' },
       select: { close: true, closeUsd: true },
     }),
+    db().priceCandle.findFirst({
+      where: {
+        tokenMint: mint,
+        interval: '1h',
+        bucketTime: { lte: dayAgo }
+      },
+      orderBy: { bucketTime: 'desc' },
+      select: { close: true },
+    }),
   ]);
 
   // Use last candle for current price (includes heartbeat candles for USD continuity)
@@ -184,11 +255,18 @@ export async function getToken(mint: string): Promise<Token | null> {
     closeUsd: lastCandle.closeUsd ? Number(lastCandle.closeUsd) : undefined
   } : null;
 
+  // Calculate 24h price change
+  const currentPrice = lastCandleData?.close ?? calculatePrice(Number(token.virtualSolReserves), Number(token.virtualTokenReserves));
+  const price24hAgo = candle24hAgo?.close ? Number(candle24hAgo.close) : null;
+  const priceChange24h = price24hAgo && price24hAgo > 0
+    ? ((currentPrice - price24hAgo) / price24hAgo) * 100
+    : null;
+
   return toApiToken(token, {
     volume24h: Number(volumeResult._sum.solAmount || 0),
     trades24h: tradeCount,
     holders: holderCount.length || 1,
-  }, lastCandleData);
+  }, lastCandleData, priceChange24h);
 }
 
 // Update token fields

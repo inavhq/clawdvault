@@ -36,6 +36,7 @@ export interface Token {
   volume_24h?: number;
   trades_24h?: number;
   holders?: number;
+  price_change_24h?: number | null;
 }
 
 export interface Trade {

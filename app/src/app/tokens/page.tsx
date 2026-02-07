@@ -126,8 +126,17 @@ export default function TokensPage() {
       );
     }
 
+    // Apply client-side sorting for price_change (since server may not support it)
+    if (sort === 'price_change') {
+      result = result.sort((a, b) => {
+        const changeA = a.price_change_24h ?? -Infinity;
+        const changeB = b.price_change_24h ?? -Infinity;
+        return changeB - changeA;
+      });
+    }
+
     return result;
-  }, [tokens, filter, search]);
+  }, [tokens, filter, search, sort]);
 
   const formatUsd = (n: number) => {
     if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
@@ -263,6 +272,7 @@ export default function TokensPage() {
                 <option value="market_cap">Market Cap</option>
                 <option value="volume">24h Volume</option>
                 <option value="price">Price</option>
+                <option value="price_change">24h Change</option>
               </select>
             </div>
           </div>
@@ -354,6 +364,14 @@ export default function TokensPage() {
                       <span className="text-orange-400 text-xs font-mono sm:hidden">
                         {formatMcap(token.market_cap_sol, token.market_cap_usd)}
                       </span>
+                      {/* Mobile 24h change */}
+                      {token.price_change_24h !== null && token.price_change_24h !== undefined && (
+                        <span className={`text-xs font-mono sm:hidden ${
+                          token.price_change_24h >= 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {token.price_change_24h >= 0 ? '+' : ''}{token.price_change_24h.toFixed(1)}%
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -365,6 +383,21 @@ export default function TokensPage() {
                   <div className="text-right hidden md:block">
                     <div className="text-orange-400 font-mono">{formatMcap(token.market_cap_sol, token.market_cap_usd)}</div>
                     <div className="text-gray-500 text-sm">MCap</div>
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <div className={`font-mono ${
+                      token.price_change_24h === null || token.price_change_24h === undefined
+                        ? 'text-gray-400'
+                        : token.price_change_24h >= 0
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                    }`}>
+                      {token.price_change_24h !== null && token.price_change_24h !== undefined
+                        ? `${token.price_change_24h >= 0 ? '+' : ''}${token.price_change_24h.toFixed(1)}%`
+                        : '--'
+                      }
+                    </div>
+                    <div className="text-gray-500 text-sm">24h</div>
                   </div>
                   <div className="text-right hidden lg:block">
                     <div className="text-blue-400 font-mono">
