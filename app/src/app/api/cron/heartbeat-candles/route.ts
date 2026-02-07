@@ -98,10 +98,15 @@ export async function GET(request: Request) {
           // If SOL price changed, the USD price would have moved even without trades
           const solPriceChange = solPriceUsd / prevSolPrice;
           
+          // For USD price: high/low reflect the movement from prev price to current price
           // High is when SOL was at its max (token USD price would be highest)
           // Low is when SOL was at its min (token USD price would be lowest)
-          const highUsd = Math.max(currentPriceUsd, prevPriceUsd * solPriceChange);
-          const lowUsd = Math.min(currentPriceUsd, prevPriceUsd / solPriceChange);
+          const highUsd = Math.max(prevPriceUsd, currentPriceUsd, prevPriceUsd * solPriceChange);
+          const lowUsd = Math.min(prevPriceUsd, currentPriceUsd, prevPriceUsd / solPriceChange);
+
+          // For SOL price: same as open/close since no trades occurred
+          // The SOL-denominated price doesn't change without trades
+          const solHighLow = lastTradePriceSol;
 
           // Create heartbeat candle with proper wicks reflecting SOL price movement
           await db().priceCandle.create({
@@ -110,8 +115,8 @@ export async function GET(request: Request) {
               interval: interval.name,
               bucketTime,
               open: prevPriceSol,
-              high: lastTradePriceSol,
-              low: lastTradePriceSol,
+              high: solHighLow,
+              low: solHighLow,
               close: lastTradePriceSol,
               volume: 0, // No volume since no trades
               openUsd: prevPriceUsd,

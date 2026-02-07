@@ -29,7 +29,7 @@
     },
     {
       "path": "/api/cron/heartbeat-candles",
-      "schedule": "*/5 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
