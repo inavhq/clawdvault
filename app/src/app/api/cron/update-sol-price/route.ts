@@ -17,9 +17,11 @@ interface PriceSource {
 
 async function fetchFromCoinGecko(): Promise<number | null> {
   try {
+    console.log('[CRON] Fetching CoinGecko...');
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(5000)
     });
+    console.log(`[CRON] CoinGecko status: ${res.status}`);
     
     if (!res.ok) {
       console.warn(`[SOL Price Cron] CoinGecko returned ${res.status}`);
@@ -42,9 +44,11 @@ async function fetchFromCoinGecko(): Promise<number | null> {
 
 async function fetchFromJupiter(): Promise<number | null> {
   try {
+    console.log('[CRON] Fetching Jupiter...');
     const res = await fetch('https://price.jup.ag/v6/price?ids=SOL', {
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(5000)
     });
+    console.log(`[CRON] Jupiter status: ${res.status}`);
     
     if (!res.ok) {
       console.warn(`[SOL Price Cron] Jupiter returned ${res.status}`);
@@ -67,9 +71,11 @@ async function fetchFromJupiter(): Promise<number | null> {
 
 async function fetchFromBinance(): Promise<number | null> {
   try {
+    console.log('[CRON] Fetching Binance...');
     const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT', {
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(5000)
     });
+    console.log(`[CRON] Binance status: ${res.status}`);
     
     if (!res.ok) {
       console.warn(`[SOL Price Cron] Binance returned ${res.status}`);
@@ -106,12 +112,14 @@ export async function GET(request: Request) {
   const results: PriceSource[] = [];
   
   try {
-    // Fetch from multiple sources in parallel
+    // Fetch from multiple sources in parallel with overall timeout
+    console.log('[CRON] Fetching from CoinGecko, Jupiter, Binance...');
     const [coinGeckoPrice, jupiterPrice, binancePrice] = await Promise.all([
       fetchFromCoinGecko(),
       fetchFromJupiter(),
       fetchFromBinance(),
     ]);
+    console.log(`[CRON] Results: CG=${coinGeckoPrice}, JP=${jupiterPrice}, BN=${binancePrice}`);
     
     // Collect successful results
     if (coinGeckoPrice) results.push({ name: 'coingecko', price: coinGeckoPrice });
