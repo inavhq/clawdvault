@@ -254,7 +254,7 @@ function TokenCard({ token, badge, solPrice, lastCandle, priceChange24h }: { tok
   const formatPriceChange = (change: number | null | undefined) => {
     if (change === null || change === undefined) return null
     const sign = change >= 0 ? '+' : ''
-    return `${sign}${change.toFixed(1)}%`
+    return `${sign}${change.toFixed(2)}%`
   }
   
   const priceChangeText = formatPriceChange(priceChange24h)

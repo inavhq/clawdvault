@@ -369,7 +369,7 @@ export default function TokensPage() {
                         <span className={`text-xs font-mono sm:hidden ${
                           token.price_change_24h >= 0 ? 'text-green-400' : 'text-red-400'
                         }`}>
-                          {token.price_change_24h >= 0 ? '+' : ''}{token.price_change_24h.toFixed(1)}%
+                          {token.price_change_24h >= 0 ? '+' : ''}{token.price_change_24h.toFixed(2)}%
                         </span>
                       )}
                     </div>
@@ -393,7 +393,7 @@ export default function TokensPage() {
                           : 'text-red-400'
                     }`}>
                       {token.price_change_24h !== null && token.price_change_24h !== undefined
-                        ? `${token.price_change_24h >= 0 ? '+' : ''}${token.price_change_24h.toFixed(1)}%`
+                        ? `${token.price_change_24h >= 0 ? '+' : ''}${token.price_change_24h.toFixed(2)}%`
                         : '--'
                       }
                     </div>
