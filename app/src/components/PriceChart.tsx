@@ -47,7 +47,9 @@ export default function PriceChart({
 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Line'> | ISeriesApi<'Candlestick'> | null>(null);
+  // Separate refs for each series type to prevent recreation on updates (Issue #47)
+  const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   // Ref to store last rendered time interval for viewport preservation (Issue #36)
   const lastRenderedRangeRef = useRef<Interval | null>(null);
   
@@ -249,15 +251,12 @@ export default function PriceChart({
     const timeScale = chartRef.current?.timeScale();
     const visibleRange = timeScale?.getVisibleRange();
 
-    if (seriesRef.current) {
-      chartRef.current.removeSeries(seriesRef.current);
-    }
-
     // Candles are USD price per token from API - convert to market cap for display
     const mcapMultiplier = totalSupply;
-    
-    if (chartType === 'candle') {
-      seriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
+
+    // Create candle series once (Issue #47)
+    if (!candleSeriesRef.current) {
+      candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
         upColor: '#22c55e',
         downColor: '#ef4444',
         borderUpColor: '#22c55e',
@@ -266,22 +265,14 @@ export default function PriceChart({
         wickDownColor: '#ef4444',
         priceScaleId: 'right',
       });
-      seriesRef.current.priceScale().applyOptions({
+      candleSeriesRef.current.priceScale().applyOptions({
         scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
-      
-      if (candles.length > 0) {
-        const candleData: CandlestickData[] = candles.map(c => ({
-          time: c.time as any,
-          open: c.open * mcapMultiplier,
-          high: c.high * mcapMultiplier,
-          low: c.low * mcapMultiplier,
-          close: c.close * mcapMultiplier,
-        }));
-        seriesRef.current.setData(candleData);
-      }
-    } else {
-      seriesRef.current = chartRef.current.addSeries(LineSeries, {
+    }
+
+    // Create line series once (Issue #47)
+    if (!lineSeriesRef.current) {
+      lineSeriesRef.current = chartRef.current.addSeries(LineSeries, {
         color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
         lineWidth: 2,
         crosshairMarkerVisible: true,
@@ -289,17 +280,41 @@ export default function PriceChart({
         priceLineVisible: false,
         priceScaleId: 'right',
       });
-      seriesRef.current.priceScale().applyOptions({
+      lineSeriesRef.current.priceScale().applyOptions({
         scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
-      
-      if (candles.length > 0) {
-        const lineData: LineData[] = candles.map(c => ({
-          time: c.time as any,
-          value: c.close * mcapMultiplier,
-        }));
-        seriesRef.current.setData(lineData);
-      }
+    }
+
+    // Update candle data (Issue #47)
+    if (candles.length > 0 && candleSeriesRef.current) {
+      const candleData: CandlestickData[] = candles.map(c => ({
+        time: c.time as any,
+        open: c.open * mcapMultiplier,
+        high: c.high * mcapMultiplier,
+        low: c.low * mcapMultiplier,
+        close: c.close * mcapMultiplier,
+      }));
+      candleSeriesRef.current.setData(candleData);
+    }
+
+    // Update line data (Issue #47)
+    if (candles.length > 0 && lineSeriesRef.current) {
+      const lineData: LineData[] = candles.map(c => ({
+        time: c.time as any,
+        value: c.close * mcapMultiplier,
+      }));
+      lineSeriesRef.current.setData(lineData);
+    }
+
+    // Toggle visibility based on chart type (Issue #47)
+    if (candleSeriesRef.current) {
+      candleSeriesRef.current.applyOptions({ visible: chartType === 'candle' });
+    }
+    if (lineSeriesRef.current) {
+      lineSeriesRef.current.applyOptions({ 
+        visible: chartType === 'line',
+        color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
+      });
     }
 
     // Handle viewport preservation (Issue #36)
@@ -356,7 +371,16 @@ export default function PriceChart({
 
   useEffect(() => {
     return () => {
+      // Remove series before chart cleanup (Issue #47)
       if (chartRef.current) {
+        if (candleSeriesRef.current) {
+          chartRef.current.removeSeries(candleSeriesRef.current);
+          candleSeriesRef.current = null;
+        }
+        if (lineSeriesRef.current) {
+          chartRef.current.removeSeries(lineSeriesRef.current);
+          lineSeriesRef.current = null;
+        }
         chartRef.current.remove();
         chartRef.current = null;
       }
