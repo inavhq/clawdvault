@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
       sol_amount: Number(trade.solAmount),
       token_amount: Number(trade.tokenAmount),
       price_sol: Number(trade.priceSol),
+      price_usd: trade.solPriceUsd ? Number(trade.priceSol) * Number(trade.solPriceUsd) : null,
+      sol_price_usd: trade.solPriceUsd ? Number(trade.solPriceUsd) : null,
       signature: trade.signature,
       created_at: trade.createdAt.toISOString(),
     }));

@@ -69,6 +69,22 @@ export interface Agent {
   total_volume: number;
 }
 
+// On-chain stats from /api/stats
+export interface OnChainStats {
+  totalSupply: number;
+  bondingCurveBalance: number;
+  circulatingSupply: number;
+  bondingCurveSol: number;
+  virtualSolReserves: number;
+  virtualTokenReserves: number;
+  price: number;
+  priceUsd?: number | null;
+  marketCap: number;
+  marketCapUsd?: number | null;
+  solPriceUsd?: number | null;
+  graduated?: boolean;
+}
+
 export interface CreateTokenRequest {
   name: string;
   symbol: string;

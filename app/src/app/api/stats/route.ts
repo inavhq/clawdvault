@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAssociatedTokenAddress } from '@solana/spl-token';
 import ClawdVaultClient, { findBondingCurvePDA, findSolVaultPDA } from '@/lib/anchor/client';
+import { getSolPrice } from '@/lib/sol-price';
 
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
@@ -28,6 +29,9 @@ export async function GET(request: NextRequest) {
     
     if (!curveState) {
       // Fallback for tokens not on Anchor program
+      const solPriceUsd = await getSolPrice();
+      const price = 0.000000028;
+      const marketCap = 30;
       return NextResponse.json({
         success: true,
         mint,
@@ -36,8 +40,11 @@ export async function GET(request: NextRequest) {
           bondingCurveBalance: 1_000_000_000,
           circulatingSupply: 0,
           bondingCurveSol: 0,
-          price: 0.000000028,
-          marketCap: 30,
+          price,
+          priceUsd: solPriceUsd ? price * solPriceUsd : null,
+          marketCap,
+          marketCapUsd: solPriceUsd ? marketCap * solPriceUsd : null,
+          solPriceUsd,
         }
       });
     }
@@ -60,6 +67,11 @@ export async function GET(request: NextRequest) {
     const price = virtualSolReserves / virtualTokenReserves;
     const circulatingSupply = totalSupply - realTokenReserves;
     const marketCap = price * totalSupply;
+    
+    // Get SOL price for USD calculations
+    const solPriceUsd = await getSolPrice();
+    const priceUsd = solPriceUsd ? price * solPriceUsd : null;
+    const marketCapUsd = solPriceUsd ? marketCap * solPriceUsd : null;
 
     return NextResponse.json({
       success: true,
@@ -72,7 +84,10 @@ export async function GET(request: NextRequest) {
         virtualSolReserves,
         virtualTokenReserves,
         price,
+        priceUsd,
         marketCap,
+        marketCapUsd,
+        solPriceUsd,
         graduated: curveState.graduated,
       }
     });
