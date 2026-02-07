@@ -871,6 +871,14 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                     </span>
                   </div>
                 )}
+                {token.price_change_24h !== null && token.price_change_24h !== undefined && (
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-400">24h Change</span>
+                    <span className={`font-mono ${token.price_change_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {token.price_change_24h >= 0 ? '+' : ''}{token.price_change_24h.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* User Balance - show if connected */}
