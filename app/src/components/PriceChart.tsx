@@ -48,6 +48,8 @@ export default function PriceChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Line'> | ISeriesApi<'Candlestick'> | null>(null);
+  // Ref to store visible range for preserving viewport (Issue #36)
+  const visibleRangeRef = useRef<{ from: number; to: number } | null>(null);
   
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
@@ -243,6 +245,14 @@ export default function PriceChart({
       });
     }
 
+    // Save current visible range before updating data (Issue #36)
+    if (chartRef.current && candles.length > 0) {
+      const currentRange = chartRef.current.timeScale().getVisibleLogicalRange();
+      if (currentRange) {
+        visibleRangeRef.current = currentRange;
+      }
+    }
+
     if (seriesRef.current) {
       chartRef.current.removeSeries(seriesRef.current);
     }
@@ -296,21 +306,16 @@ export default function PriceChart({
       }
     }
 
-    // Set visible range based on chart type
-    if (candles.length > 0) {
-      if (chartType === 'candle') {
-        // Candles: narrow bars, first candle in the middle (pump.fun style)
-        const totalBars = Math.max(candles.length * 2, 100);
-        const halfBars = Math.floor(totalBars / 2);
-        chartRef.current.timeScale().setVisibleLogicalRange({
-          from: -halfBars,
-          to: halfBars,
-        });
+    // Restore visible range if it exists, otherwise use auto-positioning (Issues #36, #38)
+    if (candles.length > 0 && chartRef.current) {
+      if (visibleRangeRef.current && chartType === 'candle') {
+        // Restore user viewport when new candles arrive (Issue #36)
+        chartRef.current.timeScale().setVisibleLogicalRange(visibleRangeRef.current);
       } else {
-        // Line: fill full width
+        // Let TradingView auto-position (Issue #38 - removed manual 50% offset)
         chartRef.current.timeScale().fitContent();
       }
-    } else {
+    } else if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
     }
   }, [candles, chartType, height, totalSupply, priceChange24h]);
@@ -405,39 +410,25 @@ export default function PriceChart({
             <div className="text-green-400 font-bold text-xl">
               {athPrice > 0 ? formatMcap(athPrice * totalSupply) : '--'}
             </div>
+            {/* 24h Volume (Issue #37) */}
+            <div className="mt-2">
+              <div className="text-gray-500 text-xs mb-0.5">24h Vol</div>
+              <div className="text-cyan-400 font-semibold text-sm">
+                {volume24h > 0 ? formatVolumeUsd(volume24h) : '--'}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* ATH Progress Bar - full width like pump.fun */}
         <div className="mb-4">
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full rounded-full transition-all ${athProgress >= 95 ? 'bg-green-500' : 'bg-gradient-to-r from-gray-600 to-green-500'}`}
               style={{ width: `${Math.min(athProgress, 100)}%` }}
             />
           </div>
         </div>
-
-        {/* OHLCV Bar */}
-        {ohlcv && (
-          <div className="flex items-center gap-4 text-xs mb-4 flex-wrap">
-            <span className="text-gray-500">
-              O<span className="text-green-400 ml-1">{formatMcap(ohlcv.open * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              H<span className="text-green-400 ml-1">{formatMcap(ohlcv.high * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              L<span className="text-green-400 ml-1">{formatMcap(ohlcv.low * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              C<span className="text-green-400 ml-1">{formatMcap(ohlcv.close * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              Vol<span className="text-cyan-400 ml-1">{formatVolumeUsd(ohlcv.volume)}</span>
-            </span>
-          </div>
-        )}
 
         {/* Controls */}
         <div className="flex justify-between items-center">
@@ -446,7 +437,7 @@ export default function PriceChart({
               <button
                 key={i}
                 onClick={() => setTimeInterval(i)}
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
+                className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                   timeInterval === i
                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
                     : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
@@ -459,23 +450,27 @@ export default function PriceChart({
           <div className="flex gap-1">
             <button
               onClick={() => setChartType('line')}
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
+              className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                 chartType === 'line'
                   ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
                   : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
               }`}
+              aria-label="Line chart"
             >
-              📈 Line
+              <span className="sm:hidden">📈</span>
+              <span className="hidden sm:inline">📈 Line</span>
             </button>
             <button
               onClick={() => setChartType('candle')}
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
+              className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                 chartType === 'candle'
                   ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
                   : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
               }`}
+              aria-label="Candlestick chart"
             >
-              🕯️ Candles
+              <span className="sm:hidden">🕯️</span>
+              <span className="hidden sm:inline">🕯️ Candles</span>
             </button>
           </div>
         </div>
