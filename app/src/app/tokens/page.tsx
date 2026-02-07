@@ -131,9 +131,16 @@ export default function TokensPage() {
     return price.toFixed(6) + ' SOL';
   };
 
-  const formatMcap = (mcap: number) => {
-    if (mcap >= 1000) return (mcap / 1000).toFixed(1) + 'K SOL';
-    return mcap.toFixed(2) + ' SOL';
+  const formatMcap = (mcapSol: number, mcapUsd?: number) => {
+    if (mcapUsd !== undefined && mcapUsd !== null) {
+      // Use USD market cap directly from API (based on last trade)
+      if (mcapUsd >= 1000000) return '$' + (mcapUsd / 1000000).toFixed(1) + 'M';
+      if (mcapUsd >= 1000) return '$' + (mcapUsd / 1000).toFixed(1) + 'K';
+      return '$' + mcapUsd.toFixed(0);
+    }
+    // Fallback: convert SOL market cap using current SOL price
+    if (mcapSol >= 1000) return (mcapSol / 1000).toFixed(1) + 'K SOL';
+    return mcapSol.toFixed(2) + ' SOL';
   };
 
   const formatVolume = (vol?: number) => {
@@ -307,7 +314,7 @@ export default function TokensPage() {
                       <span className="text-gray-500 text-xs">by {token.creator_name || 'Anonymous'}</span>
                       {/* Mobile price - shows only on xs screens */}
                       <span className="text-orange-400 text-xs font-mono sm:hidden">
-                        {formatValue(token.market_cap_sol)}
+                        {formatMcap(token.market_cap_sol, token.market_cap_usd)}
                       </span>
                     </div>
                   </div>
@@ -318,7 +325,7 @@ export default function TokensPage() {
                     <div className="text-gray-500 text-sm">Price</div>
                   </div>
                   <div className="text-right hidden md:block">
-                    <div className="text-orange-400 font-mono">{formatValue(token.market_cap_sol)}</div>
+                    <div className="text-orange-400 font-mono">{formatMcap(token.market_cap_sol, token.market_cap_usd)}</div>
                     <div className="text-gray-500 text-sm">MCap</div>
                   </div>
                   <div className="text-right hidden lg:block">

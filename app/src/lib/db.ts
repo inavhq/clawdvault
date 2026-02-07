@@ -24,10 +24,16 @@ function calculateMarketCap(virtualSol: number, virtualTokens: number): number {
 }
 
 // Convert Prisma token to API token
-function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number; holders?: number }): Token {
+function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number; holders?: number }, lastTrade?: { priceUsd?: number | null; priceSol?: number | null } | null): Token {
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
-  
+
+  // Calculate market cap from last trade if available, otherwise from reserves
+  let priceSol = lastTrade?.priceSol ?? calculatePrice(virtualSol, virtualTokens);
+  let priceUsd = lastTrade?.priceUsd ?? undefined;
+  let marketCapSol = priceSol * INITIAL_VIRTUAL_TOKENS;
+  let marketCapUsd = priceUsd ? priceUsd * INITIAL_VIRTUAL_TOKENS : undefined;
+
   return {
     id: token.id,
     mint: token.mint,
@@ -42,8 +48,10 @@ function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number
     virtual_token_reserves: virtualTokens,
     real_sol_reserves: Number(token.realSolReserves),
     real_token_reserves: Number(token.realTokenReserves),
-    price_sol: calculatePrice(virtualSol, virtualTokens),
-    market_cap_sol: calculateMarketCap(virtualSol, virtualTokens),
+    price_sol: priceSol,
+    price_usd: priceUsd,
+    market_cap_sol: marketCapSol,
+    market_cap_usd: marketCapUsd,
     graduated: token.graduated,
     raydium_pool: token.raydiumPool || undefined,
     twitter: token.twitter || undefined,
@@ -93,6 +101,24 @@ export async function getAllTokens(options?: {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   
+  // Fetch last trades for all tokens to calculate accurate market cap
+  const tokenMints = tokens.map(t => t.mint);
+  const lastTrades = await db().trade.findMany({
+    where: { tokenMint: { in: tokenMints } },
+    orderBy: { createdAt: 'desc' },
+    distinct: ['tokenMint'],
+    select: {
+      tokenMint: true,
+      priceSol: true,
+      solPriceUsd: true,
+    }
+  });
+  // Calculate USD price from SOL price and SOL/USD rate
+  const lastTradeMap = new Map(lastTrades.map(t => [t.tokenMint, {
+    priceSol: Number(t.priceSol),
+    priceUsd: t.solPriceUsd ? Number(t.priceSol) * Number(t.solPriceUsd) : null
+  }]));
+
   const tokensWithStats = await Promise.all(
     tokens.map(async (token) => {
       const [volumeResult, tradeCount, holderCount] = await Promise.all([
@@ -108,15 +134,15 @@ export async function getAllTokens(options?: {
           where: { tokenMint: token.mint },
         }),
       ]);
-      
+
       return toApiToken(token, {
         volume24h: Number(volumeResult._sum.solAmount || 0),
         trades24h: tradeCount,
         holders: holderCount.length || 1,
-      });
+      }, lastTradeMap.get(token.mint));
     })
   );
-  
+
   return { tokens: tokensWithStats, total };
 }
 
@@ -125,14 +151,14 @@ export async function getToken(mint: string): Promise<Token | null> {
   const token = await db().token.findUnique({
     where: { mint },
   });
-  
+
   if (!token) return null;
-  
+
   // Get stats
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
-  const [volumeResult, tradeCount, holderCount] = await Promise.all([
+
+  const [volumeResult, tradeCount, holderCount, lastTrade] = await Promise.all([
     db().trade.aggregate({
       where: { tokenMint: mint, createdAt: { gte: dayAgo } },
       _sum: { solAmount: true },
@@ -144,13 +170,24 @@ export async function getToken(mint: string): Promise<Token | null> {
       by: ['trader'],
       where: { tokenMint: mint },
     }),
+    db().trade.findFirst({
+      where: { tokenMint: mint },
+      orderBy: { createdAt: 'desc' },
+      select: { priceSol: true, solPriceUsd: true },
+    }),
   ]);
-  
+
+  // Calculate USD price from SOL price and SOL/USD rate
+  const lastTradeData = lastTrade ? {
+    priceSol: Number(lastTrade.priceSol),
+    priceUsd: lastTrade.solPriceUsd ? Number(lastTrade.priceSol) * Number(lastTrade.solPriceUsd) : null
+  } : null;
+
   return toApiToken(token, {
     volume24h: Number(volumeResult._sum.solAmount || 0),
     trades24h: tradeCount,
     holders: holderCount.length || 1,
-  });
+  }, lastTradeData);
 }
 
 // Update token fields

@@ -64,30 +64,30 @@ async function getHomeData() {
     const solPrice = await getSolPrice()
     // Get total tokens
     const totalTokens = await db().token.count()
-    
+
     // Get graduated count
     const graduatedCount = await db().token.count({
       where: { graduated: true }
     })
-    
+
     // Get total volume from trades
     const volumeResult = await db().trade.aggregate({
       _sum: { solAmount: true }
     })
     const totalVolume = Number(volumeResult._sum.solAmount || 0)
-    
+
     // Get king of the hill (highest market cap = highest virtualSolReserves)
     const kingToken = await db().token.findFirst({
       where: { graduated: false },
       orderBy: { virtualSolReserves: 'desc' }
     })
-    
+
     // Get recent tokens (last 6)
     const recentTokens = await db().token.findMany({
       orderBy: { createdAt: 'desc' },
       take: 6
     })
-    
+
     // Get trending tokens (most volume in last 24h)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const trendingTrades = await db().trade.groupBy({
@@ -97,21 +97,46 @@ async function getHomeData() {
       orderBy: { _sum: { solAmount: 'desc' } },
       take: 6
     })
-    
+
     // Fetch the trending tokens
     const trendingMints = trendingTrades.map(t => t.tokenMint)
-    const trendingTokens = trendingMints.length > 0 
+    const trendingTokens = trendingMints.length > 0
       ? await db().token.findMany({
           where: { mint: { in: trendingMints } }
         })
       : []
-    
+
     // Sort trending tokens by their trade volume
     const trendingWithVolume = trendingTokens.map(token => ({
       ...token,
       volume24h: Number(trendingTrades.find(t => t.tokenMint === token.mint)?._sum.solAmount || 0)
     })).sort((a, b) => b.volume24h - a.volume24h)
-    
+
+    // Fetch last trades for all tokens to calculate market cap
+    const allTokenMints = [
+      ...(kingToken ? [kingToken.mint] : []),
+      ...recentTokens.map(t => t.mint),
+      ...trendingWithVolume.map(t => t.mint)
+    ]
+    const uniqueMints = Array.from(new Set(allTokenMints))
+
+    const lastTrades = await db().trade.findMany({
+      where: { tokenMint: { in: uniqueMints } },
+      orderBy: { createdAt: 'desc' },
+      distinct: ['tokenMint'],
+      select: {
+        tokenMint: true,
+        priceSol: true,
+        solPriceUsd: true
+      }
+    })
+
+    // Calculate USD price from SOL price and SOL/USD rate
+    const lastTradeMap = new Map(lastTrades.map(t => [t.tokenMint, {
+      priceSol: Number(t.priceSol),
+      priceUsd: t.solPriceUsd ? Number(t.priceSol) * Number(t.solPriceUsd) : undefined
+    }]))
+
     return {
       totalTokens,
       graduatedCount,
@@ -119,7 +144,8 @@ async function getHomeData() {
       kingToken,
       recentTokens,
       trendingTokens: trendingWithVolume,
-      solPrice
+      solPrice,
+      lastTradeMap
     }
   } catch (error) {
     console.error('Error fetching home data:', error)
@@ -130,7 +156,8 @@ async function getHomeData() {
       kingToken: null,
       recentTokens: [],
       trendingTokens: [],
-      solPrice: 100
+      solPrice: 100,
+      lastTradeMap: new Map()
     }
   }
 }
@@ -163,15 +190,27 @@ function formatValue(solAmount: number, solPrice: number | null): string {
 
 const TOTAL_SUPPLY = 1_000_000_000
 
-function getMarketCap(token: any): number {
+// Calculate market cap from last trade price (consistent with token detail page)
+function getMarketCap(token: any, lastTrade?: { priceUsd?: number | null; priceSol?: number | null }): { sol: number; usd: number | null } {
+  if (lastTrade?.priceUsd) {
+    // Use last trade USD price × supply
+    return {
+      sol: (lastTrade.priceUsd / (lastTrade.priceSol || 1)) * TOTAL_SUPPLY,
+      usd: lastTrade.priceUsd * TOTAL_SUPPLY
+    }
+  }
+  // Fallback: calculate from bonding curve reserves
   const virtualSol = Number(token.virtualSolReserves)
   const virtualTokens = Number(token.virtualTokenReserves)
   const price = virtualSol / virtualTokens
-  return price * TOTAL_SUPPLY
+  return {
+    sol: price * TOTAL_SUPPLY,
+    usd: null
+  }
 }
 
-function TokenCard({ token, badge, solPrice }: { token: any, badge?: string, solPrice: number | null }) {
-  const mcapSol = getMarketCap(token)
+function TokenCard({ token, badge, solPrice, lastTrade }: { token: any, badge?: string, solPrice: number | null, lastTrade?: { priceUsd?: number | null; priceSol?: number | null } }) {
+  const mcap = getMarketCap(token, lastTrade)
   
   return (
     <Link 
@@ -216,7 +255,7 @@ function TokenCard({ token, badge, solPrice }: { token: any, badge?: string, sol
         {/* Market Cap */}
         <div className="text-right flex-shrink-0">
           <div className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">
-            {formatValue(mcapSol, solPrice)}
+            {mcap.usd !== null ? formatUsd(mcap.usd) : formatValue(mcap.sol, solPrice)}
           </div>
           <div className="text-gray-500 text-xs uppercase tracking-wide">mcap</div>
         </div>
@@ -330,7 +369,10 @@ export default async function Home() {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-yellow-400">
-                    {formatValue(getMarketCap(data.kingToken), data.solPrice)}
+                    {(() => {
+                      const mcap = getMarketCap(data.kingToken, data.lastTradeMap.get(data.kingToken.mint))
+                      return mcap.usd !== null ? formatUsd(mcap.usd) : formatValue(mcap.sol, data.solPrice)
+                    })()}
                   </div>
                   <div className="text-gray-500 text-sm">Market Cap</div>
                 </div>
@@ -352,7 +394,7 @@ export default async function Home() {
               {data.trendingTokens.length > 0 ? (
                 <div className="space-y-3">
                   {data.trendingTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard key={token.mint} token={token} badge="hot" solPrice={data.solPrice} />
+                    <TokenCard key={token.mint} token={token} badge="hot" solPrice={data.solPrice} lastTrade={data.lastTradeMap.get(token.mint)} />
                   ))}
                 </div>
               ) : (
@@ -370,7 +412,7 @@ export default async function Home() {
               {data.recentTokens.length > 0 ? (
                 <div className="space-y-3">
                   {data.recentTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard key={token.mint} token={token} badge="new" solPrice={data.solPrice} />
+                    <TokenCard key={token.mint} token={token} badge="new" solPrice={data.solPrice} lastTrade={data.lastTradeMap.get(token.mint)} />
                   ))}
                 </div>
               ) : (
