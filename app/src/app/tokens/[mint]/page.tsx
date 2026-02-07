@@ -51,6 +51,16 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   // Effective market cap: on-chain initially, then candles after first update
   const displayMarketCap = candleMarketCap > 0 ? candleMarketCap : (onChainStats?.marketCapUsd ?? 0);
 
+  // Current price from last trade (trades are streamed realtime)
+  const lastTradePrice = useMemo(() => {
+    if (trades.length === 0) return null;
+    return {
+      sol: trades[0].price_sol,
+      usd: trades[0].price_usd,
+      solPriceUsd: trades[0].sol_price_usd,
+    };
+  }, [trades]);
+
   // Fetch token holdings for connected wallet (client-side RPC)
   const fetchTokenBalance = useCallback(async () => {
     if (!connected || !publicKey || !token) {
@@ -260,12 +270,12 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     }
   }, [token, amount, tradeType]);
 
-  // Calculate price impact using on-chain price
+  // Calculate price impact using last trade price (streamed realtime)
   const priceImpact = useMemo(() => {
-    const currentPrice = onChainStats?.price ?? 0;
+    const currentPrice = lastTradePrice?.sol ?? onChainStats?.price ?? 0;
     if (!token || !amount || parseFloat(amount) <= 0 || currentPrice <= 0) return 0;
     const inputAmount = parseFloat(amount);
-    
+
     if (tradeType === 'buy') {
       const expectedTokens = inputAmount / currentPrice;
       const actualTokens = estimatedOutput?.tokens || 0;
@@ -275,7 +285,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       const actualSol = estimatedOutput?.sol || 0;
       return ((expectedSol - actualSol) / expectedSol) * 100;
     }
-  }, [token, amount, tradeType, estimatedOutput, onChainStats?.price]);
+  }, [token, amount, tradeType, estimatedOutput, lastTradePrice?.sol, onChainStats?.price]);
 
   // Contract now caps sells at available liquidity, so max is just token balance
   const maxSellableTokens = tokenBalance;
@@ -819,19 +829,19 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
               <div className="bg-gray-800/50 rounded-xl p-6 h-fit lg:sticky lg:top-6">
               <h3 className="text-white font-semibold mb-4">Trade</h3>
 
-              {/* Token Price (on-chain initially, then candles after trades) */}
+              {/* Token Price from last trade (streamed realtime) */}
               <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Price</span>
                   <span className="text-white font-mono">
-                    {onChainStats?.price ? formatPrice(onChainStats.price) : '--'} SOL
+                    {lastTradePrice?.sol ? formatPrice(lastTradePrice.sol) : (onChainStats?.price ? formatPrice(onChainStats.price) : '--')} SOL
                   </span>
                 </div>
-                {onChainStats?.priceUsd && onChainStats?.price && (
+                {(lastTradePrice?.usd || onChainStats?.priceUsd) && (
                   <div className="flex justify-between text-sm mt-1">
                     <span className="text-gray-400">USD</span>
                     <span className="text-green-400 font-mono">
-                      ${onChainStats.priceUsd.toFixed(onChainStats.priceUsd < 0.01 ? 8 : 4)}
+                      ${(lastTradePrice?.usd ?? onChainStats?.priceUsd ?? 0).toFixed((lastTradePrice?.usd ?? onChainStats?.priceUsd ?? 0) < 0.01 ? 8 : 4)}
                     </span>
                   </div>
                 )}
