@@ -4,14 +4,8 @@ import { getSolPrice } from '@/lib/sol-price';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Generate heartbeat candles for tokens with no recent trades
- * This ensures USD charts reflect current SOL price even without trading activity
- * 
- * Note: This cron is now complementary to update-sol-price cron:
- * - update-sol-price: Updates closeUsd of EXISTING candles when SOL price changes
- * - heartbeat-candles: Creates NEW candles when no trades exist for the current bucket
- */
+// Generate heartbeat candles for tokens with no recent trades
+// This ensures USD charts reflect current SOL price even without trading activity
 export async function GET(request: Request) {
   try {
     // Verify cron secret
@@ -20,7 +14,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current SOL price from database (primary) or API (fallback)
+    // Get current SOL price
     const solPriceUsd = await getSolPrice();
     if (!solPriceUsd) {
       throw new Error('Failed to fetch SOL price');
@@ -86,42 +80,29 @@ export async function GET(request: Request) {
               interval: interval.name,
             },
             orderBy: { bucketTime: 'desc' },
-            select: { closeUsd: true, close: true, solPriceUsd: true }
+            select: { closeUsd: true, close: true }
           });
 
           // Calculate SOL-equivalent price
+          // We store both SOL and USD values
           const prevPriceSol = prevCandle?.close ? Number(prevCandle.close) : lastTradePriceSol;
           const prevPriceUsd = prevCandle?.closeUsd ? Number(prevCandle.closeUsd) : currentPriceUsd;
-          const prevSolPrice = prevCandle?.solPriceUsd ? Number(prevCandle.solPriceUsd) : solPriceUsd;
 
-          // Calculate wicks based on SOL price movement during the interval
-          // If SOL price changed, the USD price would have moved even without trades
-          const solPriceChange = solPriceUsd / prevSolPrice;
-          
-          // For USD price: high/low reflect the movement from prev price to current price
-          // High is when SOL was at its max (token USD price would be highest)
-          // Low is when SOL was at its min (token USD price would be lowest)
-          const highUsd = Math.max(prevPriceUsd, currentPriceUsd, prevPriceUsd * solPriceChange);
-          const lowUsd = Math.min(prevPriceUsd, currentPriceUsd, prevPriceUsd / solPriceChange);
-
-          // For SOL price: same as open/close since no trades occurred
-          // The SOL-denominated price doesn't change without trades
-          const solHighLow = lastTradePriceSol;
-
-          // Create heartbeat candle with proper wicks reflecting SOL price movement
+          // Create heartbeat candle
+          // OHLC = same value (no intra-candle movement since no trades)
           await db().priceCandle.create({
             data: {
               tokenMint: token.mint,
               interval: interval.name,
               bucketTime,
               open: prevPriceSol,
-              high: solHighLow,
-              low: solHighLow,
+              high: Math.max(prevPriceSol, lastTradePriceSol),
+              low: Math.min(prevPriceSol, lastTradePriceSol),
               close: lastTradePriceSol,
               volume: 0, // No volume since no trades
               openUsd: prevPriceUsd,
-              highUsd,
-              lowUsd,
+              highUsd: Math.max(prevPriceUsd, currentPriceUsd),
+              lowUsd: Math.min(prevPriceUsd, currentPriceUsd),
               closeUsd: currentPriceUsd,
               volumeUsd: 0,
               solPriceUsd,
