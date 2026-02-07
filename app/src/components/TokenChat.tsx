@@ -335,8 +335,8 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
           messages.map((msg) => {
             const hasReactions = Object.keys(msg.reactions).length > 0;
             return (
-              <div key={msg.id} className="group px-4 py-0.5 first:pt-2 last:pb-2">
-                <div className="flex items-start gap-2 relative">
+              <div key={msg.id} className="group px-4 py-1 mb-1 last:mb-0">
+                <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 flex-wrap">
                       <span 
@@ -351,7 +351,48 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
                         {formatTimeAgo(new Date(msg.createdAt))}
                       </span>
                     </div>
-                    <p className="text-gray-300 text-sm break-words pr-6">{msg.message}</p>
+                    
+                    {/* Message text with + button inline */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <p className="text-gray-300 text-sm break-words">{msg.message}</p>
+                      
+                      {/* + button inline when no reactions */}
+                      {!hasReactions && connected && (
+                        <div className="relative inline-block">
+                          <button
+                            className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-xs text-gray-400 hover:text-white transition"
+                            onClick={(e) => {
+                              const picker = e.currentTarget.nextElementSibling;
+                              picker?.classList.toggle('hidden');
+                            }}
+                          >
+                            +
+                          </button>
+                          <div className="hidden absolute left-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
+                            {EMOJI_OPTIONS.map(emoji => {
+                              const isSelected = getUserReaction(msg) === emoji;
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={(e) => {
+                                    toggleReaction(msg.id, emoji);
+                                    e.currentTarget.parentElement?.classList.add('hidden');
+                                  }}
+                                  className={`p-1.5 rounded transition ${
+                                    isSelected 
+                                      ? 'bg-orange-500/30 ring-1 ring-orange-500' 
+                                      : 'hover:bg-gray-700'
+                                  }`}
+                                  title={isSelected ? 'Click to remove' : 'Click to react'}
+                                >
+                                  {emoji}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     
                     {/* Reactions row - only when reactions exist */}
                     {hasReactions && (
@@ -411,43 +452,6 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
                       </div>
                     )}
                   </div>
-                  
-                  {/* Floating + button when no reactions - absolute positioned */}
-                  {!hasReactions && connected && (
-                    <div className="absolute bottom-0 right-0">
-                      <button
-                        className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-xs text-gray-400 hover:text-white transition"
-                        onClick={(e) => {
-                          const picker = e.currentTarget.nextElementSibling;
-                          picker?.classList.toggle('hidden');
-                        }}
-                      >
-                        +
-                      </button>
-                      <div className="hidden absolute right-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
-                        {EMOJI_OPTIONS.map(emoji => {
-                          const isSelected = getUserReaction(msg) === emoji;
-                          return (
-                            <button
-                              key={emoji}
-                              onClick={(e) => {
-                                toggleReaction(msg.id, emoji);
-                                e.currentTarget.parentElement?.classList.add('hidden');
-                              }}
-                              className={`p-1.5 rounded transition ${
-                                isSelected 
-                                  ? 'bg-orange-500/30 ring-1 ring-orange-500' 
-                                  : 'hover:bg-gray-700'
-                              }`}
-                              title={isSelected ? 'Click to remove' : 'Click to react'}
-                            >
-                              {emoji}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             );
