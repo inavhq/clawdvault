@@ -5,44 +5,23 @@ import { useState, useEffect } from 'react';
 const STORAGE_KEY = 'clawdvault_age_verified';
 
 /**
- * Check if age gate should be bypassed
+ * Age Gate Component
  * 
- * Bypass conditions (development mode only):
- * 1. NEXT_PUBLIC_SKIP_AGE_GATE=true environment variable
- * 2. ?bypass_age_gate=1 query parameter
- * 
- * Note: These bypasses only work in development mode (NODE_ENV === 'development')
- * to ensure production always shows the age gate.
+ * Logic:
+ * - Production: Always show age gate
+ * - Development: Hidden by default, only show if NEXT_PUBLIC_SHOW_AGE_GATE=true
  */
-function shouldBypassAgeGate(): boolean {
-  // Only allow bypass in development mode
-  if (process.env.NODE_ENV !== 'development') {
-    return false;
-  }
-
-  // Check environment variable
-  if (process.env.NEXT_PUBLIC_SKIP_AGE_GATE === 'true') {
-    return true;
-  }
-
-  // Check query parameter (client-side only)
-  if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('bypass_age_gate') === '1') {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 export default function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Determine if age gate should be shown
+  const showAgeGate = process.env.NODE_ENV === 'production' || 
+                      process.env.NEXT_PUBLIC_SHOW_AGE_GATE === 'true';
+
   useEffect(() => {
-    // Check for bypass first (dev mode only)
-    if (shouldBypassAgeGate()) {
+    // If age gate is disabled (dev mode without SHOW_AGE_GATE), auto-verify
+    if (!showAgeGate) {
       setVerified(true);
       setLoading(false);
       return;
@@ -56,7 +35,7 @@ export default function AgeGate({ children }: { children: React.ReactNode }) {
       setVerified(false);
     }
     setLoading(false);
-  }, []);
+  }, [showAgeGate]);
 
   const handleAccept = () => {
     localStorage.setItem(STORAGE_KEY, 'true');
