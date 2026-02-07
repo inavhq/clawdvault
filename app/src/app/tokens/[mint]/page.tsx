@@ -368,43 +368,31 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [token, amount, tradeType]);
 
   // Calculate price impact using bonding curve formula
-  // Price impact = (newPrice - currentPrice) / currentPrice * 100
-  // For buys: positive (price goes up)
-  // For sells: negative (price goes down)
   const priceImpact = useMemo(() => {
     if (!token || !amount || parseFloat(amount) <= 0) return 0;
     const inputAmount = parseFloat(amount);
 
-    // Current price from bonding curve reserves
-    const currentPrice = token.virtual_sol_reserves / token.virtual_token_reserves;
-    if (currentPrice <= 0) return 0;
+    // Spot price from virtual reserves
+    const spotPrice = token.virtual_sol_reserves / token.virtual_token_reserves;
 
     if (tradeType === 'buy') {
-      // For buys: calculate new price after adding SOL (with fee)
+      // For buys: calculate average price paid per token
       const solAfterFee = inputAmount * 0.99;
       const tokensOut = estimatedOutput?.tokens || 0;
+      if (tokensOut <= 0) return 0;
       
-      // New reserves after the buy
-      const newVirtualSol = token.virtual_sol_reserves + solAfterFee;
-      const newVirtualTokens = token.virtual_token_reserves - tokensOut;
-      
-      if (newVirtualTokens <= 0) return 0;
-      
-      const newPrice = newVirtualSol / newVirtualTokens;
-      return ((newPrice - currentPrice) / currentPrice) * 100;
+      const avgPrice = solAfterFee / tokensOut;
+      // Price impact is how much higher avg price is vs spot price
+      return ((avgPrice - spotPrice) / spotPrice) * 100;
     } else {
-      // For sells: calculate new price after removing tokens (with fee)
+      // For sells: calculate average price received per token
       const tokensAfterFee = inputAmount * 0.99;
       const solOut = estimatedOutput?.sol || 0;
+      if (solOut <= 0 || tokensAfterFee <= 0) return 0;
       
-      // New reserves after the sell
-      const newVirtualTokens = token.virtual_token_reserves + tokensAfterFee;
-      const newVirtualSol = token.virtual_sol_reserves - solOut;
-      
-      if (newVirtualTokens <= 0 || newVirtualSol <= 0) return 0;
-      
-      const newPrice = newVirtualSol / newVirtualTokens;
-      return ((newPrice - currentPrice) / currentPrice) * 100;
+      const avgPrice = solOut / tokensAfterFee;
+      // Price impact is how much lower avg price is vs spot price
+      return ((spotPrice - avgPrice) / spotPrice) * 100;
     }
   }, [token, amount, tradeType, estimatedOutput]);
 
@@ -1096,18 +1084,19 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                       <div className="flex justify-between text-sm mt-1">
                         <span className="text-gray-400">Price Impact</span>
                         <span className={`font-mono ${
-                          Math.abs(priceImpact) > 5 ? 'text-red-400' : 
-                          Math.abs(priceImpact) > 2 ? 'text-yellow-400' : 
+                          tradeType === 'sell' ? 'text-red-400' :
+                          priceImpact > 5 ? 'text-red-400' : 
+                          priceImpact > 2 ? 'text-yellow-400' : 
                           'text-green-400'
                         }`}>
-                          {priceImpact > 0 ? '+' : ''}{priceImpact.toFixed(2)}%
+                          {tradeType === 'sell' ? '-' : ''}{priceImpact.toFixed(2)}%
                         </span>
                       </div>
                     </div>
                   )}
 
                   {/* Price Impact Warning */}
-                  {Math.abs(priceImpact) > 5 && (
+                  {priceImpact > 5 && (
                     <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4">
                       <div className="text-red-400 text-sm flex items-center gap-2">
                         <span>⚠️</span>
