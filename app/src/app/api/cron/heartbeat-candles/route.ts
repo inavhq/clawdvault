@@ -86,29 +86,37 @@ export async function GET(request: Request) {
               interval: interval.name,
             },
             orderBy: { bucketTime: 'desc' },
-            select: { closeUsd: true, close: true }
+            select: { closeUsd: true, close: true, solPriceUsd: true }
           });
 
           // Calculate SOL-equivalent price
-          // We store both SOL and USD values
           const prevPriceSol = prevCandle?.close ? Number(prevCandle.close) : lastTradePriceSol;
           const prevPriceUsd = prevCandle?.closeUsd ? Number(prevCandle.closeUsd) : currentPriceUsd;
+          const prevSolPrice = prevCandle?.solPriceUsd ? Number(prevCandle.solPriceUsd) : solPriceUsd;
 
-          // Create heartbeat candle
-          // OHLC = same value (no intra-candle movement since no trades)
+          // Calculate wicks based on SOL price movement during the interval
+          // If SOL price changed, the USD price would have moved even without trades
+          const solPriceChange = solPriceUsd / prevSolPrice;
+          
+          // High is when SOL was at its max (token USD price would be highest)
+          // Low is when SOL was at its min (token USD price would be lowest)
+          const highUsd = Math.max(currentPriceUsd, prevPriceUsd * solPriceChange);
+          const lowUsd = Math.min(currentPriceUsd, prevPriceUsd / solPriceChange);
+
+          // Create heartbeat candle with proper wicks reflecting SOL price movement
           await db().priceCandle.create({
             data: {
               tokenMint: token.mint,
               interval: interval.name,
               bucketTime,
               open: prevPriceSol,
-              high: Math.max(prevPriceSol, lastTradePriceSol),
-              low: Math.min(prevPriceSol, lastTradePriceSol),
+              high: lastTradePriceSol,
+              low: lastTradePriceSol,
               close: lastTradePriceSol,
               volume: 0, // No volume since no trades
               openUsd: prevPriceUsd,
-              highUsd: Math.max(prevPriceUsd, currentPriceUsd),
-              lowUsd: Math.min(prevPriceUsd, currentPriceUsd),
+              highUsd,
+              lowUsd,
               closeUsd: currentPriceUsd,
               volumeUsd: 0,
               solPriceUsd,
