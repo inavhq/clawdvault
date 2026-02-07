@@ -55,8 +55,19 @@ export default function PriceChart({
   const [chartType, setChartType] = useState<ChartType>('candle');
   const [timeInterval, setTimeInterval] = useState<Interval>('5m');
 
-  // Use prop if provided, otherwise calculate from candles
+  // Calculate price change based on selected interval
+  // For 1d view: use first candle open vs last candle close (standard OHLC)
+  // For other views: use API-provided 24h change
   const priceChange24h = useMemo(() => {
+    // For 1d interval, calculate from visible candles (standard methodology)
+    if (timeInterval === '1d' && candles.length >= 2) {
+      const firstCandle = candles[0];
+      const lastCandle = candles[candles.length - 1];
+      if (firstCandle.open === 0) return 0;
+      return ((lastCandle.close - firstCandle.open) / firstCandle.open) * 100;
+    }
+
+    // For other intervals, use API-provided 24h change
     if (priceChange24hProp !== null && priceChange24hProp !== undefined) {
       return priceChange24hProp;
     }
@@ -73,7 +84,7 @@ export default function PriceChart({
     if (firstOpen === 0) return 0;
 
     return ((lastClose - firstOpen) / firstOpen) * 100;
-  }, [candles24h, candles, priceChange24hProp]);
+  }, [candles24h, candles, priceChange24hProp, timeInterval]);
 
   // Calculate current market cap from last candle close (candles are USD price)
   const candleMarketCap = useMemo(() => {
