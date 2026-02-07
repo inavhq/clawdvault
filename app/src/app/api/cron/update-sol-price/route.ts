@@ -11,7 +11,7 @@ import { db } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 interface PriceSource {
-  name: 'coingecko' | 'jupiter';
+  name: 'coingecko' | 'binance';
   price: number;
 }
 
@@ -113,18 +113,16 @@ export async function GET(request: Request) {
   
   try {
     // Fetch from multiple sources in parallel with overall timeout
-    console.log('[CRON] Fetching from CoinGecko, Jupiter, Binance...');
-    const [coinGeckoPrice, jupiterPrice, binancePrice] = await Promise.all([
+    console.log('[CRON] Fetching from CoinGecko and Binance...');
+    const [coinGeckoPrice, binancePrice] = await Promise.all([
       fetchFromCoinGecko(),
-      fetchFromJupiter(),
       fetchFromBinance(),
     ]);
-    console.log(`[CRON] Results: CG=${coinGeckoPrice}, JP=${jupiterPrice}, BN=${binancePrice}`);
+    console.log(`[CRON] Results: CG=${coinGeckoPrice}, BN=${binancePrice}`);
     
     // Collect successful results
     if (coinGeckoPrice) results.push({ name: 'coingecko', price: coinGeckoPrice });
-    if (jupiterPrice) results.push({ name: 'jupiter', price: jupiterPrice });
-    if (binancePrice) results.push({ name: 'jupiter', price: binancePrice }); // Use jupiter as source name for Binance fallback
+    if (binancePrice) results.push({ name: 'binance', price: binancePrice });
     
     if (results.length === 0) {
       console.error('❌ [CRON] All price sources failed');
