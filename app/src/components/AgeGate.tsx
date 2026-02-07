@@ -4,11 +4,50 @@ import { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'clawdvault_age_verified';
 
+/**
+ * Check if age gate should be bypassed
+ * 
+ * Bypass conditions (development mode only):
+ * 1. NEXT_PUBLIC_SKIP_AGE_GATE=true environment variable
+ * 2. ?bypass_age_gate=1 query parameter
+ * 
+ * Note: These bypasses only work in development mode (NODE_ENV === 'development')
+ * to ensure production always shows the age gate.
+ */
+function shouldBypassAgeGate(): boolean {
+  // Only allow bypass in development mode
+  if (process.env.NODE_ENV !== 'development') {
+    return false;
+  }
+
+  // Check environment variable
+  if (process.env.NEXT_PUBLIC_SKIP_AGE_GATE === 'true') {
+    return true;
+  }
+
+  // Check query parameter (client-side only)
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('bypass_age_gate') === '1') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export default function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for bypass first (dev mode only)
+    if (shouldBypassAgeGate()) {
+      setVerified(true);
+      setLoading(false);
+      return;
+    }
+
     // Check localStorage on mount
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'true') {
