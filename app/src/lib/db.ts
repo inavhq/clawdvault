@@ -24,13 +24,14 @@ function calculateMarketCap(virtualSol: number, virtualTokens: number): number {
 }
 
 // Convert Prisma token to API token
-function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number; holders?: number }, lastTrade?: { priceUsd?: number | null; priceSol?: number | null } | null): Token {
+function toApiToken(token: any, stats?: { volume24h?: number; trades24h?: number; holders?: number }, lastCandle?: { closeUsd?: number | null; close?: number | null } | null): Token {
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
 
-  // Calculate market cap from last trade if available, otherwise from reserves
-  let priceSol = lastTrade?.priceSol ?? calculatePrice(virtualSol, virtualTokens);
-  let priceUsd = lastTrade?.priceUsd ?? undefined;
+  // Calculate market cap from last candle if available (includes heartbeat candles), otherwise from reserves
+  // Last candle is the source of truth for current price since heartbeat candles keep USD values updated
+  let priceSol = lastCandle?.close ?? calculatePrice(virtualSol, virtualTokens);
+  let priceUsd = lastCandle?.closeUsd ?? undefined;
   let marketCapSol = priceSol * INITIAL_VIRTUAL_TOKENS;
   let marketCapUsd = priceUsd ? priceUsd * INITIAL_VIRTUAL_TOKENS : undefined;
 
@@ -101,22 +102,22 @@ export async function getAllTokens(options?: {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   
-  // Fetch last trades for all tokens to calculate accurate market cap
+  // Fetch last candles for all tokens to calculate accurate market cap
+  // Candles include heartbeat candles, so they stay updated with current SOL price
   const tokenMints = tokens.map(t => t.mint);
-  const lastTrades = await db().trade.findMany({
+  const lastCandles = await db().priceCandle.findMany({
     where: { tokenMint: { in: tokenMints } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { bucketTime: 'desc' },
     distinct: ['tokenMint'],
     select: {
       tokenMint: true,
-      priceSol: true,
-      solPriceUsd: true,
+      close: true,
+      closeUsd: true,
     }
   });
-  // Calculate USD price from SOL price and SOL/USD rate
-  const lastTradeMap = new Map(lastTrades.map(t => [t.tokenMint, {
-    priceSol: Number(t.priceSol),
-    priceUsd: t.solPriceUsd ? Number(t.priceSol) * Number(t.solPriceUsd) : null
+  const lastCandleMap = new Map(lastCandles.map(c => [c.tokenMint, {
+    close: c.close ? Number(c.close) : undefined,
+    closeUsd: c.closeUsd ? Number(c.closeUsd) : undefined
   }]));
 
   const tokensWithStats = await Promise.all(
@@ -139,7 +140,7 @@ export async function getAllTokens(options?: {
         volume24h: Number(volumeResult._sum.solAmount || 0),
         trades24h: tradeCount,
         holders: holderCount.length || 1,
-      }, lastTradeMap.get(token.mint));
+      }, lastCandleMap.get(token.mint));
     })
   );
 
@@ -158,7 +159,7 @@ export async function getToken(mint: string): Promise<Token | null> {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [volumeResult, tradeCount, holderCount, lastTrade] = await Promise.all([
+  const [volumeResult, tradeCount, holderCount, lastCandle] = await Promise.all([
     db().trade.aggregate({
       where: { tokenMint: mint, createdAt: { gte: dayAgo } },
       _sum: { solAmount: true },
@@ -170,24 +171,24 @@ export async function getToken(mint: string): Promise<Token | null> {
       by: ['trader'],
       where: { tokenMint: mint },
     }),
-    db().trade.findFirst({
+    db().priceCandle.findFirst({
       where: { tokenMint: mint },
-      orderBy: { createdAt: 'desc' },
-      select: { priceSol: true, solPriceUsd: true },
+      orderBy: { bucketTime: 'desc' },
+      select: { close: true, closeUsd: true },
     }),
   ]);
 
-  // Calculate USD price from SOL price and SOL/USD rate
-  const lastTradeData = lastTrade ? {
-    priceSol: Number(lastTrade.priceSol),
-    priceUsd: lastTrade.solPriceUsd ? Number(lastTrade.priceSol) * Number(lastTrade.solPriceUsd) : null
+  // Use last candle for current price (includes heartbeat candles for USD continuity)
+  const lastCandleData = lastCandle ? {
+    close: lastCandle.close ? Number(lastCandle.close) : undefined,
+    closeUsd: lastCandle.closeUsd ? Number(lastCandle.closeUsd) : undefined
   } : null;
 
   return toApiToken(token, {
     volume24h: Number(volumeResult._sum.solAmount || 0),
     trades24h: tradeCount,
     holders: holderCount.length || 1,
-  }, lastTradeData);
+  }, lastCandleData);
 }
 
 // Update token fields
