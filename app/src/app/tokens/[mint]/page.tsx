@@ -1089,14 +1089,14 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                           priceImpact > 2 ? 'text-yellow-400' : 
                           'text-green-400'
                         }`}>
-                          {tradeType === 'sell' ? '-' : ''}{priceImpact.toFixed(2)}%
+                          {tradeType === 'sell' ? '-' : ''}{priceImpact < 0.01 && priceImpact > 0 ? '<0.01' : priceImpact.toFixed(2)}%
                         </span>
                       </div>
                     </div>
                   )}
 
                   {/* Price Impact Warning */}
-                  {priceImpact > 5 && (
+                  {Math.abs(priceImpact) > 5 && (
                     <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4">
                       <div className="text-red-400 text-sm flex items-center gap-2">
                         <span>⚠️</span>
