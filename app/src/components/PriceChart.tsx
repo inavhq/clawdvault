@@ -48,8 +48,8 @@ export default function PriceChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Line'> | ISeriesApi<'Candlestick'> | null>(null);
-  // Ref to store previous data length for calculating new candles (Issue #36)
-  const prevDataLengthRef = useRef<number>(0);
+  // Ref to store last rendered time interval for viewport preservation (Issue #36)
+  const lastRenderedRangeRef = useRef<Interval | null>(null);
   
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
@@ -245,9 +245,9 @@ export default function PriceChart({
       });
     }
 
-    // Capture current visible range and data length before updating (Issue #36)
-    const oldVisibleRange = chartRef.current?.timeScale().getVisibleLogicalRange();
-    const oldDataLength = prevDataLengthRef.current;
+    // Get the visible range BEFORE the data update (time-based, not index-based) (Issue #36)
+    const timeScale = chartRef.current?.timeScale();
+    const visibleRange = timeScale?.getVisibleRange();
 
     if (seriesRef.current) {
       chartRef.current.removeSeries(seriesRef.current);
@@ -302,34 +302,24 @@ export default function PriceChart({
       }
     }
 
-    // Update the stored data length for next comparison
-    prevDataLengthRef.current = candles.length;
-
-    // Handle viewport preservation with new candle shift (Issue #36)
-    // Works for BOTH line and candle chart types
+    // Handle viewport preservation (Issue #36)
+    // If the chart is already rendered
     if (candles.length > 0 && chartRef.current) {
-      const newDataLength = candles.length;
-      const newCandlesCount = newDataLength - oldDataLength;
-
-      if (oldVisibleRange && newCandlesCount > 0) {
-        // Shift the visible range left by the number of new candles
-        // This preserves zoom level while showing the new data
-        const shiftedRange = {
-          from: oldVisibleRange.from + newCandlesCount,
-          to: oldVisibleRange.to + newCandlesCount,
-        };
-        chartRef.current.timeScale().setVisibleLogicalRange(shiftedRange);
-      } else if (oldVisibleRange) {
-        // No new candles, restore previous viewport
-        chartRef.current.timeScale().setVisibleLogicalRange(oldVisibleRange);
-      } else {
-        // No previous viewport, use auto-positioning (Issue #38)
-        chartRef.current.timeScale().fitContent();
+      if (timeInterval !== lastRenderedRangeRef.current) {
+        // New time range selected - fit content
+        requestAnimationFrame(() => {
+          chartRef.current?.timeScale().fitContent();
+        });
+        lastRenderedRangeRef.current = timeInterval;
+      } else if (timeScale && visibleRange && candles.at(-2)?.time !== visibleRange.to) {
+        // Same range, new data arrived - preserve viewport position
+        timeScale.setVisibleRange(visibleRange);
       }
     } else if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
+      lastRenderedRangeRef.current = timeInterval;
     }
-  }, [candles, chartType, height, totalSupply, priceChange24h]);
+  }, [candles, chartType, height, totalSupply, priceChange24h, timeInterval]);
 
   // Separate resize handling effect - only depends on chart existence
   useEffect(() => {
