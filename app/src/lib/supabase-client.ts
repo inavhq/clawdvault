@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient, SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { useEffect, useRef, useCallback, useContext, createContext, ReactNode } from 'react';
+import { useEffect, useRef, useCallback, useContext, createContext, ReactNode, useId } from 'react';
 
 // Client-side Supabase client for realtime subscriptions
 let supabaseClient: SupabaseClient | null = null;
@@ -136,6 +136,13 @@ function logSubscriptionStatus(hookName: string, status: string, err?: Error | n
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Counter for unique channel names — prevents StrictMode "mismatch" errors
+// when dev skips cleanup and a remount creates a new channel with the same name.
+let channelCounter = 0;
+function uniqueChannel(name: string): string {
+  return isDev ? `${name}:${++channelCounter}` : name;
+}
+
 // ============================================
 // REACT HOOKS WITH AUTO-CLEANUP
 // ============================================
@@ -160,7 +167,7 @@ export function useChatMessages(
     
     const client = getSupabaseClient();
     const channel = client
-      .channel(`chat:${mint}`)
+      .channel(uniqueChannel(`chat:${mint}`))
       .on(
         'postgres_changes',
         {
@@ -220,7 +227,7 @@ export function useTrades(
     
     const client = getSupabaseClient();
     const channel = client
-      .channel(`trades:${mint}`)
+      .channel(uniqueChannel(`trades:${mint}`))
       .on(
         'postgres_changes',
         {
@@ -264,7 +271,7 @@ export function useCandles(
     
     const client = getSupabaseClient();
     const channel = client
-      .channel(`candles:${mint}`)
+      .channel(uniqueChannel(`candles:${mint}`))
       .on(
         'postgres_changes',
         {
@@ -303,7 +310,7 @@ export function useSolPrice(onUpdate: (price: SolPriceUpdate) => void) {
   useEffect(() => {
     const client = getSupabaseClient();
     const channel = client
-      .channel('sol-price')
+      .channel(uniqueChannel('sol-price'))
       .on(
         'postgres_changes',
         {
@@ -346,7 +353,7 @@ export function useReactions(
     
     const client = getSupabaseClient();
     const channel = client
-      .channel(`reactions:${mint}`)
+      .channel(uniqueChannel(`reactions:${mint}`))
       .on(
         'postgres_changes',
         {
@@ -394,7 +401,7 @@ export function useTokenStats(
 
     const client = getSupabaseClient();
     const channel = client
-      .channel(`token:${mint}:hook`)
+      .channel(uniqueChannel(`token:${mint}:hook`))
       .on(
         'postgres_changes',
         {
@@ -438,7 +445,7 @@ export function useAllTokens(
   useEffect(() => {
     const client = getSupabaseClient();
     const channel = client
-      .channel('all-tokens:hook')
+      .channel(uniqueChannel('all-tokens:hook'))
       .on(
         'postgres_changes',
         {
@@ -489,7 +496,7 @@ export function useSolPriceHook(
   useEffect(() => {
     const client = getSupabaseClient();
     const channel = client
-      .channel('sol-price:hook')
+      .channel(uniqueChannel('sol-price:hook'))
       .on(
         'postgres_changes',
         {
@@ -529,7 +536,7 @@ export function useAllTrades(
   useEffect(() => {
     const client = getSupabaseClient();
     const channel = client
-      .channel('all-trades:hook')
+      .channel(uniqueChannel('all-trades:hook'))
       .on(
         'postgres_changes',
         {
