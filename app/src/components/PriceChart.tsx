@@ -58,6 +58,8 @@ export default function PriceChart({
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('candle');
   const [timeInterval, setTimeInterval] = useState<Interval>('5m');
+  // Track if chart has ever been initialized to prevent unmounting on refetch
+  const hasChartInitializedRef = useRef(false);
 
   // Use API-provided 24h change for consistency across all intervals
   // This is well-defined (1m candle 24h ago vs current) vs ambiguous "today"
@@ -245,11 +247,13 @@ export default function PriceChart({
           priceFormatter: formatAxisPrice,
         },
       });
+      // Mark chart as initialized to prevent unmounting on data refetch
+      hasChartInitializedRef.current = true;
     }
 
-    // Get the visible range BEFORE the data update (time-based, not index-based) (Issue #36)
+    // Get the visible logical range BEFORE the data update (index-based, not time-based) (Issue #36)
     const timeScale = chartRef.current?.timeScale();
-    const visibleRange = timeScale?.getVisibleRange();
+    const logicalRange = timeScale?.getVisibleLogicalRange();
 
     // Candles are USD price per token from API - convert to market cap for display
     const mcapMultiplier = totalSupply;
@@ -327,9 +331,9 @@ export default function PriceChart({
           chartRef.current?.timeScale().fitContent();
         });
         lastRenderedRangeRef.current = timeInterval;
-      } else if (timeScale && visibleRange && candles.at(-2)?.time !== visibleRange.to) {
-        // Same range, new data arrived - preserve viewport position
-        timeScale.setVisibleRange(visibleRange);
+      } else if (timeScale && logicalRange) {
+        // Same range, new data arrived - preserve viewport position using logical (index) range
+        timeScale.setVisibleLogicalRange(logicalRange);
       }
     } else if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
@@ -367,24 +371,6 @@ export default function PriceChart({
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      // Remove series before chart cleanup (Issue #47)
-      if (chartRef.current) {
-        if (candleSeriesRef.current) {
-          chartRef.current.removeSeries(candleSeriesRef.current);
-          candleSeriesRef.current = null;
-        }
-        if (lineSeriesRef.current) {
-          chartRef.current.removeSeries(lineSeriesRef.current);
-          lineSeriesRef.current = null;
-        }
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
     };
   }, []);
 
@@ -495,19 +481,19 @@ export default function PriceChart({
         </div>
       </div>
       
-      {/* Chart */}
+      {/* Chart - keep mounted once initialized to preserve state */}
       {loading && candles.length === 0 ? (
         <div className="flex items-center justify-center text-gray-500" style={{ height: height - 160 }}>
           Loading chart...
         </div>
-      ) : candles.length === 0 ? (
+      ) : candles.length === 0 && !hasChartInitializedRef.current ? (
         <div className="flex flex-col items-center justify-center text-gray-500" style={{ height: height - 160 }}>
           <span className="text-2xl mb-2">📊</span>
           <span>No price history yet</span>
           <span className="text-xs text-gray-600 mt-1">Chart appears after first trade</span>
         </div>
       ) : (
-            <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
+        <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
       )}
     </div>
   );
