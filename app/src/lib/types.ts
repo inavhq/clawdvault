@@ -127,7 +127,7 @@ export interface TokenListResponse {
 // Bonding curve math helpers
 // ============================================
 export const INITIAL_VIRTUAL_SOL = 30;
-export const INITIAL_VIRTUAL_TOKENS = 1_073_000_000;
+export const INITIAL_VIRTUAL_TOKENS = 1_000_000_000;
 export const GRADUATION_THRESHOLD_SOL = 120;
 export const FEE_BPS = 100;
 
