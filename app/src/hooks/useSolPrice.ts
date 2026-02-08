@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { subscribeToSolPrice, unsubscribeChannel, SolPriceUpdate } from '@/lib/supabase-client';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { useSolPrice as useSolPriceRealtime, SolPriceUpdate } from '@/lib/supabase-client';
 
 interface SolPriceState {
   price: number | null;
@@ -101,24 +100,8 @@ export function useSolPrice(options: UseSolPriceOptions = {}): SolPriceState {
     }
   }, [fetchOnMount, fetchPrice]);
   
-  // Setup realtime subscription
-  useEffect(() => {
-    if (!realtime) return;
-    
-    let channel: RealtimeChannel;
-    
-    try {
-      channel = subscribeToSolPrice(handleRealtimeUpdate);
-    } catch (err) {
-      console.error('[useSolPrice] Failed to subscribe:', err);
-    }
-    
-    return () => {
-      if (channel) {
-        unsubscribeChannel(channel);
-      }
-    };
-  }, [realtime, handleRealtimeUpdate]);
+  // Setup realtime subscription (auto-cleanup via hook)
+  useSolPriceRealtime(realtime ? handleRealtimeUpdate : () => {});
   
   return state;
 }

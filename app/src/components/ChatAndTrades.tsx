@@ -5,10 +5,9 @@ import { useWallet } from '@/contexts/WalletContext';
 import { authenticatedPost, authenticatedDelete } from '@/lib/signRequest';
 import { Trade } from '@/lib/types';
 import { 
-  subscribeToChatMessages, 
-  subscribeToTrades, 
-  subscribeToReactions,
-  unsubscribeChannel,
+  useChatMessages, 
+  useTrades, 
+  useReactions,
   RealtimeMessage,
   RealtimeTrade
 } from '@/lib/supabase-client';
@@ -113,60 +112,46 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
     }
   }, []);
 
-  // Initial load + realtime subscriptions for chat
+  // Initial load
   useEffect(() => {
     fetchMessages();
-    
-    // Subscribe to realtime chat messages
-    const chatChannel = subscribeToChatMessages(
-      mint,
-      async (newMsg: RealtimeMessage) => {
-        // Fetch the full message with profile info from API
-        // (realtime only gives us the raw row)
-        try {
-          const res = await fetch(`/api/chat?mint=${mint}&limit=100`);
-          const data = await res.json();
-          if (data.success) {
-            setMessages(data.messages);
-          }
-        } catch (err) {
-          console.error('Failed to fetch after realtime update:', err);
-        }
-      },
-      (deletedId: string) => {
-        setMessages(prev => prev.filter(m => m.id !== deletedId));
-      }
-    );
-    
-    // Subscribe to reactions
-    const reactionsChannel = subscribeToReactions(mint, () => {
-      // Refetch messages to get updated reaction counts
-      fetchMessages();
-    });
-    
-    return () => {
-      unsubscribeChannel(chatChannel);
-      unsubscribeChannel(reactionsChannel);
-    };
-  }, [mint, fetchMessages]);
+  }, [fetchMessages]);
 
-  // Realtime trades subscription
+  // Realtime chat messages subscription (auto-cleanup via hook)
+  useChatMessages(
+    mint,
+    async (newMsg: RealtimeMessage) => {
+      // Fetch the full message with profile info from API
+      // (realtime only gives us the raw row)
+      try {
+        const res = await fetch(`/api/chat?mint=${mint}&limit=100`);
+        const data = await res.json();
+        if (data.success) {
+          setMessages(data.messages);
+        }
+      } catch (err) {
+        console.error('Failed to fetch after realtime update:', err);
+      }
+    },
+    (deletedId: string) => {
+      setMessages(prev => prev.filter(m => m.id !== deletedId));
+    }
+  );
+
+  // Realtime reactions subscription (auto-cleanup via hook)
+  useReactions(mint, () => {
+    fetchMessages();
+  });
+
+  // Initial trades fetch
   useEffect(() => {
-    if (!onTradesUpdate) return;
-    
-    // Initial fetch
-    onTradesUpdate();
-    
-    // Subscribe to realtime trades
-    const tradesChannel = subscribeToTrades(mint, (newTrade: RealtimeTrade) => {
-      // Trigger parent to refetch trades
-      onTradesUpdate();
-    });
-    
-    return () => {
-      unsubscribeChannel(tradesChannel);
-    };
-  }, [mint, onTradesUpdate]);
+    if (onTradesUpdate) onTradesUpdate();
+  }, [onTradesUpdate]);
+
+  // Realtime trades subscription (auto-cleanup via hook)
+  useTrades(mint, (newTrade: RealtimeTrade) => {
+    if (onTradesUpdate) onTradesUpdate();
+  });
 
   // Fetch profile when connected
   useEffect(() => {
