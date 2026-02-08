@@ -17,6 +17,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
+import { INITIAL_VIRTUAL_TOKENS, FEE_BPS } from './types';
 
 // Metaplex Token Metadata Program ID
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
@@ -118,7 +119,7 @@ const RPC_URL = process.env.SOLANA_RPC_URL ||
 
 // Token config
 const TOKEN_DECIMALS = 6;
-const TOTAL_SUPPLY = 1_000_000_000; // 1 billion tokens
+const TOTAL_SUPPLY = INITIAL_VIRTUAL_TOKENS;
 const BONDING_CURVE_ALLOCATION = TOTAL_SUPPLY; // 100% goes to bonding curve (pump.fun style)
 // No free creator allocation - creators must buy like everyone else
 
@@ -437,9 +438,9 @@ export async function getNetworkStatus(): Promise<{
 /**
  * Bonding curve parameters
  */
-const PROTOCOL_FEE_BPS = 50; // 0.5%
-const CREATOR_FEE_BPS = 50;  // 0.5%
-const TOTAL_FEE_BPS = PROTOCOL_FEE_BPS + CREATOR_FEE_BPS; // 1%
+const PROTOCOL_FEE_BPS = FEE_BPS / 2; // 0.5%
+const CREATOR_FEE_BPS = FEE_BPS / 2; // 0.5%
+const TOTAL_FEE_BPS = FEE_BPS; // 1%
 
 export interface BuyParams {
   mint: string;

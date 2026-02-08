@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import ClawdVaultClient, { findSolVaultPDA } from '@/lib/anchor/client';
+import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
 import { getSolPrice } from '@/lib/sol-price';
 
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
@@ -35,8 +36,8 @@ export async function GET(request: NextRequest) {
         success: true,
         mint,
         onChain: {
-          totalSupply: 1_000_000_000,
-          bondingCurveBalance: 1_000_000_000,
+          totalSupply: INITIAL_VIRTUAL_TOKENS,
+          bondingCurveBalance: INITIAL_VIRTUAL_TOKENS,
           circulatingSupply: 0,
           bondingCurveSol: 0,
           price,
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     // Get total supply
     const supplyInfo = await connection.getTokenSupply(mintPubkey);
-    const totalSupply = Number(supplyInfo.value.uiAmount) || 1_000_000_000;
+    const totalSupply = Number(supplyInfo.value.uiAmount) || INITIAL_VIRTUAL_TOKENS;
 
     // Get SOL vault balance
     const [solVaultPDA] = findSolVaultPDA(mintPubkey);

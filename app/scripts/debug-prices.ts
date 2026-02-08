@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-const TOTAL_SUPPLY = 1_073_000_000;
+const TOTAL_SUPPLY = 1_000_000_000;
 const SOL_PRICE_USD = 100; // approximate
 
 async function main() {

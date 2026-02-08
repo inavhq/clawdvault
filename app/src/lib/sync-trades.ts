@@ -4,6 +4,7 @@
 
 import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PROGRAM_ID } from '@/lib/anchor/client';
+import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
 import { getTradeBySignature, recordTrade, getToken } from '@/lib/db';
 import { announceTrade } from '@/lib/moltx';
 
@@ -272,7 +273,7 @@ export async function syncTrades(options: {
             tokenAmount,
             trader: tradeEvent.trader,
             newPrice: newVirtualSol / newVirtualTokens,
-            marketCap: (newVirtualSol / newVirtualTokens) * 1_000_000_000,
+            marketCap: (newVirtualSol / newVirtualTokens) * INITIAL_VIRTUAL_TOKENS,
             solPriceUsd: recordedTrade?.solPriceUsd ? Number(recordedTrade.solPriceUsd) : undefined,
           }).catch(err => console.error('[Moltx] Trade announce failed:', err));
           

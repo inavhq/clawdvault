@@ -9,12 +9,13 @@ import { NextResponse } from 'next/server';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { getAllTokens, updateToken } from '@/lib/db';
 import { findBondingCurvePDA } from '@/lib/anchor/client';
+import { GRADUATION_THRESHOLD_SOL } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Allow up to 5 min for graduation process
 
 // 120 SOL threshold
-const GRADUATION_THRESHOLD_LAMPORTS = BigInt(120_000_000_000);
+const GRADUATION_THRESHOLD_LAMPORTS = BigInt(GRADUATION_THRESHOLD_SOL) * BigInt(1_000_000_000);
 
 function getConnection(): Connection {
   const rpcUrl = process.env.SOLANA_RPC_URL || clusterApiUrl('devnet');

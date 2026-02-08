@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineData, CandlestickData, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import { useCandles, useSolPriceHook } from '@/lib/supabase-client';
+import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
 
 interface Candle {
   time: number;
@@ -31,17 +32,12 @@ interface PriceChartProps {
 type ChartType = 'line' | 'candle';
 type Interval = '1m' | '5m' | '15m' | '1h' | '1d';
 
-const TOTAL_SUPPLY = 1_000_000_000;
 
 export default function PriceChart({
   mint,
   height = 400,
-  totalSupply = TOTAL_SUPPLY,
+  totalSupply = INITIAL_VIRTUAL_TOKENS,
   currentMarketCap = 0,
-  marketCapSol: _marketCapSol = 0,
-  marketCapUsd: _marketCapUsd = null,
-  volume24h: _volume24h = 0,
-  holders: _holders = 0,
   priceChange24h: priceChange24hProp,
   onMarketCapUpdate,
 }: PriceChartProps) {
@@ -103,17 +99,15 @@ export default function PriceChart({
   }, [candles, candles24h, totalSupply]);
 
   // Calculate ATH and OHLCV from visible candles (candles are USD price)
-  const { athPrice, athTime: _athTime, ohlcv: _ohlcv } = useMemo(() => {
+  const { athPrice } = useMemo(() => {
     // Find ATH from all candle highs (use 24h candles for broader view)
     // Candles contain USD price per token
     const allCandles = candles24h.length > candles.length ? candles24h : candles;
     let maxPrice = 0;
-    let maxTime: number | null = null;
     
     allCandles.forEach(c => {
       if (c.high > maxPrice) {
         maxPrice = c.high;
-        maxTime = c.time;
       }
     });
     
@@ -122,25 +116,7 @@ export default function PriceChart({
       maxPrice = currentMarketCap / totalSupply;
     }
     
-    // OHLCV for the visible range (last candle)
-    if (candles.length === 0) {
-      return { athPrice: maxPrice, athTime: maxTime, ohlcv: null };
-    }
-    
-    const last = candles[candles.length - 1];
-    const totalVolume = candles.reduce((sum, c) => sum + c.volume, 0);
-    
-    return {
-      athPrice: maxPrice,
-      athTime: maxTime,
-      ohlcv: {
-        open: last.open,
-        high: last.high,
-        low: last.low,
-        close: last.close,
-        volume: totalVolume,
-      }
-    };
+    return { athPrice: maxPrice };
   }, [candles, candles24h, currentMarketCap, totalSupply]);
 
   // Effective market cap: last candle close * totalSupply (in USD)
@@ -162,22 +138,30 @@ export default function PriceChart({
   const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
   const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 100;
 
+  // Track which interval fetch is in-flight to prevent stale updates
+  const fetchIntervalRef = useRef<Interval | null>(null);
+
   // Fetch candles function (reusable) - updates chartData atomically
-  const fetchCandles = useCallback(async (targetInterval: Interval = timeInterval) => {
+  const fetchCandles = useCallback(async (targetInterval: Interval) => {
+    // Mark this interval as the one we're loading
+    fetchIntervalRef.current = targetInterval;
     try {
       // Fetch USD candles directly from API
       const res = await fetch(`/api/candles?mint=${mint}&interval=${targetInterval}&limit=200&currency=usd`);
       const data = await res.json();
+      // Only apply if this is still the interval we want (prevents stale race conditions)
+      if (fetchIntervalRef.current !== targetInterval) return;
       const newCandles = data.candles?.length > 0 ? data.candles : [];
       setCandles(newCandles);
       // Update chartData atomically with interval and candles together
       setChartData({ interval: targetInterval, candles: newCandles });
     } catch (err) {
       console.error('Failed to fetch candles:', err);
+      if (fetchIntervalRef.current !== targetInterval) return;
       setCandles([]);
       setChartData({ interval: targetInterval, candles: [] });
     }
-  }, [mint, timeInterval]);
+  }, [mint]);
 
   const fetch24hCandles = useCallback(async () => {
     try {
@@ -190,18 +174,17 @@ export default function PriceChart({
     }
   }, [mint]);
 
-  // Initial fetch and realtime subscription for candles
+  // Initial fetch on mount
   useEffect(() => {
-    // Note: loading is already true from initial state, don't set it here
-    // to avoid flickering on realtime updates
-    fetchCandles().finally(() => setLoading(false));
+    fetchCandles('5m').finally(() => setLoading(false));
     fetch24hCandles();
-  }, [mint, timeInterval, fetchCandles, fetch24hCandles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount/mint change
+  }, [mint]);
 
   // Subscribe to realtime candle updates
   useCandles(mint, () => {
     console.log('[PriceChart] Candle update received, refetching...');
-    fetchCandles();
+    fetchCandles(chartData.interval);
     fetch24hCandles();
   });
 
@@ -209,7 +192,7 @@ export default function PriceChart({
   // This updates the USD close price dynamically
   useSolPriceHook(() => {
     console.log('[PriceChart] SOL price update received, refetching candles...');
-    fetchCandles();
+    fetchCandles(chartData.interval);
     fetch24hCandles();
   });
 
@@ -421,16 +404,7 @@ export default function PriceChart({
     return '$' + n.toFixed(4);
   };
 
-  const _formatMcapSol = (n: number) => {
-    if (n >= 1000) return (n / 1000).toFixed(2) + 'K SOL';
-    return n.toFixed(2) + ' SOL';
-  };
 
-  const _formatVolumeUsd = (usdAmount: number) => {
-    if (usdAmount >= 1000000) return '$' + (usdAmount / 1000000).toFixed(2) + 'M';
-    if (usdAmount >= 1000) return '$' + (usdAmount / 1000).toFixed(2) + 'K';
-    return '$' + usdAmount.toFixed(2);
-  };
 
   return (
     <div className="flex flex-col bg-gray-900/80 rounded-xl overflow-hidden border border-gray-700/50 min-w-0">

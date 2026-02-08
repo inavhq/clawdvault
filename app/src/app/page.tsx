@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { db } from '@/lib/prisma'
+import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import HomeStats from '@/components/HomeStats'
@@ -220,7 +221,6 @@ function formatValue(solAmount: number, solPrice: number | null): string {
   return formatSol(solAmount);
 }
 
-const TOTAL_SUPPLY = 1_000_000_000
 
 // Calculate market cap from last candle (includes heartbeat candles for USD continuity)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token object
@@ -228,8 +228,8 @@ function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; price
   if (lastCandle?.priceUsd) {
     // Use last candle USD price × supply (includes heartbeat candles)
     return {
-      sol: (lastCandle.priceUsd / (lastCandle.priceSol || 1)) * TOTAL_SUPPLY,
-      usd: lastCandle.priceUsd * TOTAL_SUPPLY
+      sol: (lastCandle.priceUsd / (lastCandle.priceSol || 1)) * INITIAL_VIRTUAL_TOKENS,
+      usd: lastCandle.priceUsd * INITIAL_VIRTUAL_TOKENS
     }
   }
   // Fallback: calculate from bonding curve reserves
@@ -237,7 +237,7 @@ function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; price
   const virtualTokens = Number(token.virtualTokenReserves)
   const price = virtualSol / virtualTokens
   return {
-    sol: price * TOTAL_SUPPLY,
+    sol: price * INITIAL_VIRTUAL_TOKENS,
     usd: null
   }
 }
