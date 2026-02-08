@@ -343,16 +343,12 @@ export default function PriceChart({
           
           // Only set range if we have data older than 24 hours
           if (firstCandle.time <= twentyFourHoursAgo) {
-            setTimeout(() => {
-              if (chartRef.current) {
-                chartRef.current.timeScale().setVisibleRange({
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
-                  from: twentyFourHoursAgo as any,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
-                  to: lastCandle.time as any,
-                });
-              }
-            }, 100); // Small delay to ensure chart is rendered
+            chartRef.current.timeScale().setVisibleRange({
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
+              from: twentyFourHoursAgo as any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
+              to: lastCandle.time as any,
+            });
           }
         }
         
