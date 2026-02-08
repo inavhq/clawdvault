@@ -619,10 +619,8 @@ export function unsubscribeChannel(channel: RealtimeChannel): void {
 }
 
 // ============================================
-// REACT HOOKS WITH AUTO-CLEANUP
+// ADDITIONAL REACT HOOKS WITH AUTO-CLEANUP
 // ============================================
-
-import { useEffect, useRef } from 'react';
 
 // Hook for subscribing to token stats updates
 export function useTokenStats(
@@ -656,47 +654,6 @@ export function useTokenStats(
       .subscribe((status, err) => {
         if (status === 'CHANNEL_ERROR') {
           console.error('[Realtime] Token stats subscription error:', err);
-        }
-      });
-
-    return () => {
-      client.removeChannel(channel);
-    };
-  }, [mint]);
-}
-
-// Hook for subscribing to candle updates
-export function useCandles(
-  mint: string | null,
-  onUpdate: () => void
-) {
-  const onUpdateRef = useRef(onUpdate);
-
-  useEffect(() => {
-    onUpdateRef.current = onUpdate;
-  });
-
-  useEffect(() => {
-    if (!mint) return;
-
-    const client = getSupabaseClient();
-    const channel = client
-      .channel(`candles:${mint}:hook`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'price_candles',
-          filter: `token_mint=eq.${mint}`,
-        },
-        () => {
-          onUpdateRef.current?.();
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Candles subscription error:', err);
         }
       });
 
