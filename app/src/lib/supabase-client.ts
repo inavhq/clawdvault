@@ -514,7 +514,7 @@ export function subscribeToReactions(
   return channel;
 }
 
-/** @deprecated Use hooks instead */
+/** @deprecated Use useTokenStats hook instead */
 export function subscribeToTokenStats(
   mint: string,
   onUpdate: (token: any) => void
@@ -616,4 +616,217 @@ export function subscribeToAllTrades(
 export function unsubscribeChannel(channel: RealtimeChannel): void {
   const client = getSupabaseClient();
   client.removeChannel(channel);
+}
+
+// ============================================
+// REACT HOOKS WITH AUTO-CLEANUP
+// ============================================
+
+import { useEffect, useRef } from 'react';
+
+// Hook for subscribing to token stats updates
+export function useTokenStats(
+  mint: string | null,
+  onUpdate: (token: any) => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+
+  useEffect(() => {
+    if (!mint) return;
+
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`token:${mint}:hook`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tokens',
+          filter: `mint=eq.${mint}`,
+        },
+        (payload) => {
+          onUpdateRef.current?.(payload.new);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Token stats subscription error:', err);
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to candle updates
+export function useCandles(
+  mint: string | null,
+  onUpdate: () => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+
+  useEffect(() => {
+    if (!mint) return;
+
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`candles:${mint}:hook`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'price_candles',
+          filter: `token_mint=eq.${mint}`,
+        },
+        () => {
+          onUpdateRef.current?.();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Candles subscription error:', err);
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to all tokens (INSERT and UPDATE)
+export function useAllTokens(
+  onNewToken: (token: any) => void,
+  onUpdateToken: (token: any) => void
+) {
+  const onNewTokenRef = useRef(onNewToken);
+  const onUpdateTokenRef = useRef(onUpdateToken);
+
+  useEffect(() => {
+    onNewTokenRef.current = onNewToken;
+    onUpdateTokenRef.current = onUpdateToken;
+  });
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel('all-tokens:hook')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tokens',
+        },
+        (payload) => {
+          onNewTokenRef.current?.(payload.new);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tokens',
+        },
+        (payload) => {
+          onUpdateTokenRef.current?.(payload.new);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] All tokens subscription error:', err);
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
+}
+
+// Hook for subscribing to SOL price updates
+export function useSolPriceHook(
+  onUpdate: (price: SolPriceUpdate) => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel('sol-price:hook')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sol_price',
+        },
+        (payload) => {
+          onUpdateRef.current?.(payload.new as SolPriceUpdate);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] SOL price subscription error:', err);
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
+}
+
+// Hook for subscribing to all trades (for volume updates)
+export function useAllTrades(
+  onNewTrade: (trade: any) => void
+) {
+  const onNewTradeRef = useRef(onNewTrade);
+
+  useEffect(() => {
+    onNewTradeRef.current = onNewTrade;
+  });
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel('all-trades:hook')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'trades',
+        },
+        (payload) => {
+          onNewTradeRef.current?.(payload.new);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] All trades subscription error:', err);
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
 }
