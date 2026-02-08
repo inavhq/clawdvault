@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { useEffect, useCallback } from 'react';
 
 // Client-side Supabase client for realtime subscriptions
 let supabaseClient: SupabaseClient | null = null;
@@ -350,4 +351,130 @@ export function subscribeToSolPrice(
     });
 
   return channel;
+}
+
+// ============================================
+// React Hooks for Realtime Subscriptions
+// ============================================
+
+/**
+ * Hook for subscribing to chat messages
+ */
+export function useChatMessages(
+  mint: string,
+  onInsert: (message: RealtimeMessage) => void,
+  onDelete?: (id: string) => void
+) {
+  useEffect(() => {
+    if (!mint) return;
+
+    const channel = subscribeToChatMessages(mint, onInsert, onDelete);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [mint, onInsert, onDelete]);
+}
+
+/**
+ * Hook for subscribing to trades
+ */
+export function useTrades(
+  mint: string,
+  onInsert: (trade: RealtimeTrade) => void
+) {
+  useEffect(() => {
+    if (!mint) return;
+
+    const channel = subscribeToTrades(mint, onInsert);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [mint, onInsert]);
+}
+
+/**
+ * Hook for subscribing to reactions
+ */
+export function useReactions(
+  mint: string,
+  onChange: () => void
+) {
+  useEffect(() => {
+    if (!mint) return;
+
+    const channel = subscribeToReactions(mint, onChange);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [mint, onChange]);
+}
+
+/**
+ * Hook for subscribing to candle updates
+ */
+export function useCandles(
+  mint: string,
+  onUpdate: () => void
+) {
+  useEffect(() => {
+    if (!mint) return;
+
+    const channel = subscribeToCandles(mint, onUpdate);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [mint, onUpdate]);
+}
+
+/**
+ * Hook for subscribing to token stats updates
+ */
+export function useTokenStats(
+  mint: string,
+  onUpdate: (token: any) => void
+) {
+  useEffect(() => {
+    if (!mint) return;
+
+    const channel = subscribeToTokenStats(mint, onUpdate);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [mint, onUpdate]);
+}
+
+/**
+ * Hook for subscribing to all token changes
+ */
+export function useAllTokens(
+  onInsert: (token: any) => void,
+  onUpdate: (token: any) => void
+) {
+  useEffect(() => {
+    const channel = subscribeToAllTokens(onInsert, onUpdate);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [onInsert, onUpdate]);
+}
+
+/**
+ * Hook for subscribing to all trades
+ */
+export function useAllTrades(
+  onInsert: (trade: any) => void
+) {
+  useEffect(() => {
+    const channel = subscribeToAllTrades(onInsert);
+
+    return () => {
+      unsubscribeChannel(channel);
+    };
+  }, [onInsert]);
 }

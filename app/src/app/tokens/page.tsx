@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Token, TokenListResponse } from '@/lib/types';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { subscribeToAllTokens, unsubscribeChannel } from '@/lib/supabase-client';
+import { useAllTokens } from '@/lib/supabase-client';
 import { useWallet } from '@/contexts/WalletContext';
 
 type FilterTab = 'all' | 'trending' | 'new' | 'graduated';
@@ -43,26 +43,25 @@ export default function TokensPage() {
     }
   }, [connected, publicKey]);
 
+  // Initial data fetch
   useEffect(() => {
     fetchTokens();
     fetchSolPrice();
-    
-    // Subscribe to realtime token updates
-    const channel = subscribeToAllTokens(
-      // On new token
-      (newToken) => {
-        setTokens(prev => [newToken, ...prev]);
-      },
-      // On token update
-      (updatedToken) => {
-        setTokens(prev => prev.map(t => 
-          t.mint === updatedToken.mint ? { ...t, ...updatedToken } : t
-        ));
-      }
-    );
-    
-    return () => unsubscribeChannel(channel);
   }, [sort]);
+
+  // Use hook for realtime token updates
+  useAllTokens(
+    // On new token
+    (newToken) => {
+      setTokens(prev => [newToken, ...prev]);
+    },
+    // On token update
+    (updatedToken) => {
+      setTokens(prev => prev.map(t => 
+        t.mint === updatedToken.mint ? { ...t, ...updatedToken } : t
+      ));
+    }
+  );
 
   // Fetch wallet balances when connection changes
   useEffect(() => {
