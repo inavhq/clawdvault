@@ -1,43 +1,22 @@
-// ClawdVault Types - Derived from Prisma schema
+// ClawdVault Types — derived from Prisma schema
+//
+// DB model types are converted from Prisma via PrismaToApi (camelCase→snake_case + Decimal→number + Date→string).
+// Computed fields (not in DB) are added via intersection types.
+// Request/response types remain manual since they're API contracts, not DB models.
 
-import { Agent as PrismaAgent } from '@prisma/client';
-import { PrismaToApi, CamelToSnake } from './type-utils';
+import type {
+  Token   as PrismaToken,
+  Trade   as PrismaTrade,
+  Agent   as PrismaAgent,
+} from '@prisma/client';
+import type { PrismaToApi } from './type-utils';
 
 // ============================================
-// Base types derived from Prisma
+// DB model types (derived from Prisma)
 // ============================================
 
-type AgentBase = PrismaToApi<CamelToSnake<PrismaAgent>>;
-
-// ============================================
-// API Types with computed fields
-// ============================================
-
-export interface Token {
-  // Required core fields
-  id: string;
-  mint: string;
-  name: string;
-  symbol: string;
-  creator: string;
-  created_at: string;
-  virtual_sol_reserves: number;
-  virtual_token_reserves: number;
-  real_sol_reserves: number;
-  real_token_reserves: number;
-  graduated: boolean;
-  
-  // Optional fields
-  description?: string;
-  image?: string;
-  creator_name?: string;
-  raydium_pool?: string;
-  twitter?: string;
-  telegram?: string;
-  website?: string;
-  updated_at?: string;
-  
-  // Computed fields that don't exist in DB
+/** Fields the API adds on top of the Token DB row */
+type TokenComputed = {
   price_sol: number;
   price_usd?: number;
   market_cap_sol: number;
@@ -46,38 +25,27 @@ export interface Token {
   trades_24h?: number;
   holders?: number;
   price_change_24h?: number | null;
-}
+};
 
-export interface Trade {
-  // Required core fields
-  id: string;
-  token_mint: string;
-  trader: string;
-  type: 'buy' | 'sell'; // Renamed from trade_type
-  sol_amount: number;
-  token_amount: number;
-  price_sol: number;
-  created_at: string;
-  
-  // Optional fields
-  signature?: string;
-  total_fee?: number;
-  protocol_fee?: number;
-  creator_fee?: number;
-  sol_price_usd?: number;
-  
-  // Add computed USD price field
-  price_usd?: number; // Derived from sol_price_usd * price_sol
-}
+/**
+ * API Token — DB columns (snake_cased, Decimals→numbers) + computed fields.
+ * If a column is added to the Prisma Token model, it auto-appears here.
+ */
+export type Token = PrismaToApi<PrismaToken> & TokenComputed;
 
-export interface Agent extends Omit<AgentBase, 'updated_at' | 'moltbook_verified' | 'moltx_verified' | 'twitter_handle' | 'total_fees'> {
-  // Make some fields optional for API responses
-  updated_at?: string;
-  moltbook_verified?: boolean;
-  moltx_verified?: boolean;
-  twitter_handle?: string;
-  total_fees?: number;
-}
+/** 
+ * API Trade — the Prisma trade_type field is renamed to `type` for the API.
+ * We omit trade_type and token_id (internal FK) and add `type` + optional computed fields.
+ */
+export type Trade = Omit<PrismaToApi<PrismaTrade>, 'trade_type' | 'token_id'> & {
+  type: 'buy' | 'sell';
+  price_usd?: number;
+};
+
+/**
+ * API Agent — straight conversion from Prisma.
+ */
+export type Agent = PrismaToApi<PrismaAgent>;
 
 // ============================================
 // On-chain stats from /api/stats
@@ -98,20 +66,20 @@ export interface OnChainStats {
 }
 
 // ============================================
-// Request/Response Types (manual)
+// Request/Response Types (manual — API contracts)
 // ============================================
 
 export interface CreateTokenRequest {
   name: string;
   symbol: string;
   description?: string;
-  image?: string;  // URL or base64
+  image?: string;
   twitter?: string;
   telegram?: string;
   website?: string;
-  initialBuy?: number;  // SOL amount to buy at launch
-  creator?: string;     // Creator wallet address
-  creatorName?: string; // Display name for creator
+  initialBuy?: number;
+  creator?: string;
+  creatorName?: string;
 }
 
 export interface CreateTokenResponse {
@@ -120,14 +88,14 @@ export interface CreateTokenResponse {
   mint?: string;
   signature?: string;
   error?: string;
-  onChain?: boolean;  // True if token was created on real Solana network
+  onChain?: boolean;
 }
 
 export interface TradeRequest {
   mint: string;
   type: 'buy' | 'sell';
-  amount: number;  // SOL for buy, tokens for sell
-  slippage?: number;  // Default 1%
+  amount: number;
+  slippage?: number;
 }
 
 export interface TradeResponse {
@@ -137,15 +105,15 @@ export interface TradeResponse {
   tokens_received?: number;
   sol_received?: number;
   new_price?: number;
-  newPrice?: number;  // Alias for on-chain flow
+  newPrice?: number;
   fees?: {
     total: number;
     protocol: number;
     creator: number;
   };
   error?: string;
-  message?: string;  // Status message (e.g., Jupiter trade success)
-  graduated?: boolean;  // True if token graduated during trade
+  message?: string;
+  graduated?: boolean;
 }
 
 export interface TokenListResponse {
@@ -158,10 +126,10 @@ export interface TokenListResponse {
 // ============================================
 // Bonding curve math helpers
 // ============================================
-export const INITIAL_VIRTUAL_SOL = 30;  // 30 SOL
-export const INITIAL_VIRTUAL_TOKENS = 1_073_000_000;  // 1.073B tokens
-export const GRADUATION_THRESHOLD_SOL = 120; // ~$69K market cap at $100/SOL
-export const FEE_BPS = 100;  // 1%
+export const INITIAL_VIRTUAL_SOL = 30;
+export const INITIAL_VIRTUAL_TOKENS = 1_073_000_000;
+export const GRADUATION_THRESHOLD_SOL = 120;
+export const FEE_BPS = 100;
 
 export function calculateBuyTokens(
   virtualSol: number,
