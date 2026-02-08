@@ -6,6 +6,9 @@ import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default [
+  {
+    ignores: ['**/.next/**', '**/node_modules/**', '**/dist/**', '**/build/**'],
+  },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
@@ -39,6 +42,10 @@ export default [
       
       // React recommended rules
       ...reactPlugin.configs.recommended.rules,
+      
+      // Next.js uses automatic JSX runtime — no need for `import React`
+      'react/react-in-jsx-scope': 'off',
+      'react/no-unknown-property': ['error', { ignore: ['jsx', 'global'] }],
       
       // React Hooks rules
       'react-hooks/rules-of-hooks': 'error',
