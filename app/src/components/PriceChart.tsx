@@ -47,13 +47,27 @@ export default function PriceChart({
 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Line'> | ISeriesApi<'Candlestick'> | null>(null);
+  // Separate refs for each series type to prevent recreation on updates (Issue #47)
+  const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  // Ref to store last rendered time interval for viewport preservation (Issue #36)
+  const lastRenderedRangeRef = useRef<Interval | null>(null);
+  // Track if chart has ever been initialized to prevent unmounting on refetch
+  const hasChartInitializedRef = useRef(false);
+  // Track last candle count to detect actual data updates vs just re-renders
+  const lastCandleCountRef = useRef<number>(0);
   
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('candle');
-  const [timeInterval, setTimeInterval] = useState<Interval>('5m');
+  // Group interval with candles to update atomically - prevents double render on change
+  const [chartData, setChartData] = useState<{ interval: Interval; candles: Candle[] }>({
+    interval: '5m',
+    candles: [],
+  });
+  const timeInterval = chartData.interval;
+  const candlesForChart = chartData.candles;
 
   // Use API-provided 24h change for consistency across all intervals
   // This is well-defined (1m candle 24h ago vs current) vs ambiguous "today"
@@ -148,16 +162,20 @@ export default function PriceChart({
   const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
   const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 100;
 
-  // Fetch candles function (reusable)
-  const fetchCandles = useCallback(async () => {
+  // Fetch candles function (reusable) - updates chartData atomically
+  const fetchCandles = useCallback(async (targetInterval: Interval = timeInterval) => {
     try {
       // Fetch USD candles directly from API
-      const res = await fetch(`/api/candles?mint=${mint}&interval=${timeInterval}&limit=200&currency=usd`);
+      const res = await fetch(`/api/candles?mint=${mint}&interval=${targetInterval}&limit=200&currency=usd`);
       const data = await res.json();
-      setCandles(data.candles?.length > 0 ? data.candles : []);
+      const newCandles = data.candles?.length > 0 ? data.candles : [];
+      setCandles(newCandles);
+      // Update chartData atomically with interval and candles together
+      setChartData({ interval: targetInterval, candles: newCandles });
     } catch (err) {
       console.error('Failed to fetch candles:', err);
       setCandles([]);
+      setChartData({ interval: targetInterval, candles: [] });
     }
   }, [mint, timeInterval]);
 
@@ -174,7 +192,8 @@ export default function PriceChart({
 
   // Initial fetch and realtime subscription for candles
   useEffect(() => {
-    setLoading(true);
+    // Note: loading is already true from initial state, don't set it here
+    // to avoid flickering on realtime updates
     fetchCandles().finally(() => setLoading(false));
     fetch24hCandles();
 
@@ -241,17 +260,20 @@ export default function PriceChart({
           priceFormatter: formatAxisPrice,
         },
       });
+      // Mark chart as initialized to prevent unmounting on data refetch
+      hasChartInitializedRef.current = true;
     }
 
-    if (seriesRef.current) {
-      chartRef.current.removeSeries(seriesRef.current);
-    }
+    // Get the visible logical range BEFORE the data update (index-based, not time-based) (Issue #36)
+    const timeScale = chartRef.current?.timeScale();
+    const logicalRange = timeScale?.getVisibleLogicalRange();
 
     // Candles are USD price per token from API - convert to market cap for display
     const mcapMultiplier = totalSupply;
-    
-    if (chartType === 'candle') {
-      seriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
+
+    // Create candle series once (Issue #47)
+    if (!candleSeriesRef.current) {
+      candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
         upColor: '#22c55e',
         downColor: '#ef4444',
         borderUpColor: '#22c55e',
@@ -260,22 +282,14 @@ export default function PriceChart({
         wickDownColor: '#ef4444',
         priceScaleId: 'right',
       });
-      seriesRef.current.priceScale().applyOptions({
+      candleSeriesRef.current.priceScale().applyOptions({
         scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
-      
-      if (candles.length > 0) {
-        const candleData: CandlestickData[] = candles.map(c => ({
-          time: c.time as any,
-          open: c.open * mcapMultiplier,
-          high: c.high * mcapMultiplier,
-          low: c.low * mcapMultiplier,
-          close: c.close * mcapMultiplier,
-        }));
-        seriesRef.current.setData(candleData);
-      }
-    } else {
-      seriesRef.current = chartRef.current.addSeries(LineSeries, {
+    }
+
+    // Create line series once (Issue #47)
+    if (!lineSeriesRef.current) {
+      lineSeriesRef.current = chartRef.current.addSeries(LineSeries, {
         color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
         lineWidth: 2,
         crosshairMarkerVisible: true,
@@ -283,37 +297,72 @@ export default function PriceChart({
         priceLineVisible: false,
         priceScaleId: 'right',
       });
-      seriesRef.current.priceScale().applyOptions({
+      lineSeriesRef.current.priceScale().applyOptions({
         scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
       });
-      
-      if (candles.length > 0) {
-        const lineData: LineData[] = candles.map(c => ({
-          time: c.time as any,
-          value: c.close * mcapMultiplier,
-        }));
-        seriesRef.current.setData(lineData);
-      }
     }
 
-    // Set visible range based on chart type
-    if (candles.length > 0) {
-      if (chartType === 'candle') {
-        // Candles: narrow bars, first candle in the middle (pump.fun style)
-        const totalBars = Math.max(candles.length * 2, 100);
-        const halfBars = Math.floor(totalBars / 2);
-        chartRef.current.timeScale().setVisibleLogicalRange({
-          from: -halfBars,
-          to: halfBars,
-        });
-      } else {
-        // Line: fill full width
-        chartRef.current.timeScale().fitContent();
-      }
-    } else {
-      chartRef.current.timeScale().fitContent();
+    // Update candle data (Issue #47)
+    if (candlesForChart.length > 0 && candleSeriesRef.current) {
+      const candleData: CandlestickData[] = candlesForChart.map(c => ({
+        time: c.time as any,
+        open: c.open * mcapMultiplier,
+        high: c.high * mcapMultiplier,
+        low: c.low * mcapMultiplier,
+        close: c.close * mcapMultiplier,
+      }));
+      candleSeriesRef.current.setData(candleData);
     }
-  }, [candles, chartType, height, totalSupply, priceChange24h]);
+
+    // Update line data (Issue #47)
+    if (candlesForChart.length > 0 && lineSeriesRef.current) {
+      const lineData: LineData[] = candlesForChart.map(c => ({
+        time: c.time as any,
+        value: c.close * mcapMultiplier,
+      }));
+      lineSeriesRef.current.setData(lineData);
+    }
+
+    // Toggle visibility based on chart type (Issue #47)
+    if (candleSeriesRef.current) {
+      candleSeriesRef.current.applyOptions({ visible: chartType === 'candle' });
+    }
+    if (lineSeriesRef.current) {
+      lineSeriesRef.current.applyOptions({ visible: chartType === 'line' });
+    }
+
+    // Handle viewport preservation (Issue #36)
+    // If the chart is already rendered
+    if (candlesForChart.length > 0 && chartRef.current) {
+      if (timeInterval !== lastRenderedRangeRef.current) {
+        // New time range selected - fit content
+        chartRef.current?.timeScale().fitContent();
+        lastRenderedRangeRef.current = timeInterval;
+        lastCandleCountRef.current = candlesForChart.length;
+      } else if (timeScale && logicalRange && candlesForChart.length !== lastCandleCountRef.current) {
+        // Same range, new data arrived (candle count changed) - preserve viewport position
+        // Only preserve if user has panned away from the right edge (viewing history)
+        const isAtLiveEdge = logicalRange.to >= candlesForChart.length - 2;
+        if (!isAtLiveEdge) {
+          timeScale.setVisibleLogicalRange(logicalRange);
+        }
+        lastCandleCountRef.current = candlesForChart.length;
+      }
+    } else if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
+      lastRenderedRangeRef.current = timeInterval;
+      lastCandleCountRef.current = candlesForChart.length;
+    }
+  }, [chartData, chartType, height, totalSupply]);
+
+  // Separate effect for line color updates - only runs when priceChange24h actually changes
+  useEffect(() => {
+    if (lineSeriesRef.current && chartType === 'line') {
+      lineSeriesRef.current.applyOptions({
+        color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
+      });
+    }
+  }, [priceChange24h, chartType]);
 
   // Separate resize handling effect - only depends on chart existence
   useEffect(() => {
@@ -345,15 +394,6 @@ export default function PriceChart({
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
     };
   }, []);
 
@@ -411,33 +451,12 @@ export default function PriceChart({
         {/* ATH Progress Bar - full width like pump.fun */}
         <div className="mb-4">
           <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full rounded-full transition-all ${athProgress >= 95 ? 'bg-green-500' : 'bg-gradient-to-r from-gray-600 to-green-500'}`}
               style={{ width: `${Math.min(athProgress, 100)}%` }}
             />
           </div>
         </div>
-
-        {/* OHLCV Bar */}
-        {ohlcv && (
-          <div className="flex items-center gap-4 text-xs mb-4 flex-wrap">
-            <span className="text-gray-500">
-              O<span className="text-green-400 ml-1">{formatMcap(ohlcv.open * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              H<span className="text-green-400 ml-1">{formatMcap(ohlcv.high * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              L<span className="text-green-400 ml-1">{formatMcap(ohlcv.low * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              C<span className="text-green-400 ml-1">{formatMcap(ohlcv.close * totalSupply)}</span>
-            </span>
-            <span className="text-gray-500">
-              Vol<span className="text-cyan-400 ml-1">{formatVolumeUsd(ohlcv.volume)}</span>
-            </span>
-          </div>
-        )}
 
         {/* Controls */}
         <div className="flex justify-between items-center">
@@ -445,8 +464,12 @@ export default function PriceChart({
             {(['1m', '5m', '15m', '1h', '1d'] as Interval[]).map((i) => (
               <button
                 key={i}
-                onClick={() => setTimeInterval(i)}
-                className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
+                onClick={() => {
+                  if (i !== timeInterval) {
+                    fetchCandles(i);
+                  }
+                }}
+                className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                   timeInterval === i
                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
                     : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
@@ -459,41 +482,45 @@ export default function PriceChart({
           <div className="flex gap-1">
             <button
               onClick={() => setChartType('line')}
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
+              className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                 chartType === 'line'
                   ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
                   : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
               }`}
+              aria-label="Line chart"
             >
-              📈 Line
+              <span className="sm:hidden">📈</span>
+              <span className="hidden sm:inline">📈 Line</span>
             </button>
             <button
               onClick={() => setChartType('candle')}
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition ${
+              className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                 chartType === 'candle'
                   ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
                   : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
               }`}
+              aria-label="Candlestick chart"
             >
-              🕯️ Candles
+              <span className="sm:hidden">🕯️</span>
+              <span className="hidden sm:inline">🕯️ Candles</span>
             </button>
           </div>
         </div>
       </div>
       
       {/* Chart */}
-      {loading && candles.length === 0 ? (
+      {loading && candlesForChart.length === 0 ? (
         <div className="flex items-center justify-center text-gray-500" style={{ height: height - 160 }}>
           Loading chart...
         </div>
-      ) : candles.length === 0 ? (
+      ) : candlesForChart.length === 0 && !hasChartInitializedRef.current ? (
         <div className="flex flex-col items-center justify-center text-gray-500" style={{ height: height - 160 }}>
           <span className="text-2xl mb-2">📊</span>
           <span>No price history yet</span>
           <span className="text-xs text-gray-600 mt-1">Chart appears after first trade</span>
         </div>
       ) : (
-            <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
+        <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
       )}
     </div>
   );
