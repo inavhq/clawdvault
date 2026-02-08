@@ -1,6 +1,7 @@
 'use client';
 
-import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { useEffect, useRef, useCallback, useContext, createContext, ReactNode } from 'react';
 
 // Client-side Supabase client for realtime subscriptions
 let supabaseClient: SupabaseClient | null = null;
@@ -9,8 +10,6 @@ export function getSupabaseClient(): SupabaseClient {
   if (!supabaseClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    console.log('[Supabase] Initializing client with URL:', url);
     
     if (!url || !key) {
       throw new Error('Supabase URL and Anon Key are required');
@@ -49,7 +48,309 @@ export interface RealtimeTrade {
   created_at: string;
 }
 
-// Subscribe to chat messages for a specific token
+export interface SolPriceUpdate {
+  id: string;
+  price: number;
+  source: string;
+  updated_at: string;
+}
+
+// Subscription status type
+export type SubscriptionStatus = 
+  | 'SUBSCRIBING' 
+  | 'SUBSCRIBED' 
+  | 'CHANNEL_ERROR' 
+  | 'CLOSED' 
+  | 'TIMED_OUT';
+
+interface SubscriptionCallbacks {
+  onStatusChange?: (status: SubscriptionStatus) => void;
+  onError?: (error: Error) => void;
+}
+
+// Create a channel with error handling and auto-retry
+function createChannelWithRetry(
+  channelName: string,
+  callbacks?: SubscriptionCallbacks
+): { channel: RealtimeChannel; cleanup: () => void } {
+  const client = getSupabaseClient();
+  let retryTimeout: NodeJS.Timeout | null = null;
+  let isActive = true;
+  
+  const createChannel = (): RealtimeChannel => {
+    const channel = client.channel(channelName);
+    
+    channel.subscribe((status, err) => {
+      if (!isActive) return;
+      
+      console.log(`[Realtime] ${channelName} status:`, status);
+      
+      if (status === 'SUBSCRIBED') {
+        callbacks?.onStatusChange?.('SUBSCRIBED');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        callbacks?.onStatusChange?.(status as SubscriptionStatus);
+        callbacks?.onError?.(err || new Error(`Subscription ${status}`));
+        
+        // Auto-retry after 5 seconds
+        if (isActive && !retryTimeout) {
+          console.log(`[Realtime] Retrying ${channelName} in 5s...`);
+          retryTimeout = setTimeout(() => {
+            retryTimeout = null;
+            if (isActive) {
+              client.removeChannel(channel);
+              createChannel();
+            }
+          }, 5000);
+        }
+      } else if (status === 'CLOSED') {
+        callbacks?.onStatusChange?.('CLOSED');
+      }
+    });
+    
+    return channel;
+  };
+  
+  const channel = createChannel();
+  
+  const cleanup = () => {
+    isActive = false;
+    if (retryTimeout) {
+      clearTimeout(retryTimeout);
+    }
+    client.removeChannel(channel);
+  };
+  
+  return { channel, cleanup };
+}
+
+// ============================================
+// REACT HOOKS WITH AUTO-CLEANUP
+// ============================================
+
+// Hook for subscribing to chat messages
+export function useChatMessages(
+  mint: string | null,
+  onInsert: (message: RealtimeMessage) => void,
+  onDelete?: (id: string) => void
+) {
+  const onInsertRef = useRef(onInsert);
+  const onDeleteRef = useRef(onDelete);
+  
+  // Keep callbacks fresh without re-subscribing
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+    onDeleteRef.current = onDelete;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`chat:${mint}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `token_mint=eq.${mint}`, // Server-side filter
+        },
+        (payload: RealtimePostgresChangesPayload<RealtimeMessage>) => {
+          onInsertRef.current?.(payload.new as RealtimeMessage);
+        }
+      );
+    
+    if (onDeleteRef.current) {
+      channel.on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `token_mint=eq.${mint}`,
+        },
+        (payload: RealtimePostgresChangesPayload<RealtimeMessage>) => {
+          onDeleteRef.current?.((payload.old as RealtimeMessage).id);
+        }
+      );
+    }
+    
+    channel.subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] Chat subscription error:', err);
+      }
+    });
+    
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to trades
+export function useTrades(
+  mint: string | null,
+  onInsert: (trade: RealtimeTrade) => void
+) {
+  const onInsertRef = useRef(onInsert);
+  
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`trades:${mint}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'trades',
+          filter: `token_mint=eq.${mint}`, // Server-side filter
+        },
+        (payload: RealtimePostgresChangesPayload<RealtimeTrade>) => {
+          onInsertRef.current?.(payload.new as RealtimeTrade);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Trades subscription error:', err);
+        }
+      });
+    
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to candles
+export function useCandles(
+  mint: string | null,
+  onUpdate: () => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+  
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`candles:${mint}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'price_candles',
+          filter: `token_mint=eq.${mint}`, // Server-side filter
+        },
+        () => {
+          onUpdateRef.current?.();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Candles subscription error:', err);
+        }
+      });
+    
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to SOL price
+export function useSolPrice(onUpdate: (price: SolPriceUpdate) => void) {
+  const onUpdateRef = useRef(onUpdate);
+  
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+  
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel('sol-price')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sol_price',
+        },
+        (payload: RealtimePostgresChangesPayload<SolPriceUpdate>) => {
+          onUpdateRef.current?.(payload.new as SolPriceUpdate);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] SOL price subscription error:', err);
+        }
+      });
+    
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
+}
+
+// Hook for subscribing to reactions
+export function useReactions(
+  mint: string | null,
+  onChange: () => void
+) {
+  const onChangeRef = useRef(onChange);
+  
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`reactions:${mint}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'message_reactions',
+        },
+        () => {
+          onChangeRef.current?.();
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[Realtime] Reactions subscription error:', err);
+        }
+      });
+    
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [mint]);
+}
+
+// ============================================
+// LEGACY EXPORTS (for backward compatibility)
+// ============================================
+
+// These are kept for backward compatibility but deprecated
+/** @deprecated Use useChatMessages hook instead */
 export function subscribeToChatMessages(
   mint: string,
   onInsert: (message: RealtimeMessage) => void,
@@ -57,24 +358,18 @@ export function subscribeToChatMessages(
 ): RealtimeChannel {
   const client = getSupabaseClient();
   
-  console.log('[Realtime] Subscribing to chat for:', mint);
-  
-  // Subscribe without filter - filter client-side (more reliable with hosted Supabase)
   const channel = client
-    .channel(`chat:${mint}`)
+    .channel(`chat:${mint}:legacy`)
     .on(
       'postgres_changes',
       {
         event: 'INSERT',
         schema: 'public',
         table: 'chat_messages',
+        filter: `token_mint=eq.${mint}`,
       },
       (payload) => {
-        const msg = payload.new as RealtimeMessage;
-        if (msg?.token_mint === mint) {
-          console.log('[Realtime] Chat message received:', msg.id);
-          onInsert(msg);
-        }
+        onInsert(payload.new as RealtimeMessage);
       }
     );
   
@@ -85,253 +380,91 @@ export function subscribeToChatMessages(
         event: 'DELETE',
         schema: 'public',
         table: 'chat_messages',
+        filter: `token_mint=eq.${mint}`,
       },
       (payload) => {
-        const old = payload.old as any;
-        if (old?.token_mint === mint) {
-          console.log('[Realtime] Chat message deleted:', old.id);
-          onDelete(old.id);
-        }
+        onDelete((payload.old as RealtimeMessage).id);
       }
     );
   }
   
-  channel.subscribe((status) => {
-    console.log('[Realtime] Chat subscription status:', status);
+  channel.subscribe((status, err) => {
+    if (status === 'CHANNEL_ERROR') {
+      console.error('[Realtime] Chat subscription error:', err);
+    }
   });
+  
   return channel;
 }
 
-// Subscribe to trades for a specific token
+/** @deprecated Use useTrades hook instead */
 export function subscribeToTrades(
   mint: string,
   onInsert: (trade: RealtimeTrade) => void
 ): RealtimeChannel {
   const client = getSupabaseClient();
   
-  console.log('[Realtime] Subscribing to trades for:', mint);
-  
-  // Subscribe without filter - filter client-side (more reliable with hosted Supabase)
   const channel = client
-    .channel(`trades:${mint}`)
+    .channel(`trades:${mint}:legacy`)
     .on(
       'postgres_changes',
       {
         event: 'INSERT',
         schema: 'public',
         table: 'trades',
+        filter: `token_mint=eq.${mint}`,
       },
       (payload) => {
-        const trade = payload.new as RealtimeTrade;
-        if (trade?.token_mint === mint) {
-          console.log('[Realtime] Trade received:', trade.id);
-          onInsert(trade);
-        }
+        onInsert(payload.new as RealtimeTrade);
       }
     )
-    .subscribe((status) => {
-      console.log('[Realtime] Trades subscription status:', status);
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] Trades subscription error:', err);
+      }
     });
   
   return channel;
 }
 
-// Subscribe to reactions for a token's messages
-export function subscribeToReactions(
-  mint: string,
-  onChange: () => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to reactions for:', mint);
-  
-  // Subscribe to both inserts and deletes on reactions
-  const channel = client
-    .channel(`reactions:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'message_reactions'
-      },
-      (payload) => {
-        console.log('[Realtime] Reaction change:', payload.eventType);
-        // Trigger refetch of messages to get updated reaction counts
-        onChange();
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] Reactions subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to token stats updates (reserves, price changes)
-export function subscribeToTokenStats(
-  mint: string,
-  onUpdate: (token: any) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to token stats for:', mint);
-  
-  // Subscribe without filter - filter in callback instead (more reliable with local Supabase)
-  const channel = client
-    .channel(`token:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tokens',
-      },
-      (payload) => {
-        const record = payload.new as any;
-        if (record?.mint === mint) {
-          console.log('[Realtime] Token update received:', payload);
-          onUpdate(record);
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] Subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Unsubscribe from a channel
-export function unsubscribeChannel(channel: RealtimeChannel): void {
-  const client = getSupabaseClient();
-  client.removeChannel(channel);
-}
-
-// Subscribe to all token changes (for browse/home pages)
-export function subscribeToAllTokens(
-  onInsert: (token: any) => void,
-  onUpdate: (token: any) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to all tokens');
-  
-  const channel = client
-    .channel('all-tokens')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'tokens'
-      },
-      (payload) => {
-        console.log('[Realtime] New token created:', payload.new);
-        onInsert(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tokens'
-      },
-      (payload) => {
-        console.log('[Realtime] Token updated:', payload.new);
-        onUpdate(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] All tokens subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to all trades (for volume updates)
-export function subscribeToAllTrades(
-  onInsert: (trade: any) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to all trades');
-  
-  const channel = client
-    .channel('all-trades')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'trades'
-      },
-      (payload) => {
-        console.log('[Realtime] New trade:', payload.new);
-        onInsert(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] All trades subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to candle updates for a specific token
+/** @deprecated Use useCandles hook instead */
 export function subscribeToCandles(
   mint: string,
   onUpdate: () => void
 ): RealtimeChannel {
   const client = getSupabaseClient();
-
-  console.log('[Realtime] Subscribing to candles for:', mint);
-
-  // Subscribe without filter - filter in callback instead (more reliable with local Supabase)
+  
   const channel = client
-    .channel(`candles:${mint}`)
+    .channel(`candles:${mint}:legacy`)
     .on(
       'postgres_changes',
       {
-        event: '*', // INSERT or UPDATE
+        event: '*',
         schema: 'public',
         table: 'price_candles',
+        filter: `token_mint=eq.${mint}`,
       },
-      (payload) => {
-        // Filter client-side
-        const record = payload.new as any;
-        if (record?.token_mint === mint) {
-          console.log('[Realtime] Candle update for this token:', payload);
-          onUpdate();
-        }
+      () => {
+        onUpdate();
       }
     )
-    .subscribe((status) => {
-      console.log('[Realtime] Candles subscription status:', status);
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] Candles subscription error:', err);
+      }
     });
-
+  
   return channel;
 }
 
-// SOL Price type for realtime updates
-export interface SolPriceUpdate {
-  id: string;
-  price: number;
-  source: string;
-  updated_at: string;
-}
-
-// Subscribe to SOL price updates
+/** @deprecated Use useSolPrice hook instead */
 export function subscribeToSolPrice(
   onUpdate: (price: SolPriceUpdate) => void
 ): RealtimeChannel {
   const client = getSupabaseClient();
-
-  console.log('[Realtime] Subscribing to SOL price updates');
-
+  
   const channel = client
-    .channel('sol-price')
+    .channel('sol-price:legacy')
     .on(
       'postgres_changes',
       {
@@ -340,14 +473,147 @@ export function subscribeToSolPrice(
         table: 'sol_price',
       },
       (payload) => {
-        const record = payload.new as SolPriceUpdate;
-        console.log('[Realtime] SOL price update:', record);
-        onUpdate(record);
+        onUpdate(payload.new as SolPriceUpdate);
       }
     )
-    .subscribe((status) => {
-      console.log('[Realtime] SOL price subscription status:', status);
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] SOL price subscription error:', err);
+      }
     });
-
+  
   return channel;
+}
+
+/** @deprecated Use useReactions hook instead */
+export function subscribeToReactions(
+  mint: string,
+  onChange: () => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  const channel = client
+    .channel(`reactions:${mint}:legacy`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'message_reactions',
+      },
+      () => {
+        onChange();
+      }
+    )
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] Reactions subscription error:', err);
+      }
+    });
+  
+  return channel;
+}
+
+/** @deprecated Use hooks instead */
+export function subscribeToTokenStats(
+  mint: string,
+  onUpdate: (token: any) => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  const channel = client
+    .channel(`token:${mint}:legacy`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tokens',
+        filter: `mint=eq.${mint}`,
+      },
+      (payload) => {
+        onUpdate(payload.new);
+      }
+    )
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] Token stats subscription error:', err);
+      }
+    });
+  
+  return channel;
+}
+
+/** @deprecated Use hooks instead */
+export function subscribeToAllTokens(
+  onInsert: (token: any) => void,
+  onUpdate: (token: any) => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  const channel = client
+    .channel('all-tokens:legacy')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'tokens',
+      },
+      (payload) => {
+        onInsert(payload.new);
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tokens',
+      },
+      (payload) => {
+        onUpdate(payload.new);
+      }
+    )
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] All tokens subscription error:', err);
+      }
+    });
+  
+  return channel;
+}
+
+/** @deprecated Use hooks instead */
+export function subscribeToAllTrades(
+  onInsert: (trade: any) => void
+): RealtimeChannel {
+  const client = getSupabaseClient();
+  
+  const channel = client
+    .channel('all-trades:legacy')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'trades',
+      },
+      (payload) => {
+        onInsert(payload.new);
+      }
+    )
+    .subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('[Realtime] All trades subscription error:', err);
+      }
+    });
+  
+  return channel;
+}
+
+/** @deprecated Channels now auto-cleanup with hooks */
+export function unsubscribeChannel(channel: RealtimeChannel): void {
+  const client = getSupabaseClient();
+  client.removeChannel(channel);
 }
