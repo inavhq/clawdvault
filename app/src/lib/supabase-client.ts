@@ -1,7 +1,7 @@
 'use client';
 
-import { createClient, SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { useEffect, useRef, useCallback, useContext, createContext, ReactNode, useId } from 'react';
+import { createClient, SupabaseClient, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { useEffect, useRef } from 'react';
 
 // Client-side Supabase client for realtime subscriptions
 let supabaseClient: SupabaseClient | null = null;
@@ -55,73 +55,7 @@ export interface SolPriceUpdate {
   updated_at: string;
 }
 
-// Subscription status type
-export type SubscriptionStatus = 
-  | 'SUBSCRIBING' 
-  | 'SUBSCRIBED' 
-  | 'CHANNEL_ERROR' 
-  | 'CLOSED' 
-  | 'TIMED_OUT';
 
-interface SubscriptionCallbacks {
-  onStatusChange?: (status: SubscriptionStatus) => void;
-  onError?: (error: Error) => void;
-}
-
-// Create a channel with error handling and auto-retry
-function createChannelWithRetry(
-  channelName: string,
-  callbacks?: SubscriptionCallbacks
-): { channel: RealtimeChannel; cleanup: () => void } {
-  const client = getSupabaseClient();
-  let retryTimeout: NodeJS.Timeout | null = null;
-  let isActive = true;
-  
-  const createChannel = (): RealtimeChannel => {
-    const channel = client.channel(channelName);
-    
-    channel.subscribe((status, err) => {
-      if (!isActive) return;
-      
-      console.log(`[Realtime] ${channelName} status:`, status);
-      
-      if (status === 'SUBSCRIBED') {
-        callbacks?.onStatusChange?.('SUBSCRIBED');
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        callbacks?.onStatusChange?.(status as SubscriptionStatus);
-        callbacks?.onError?.(err || new Error(`Subscription ${status}`));
-        
-        // Auto-retry after 5 seconds
-        if (isActive && !retryTimeout) {
-          console.log(`[Realtime] Retrying ${channelName} in 5s...`);
-          retryTimeout = setTimeout(() => {
-            retryTimeout = null;
-            if (isActive) {
-              client.removeChannel(channel);
-              createChannel();
-            }
-          }, 5000);
-        }
-      } else if (status === 'CLOSED') {
-        callbacks?.onStatusChange?.('CLOSED');
-      }
-    });
-    
-    return channel;
-  };
-  
-  const channel = createChannel();
-  
-  const cleanup = () => {
-    isActive = false;
-    if (retryTimeout) {
-      clearTimeout(retryTimeout);
-    }
-    client.removeChannel(channel);
-  };
-  
-  return { channel, cleanup };
-}
 
 // Shared logging helper for subscription status
 function logSubscriptionStatus(hookName: string, status: string, err?: Error | null) {
