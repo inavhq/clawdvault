@@ -49,6 +49,7 @@ function initTestData() {
       price_sol: calculatePrice(virtualSol, virtualTokens),
       market_cap_sol: calculateMarketCap(virtualSol, virtualTokens, INITIAL_VIRTUAL_TOKENS),
       graduated: false,
+      updated_at: new Date().toISOString(),
       volume_24h: Math.random() * 100,
       trades_24h: Math.floor(Math.random() * 50),
       holders: Math.floor(Math.random() * 100) + 1,
@@ -94,6 +95,7 @@ export function createToken(data: {
     price_sol: calculatePrice(INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS),
     market_cap_sol: calculateMarketCap(INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, INITIAL_VIRTUAL_TOKENS),
     graduated: false,
+    updated_at: new Date().toISOString(),
     volume_24h: 0,
     trades_24h: 0,
     holders: 1,
@@ -162,6 +164,7 @@ export function executeTrade(
     token.graduated = true;
   }
   
+  const fee = solAmount * 0.01;
   const trade: Trade = {
     id: `trade_${Date.now()}`,
     token_mint: mint,
@@ -170,6 +173,9 @@ export function executeTrade(
     sol_amount: solAmount,
     token_amount: tokenAmount,
     price_sol: token.price_sol,
+    total_fee: fee,
+    protocol_fee: fee * 0.5,
+    creator_fee: fee * 0.5,
     signature: generateMint(),
     created_at: new Date().toISOString(),
   };
@@ -194,8 +200,12 @@ export function createAgent(wallet: string, name?: string): Agent {
     name,
     api_key: apiKey,
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    moltbook_verified: false,
+    moltx_verified: false,
     tokens_created: 0,
     total_volume: 0,
+    total_fees: 0,
   };
   agents.set(apiKey, agent);
   return agent;
