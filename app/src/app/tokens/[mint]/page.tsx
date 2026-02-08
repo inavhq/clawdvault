@@ -26,7 +26,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
   const [trading, setTrading] = useState(false);
-  const [chartKey, setChartKey] = useState(0); // Increment to force chart refresh
   const [tradeResult, setTradeResult] = useState<TradeResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
@@ -491,7 +490,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         });
         setAmount('');
         fetchToken(); fetchOnChainStats(); refreshBalancesAfterTrade();
-        setChartKey(k => k + 1);
         return;
       }
       
@@ -566,7 +564,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         setAmount('');
         fetchToken(); fetchHolders(token?.creator); fetchOnChainStats();
         refreshBalancesAfterTrade();
-        setChartKey(k => k + 1); // Force chart refresh
       } else {
         setTradeResult({ success: false, error: executeData.error || 'Trade execution failed' });
       }
@@ -794,7 +791,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
             {/* Chart - order-1 mobile, spans 2 cols on desktop */}
             <div className="order-1 lg:order-none lg:col-span-2 min-w-0">
               <PriceChart
-                key={chartKey}
                 mint={token.mint}
                 height={500}
                 currentMarketCap={token?.market_cap_usd ?? onChainStats?.marketCapUsd ?? 0}
