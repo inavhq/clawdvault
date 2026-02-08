@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { findBondingCurvePDA } from '@/lib/anchor/client';
 
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
@@ -32,7 +31,6 @@ export async function GET(request: NextRequest) {
     
     // Find bonding curve PDA and its token vault
     const [bondingCurvePDA] = findBondingCurvePDA(mintPubkey);
-    const _bondingCurveVault = await getAssociatedTokenAddress(mintPubkey, bondingCurvePDA, true);
     const bondingCurveOwner = bondingCurvePDA.toBase58();
 
     // Get largest token accounts (top holders)

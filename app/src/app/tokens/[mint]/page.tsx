@@ -22,14 +22,13 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const [token, setToken] = useState<Token | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
-  const [solPrice, setSolPrice] = useState<number | null>(null);
+  const [_solPrice, setSolPrice] = useState<number | null>(null);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
   const [trading, setTrading] = useState(false);
   const [tradeResult, setTradeResult] = useState<TradeResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
-  const [_tokenBalanceLoading, setTokenBalanceLoading] = useState(false);
   const [holders, setHolders] = useState<Array<{
     address: string;
     balance: number;
@@ -46,7 +45,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     solPriceUsd?: number;
     bondingCurveSol: number;
   } | null>(null);
-  const [candleMarketCap, setCandleMarketCap] = useState<number>(0);
+  const [_candleMarketCap, setCandleMarketCap] = useState<number>(0);
   const [creatorUsername, setCreatorUsername] = useState<string | null>(null);
   const [candle24hAgo, setCandle24hAgo] = useState<{ closeUsd: number } | null>(null);
   const [lastCandle, setLastCandle] = useState<{ closeUsd: number; close: number } | null>(null);
@@ -63,7 +62,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
   // Effective market cap: on-chain initially, then candles after first update
   // Candles include heartbeat candles, so they stay updated with current SOL price
-  const _displayMarketCap = candleMarketCap > 0 ? candleMarketCap : (token?.market_cap_usd ?? onChainStats?.marketCapUsd ?? 0);
 
   // Current price from streamed last candle (realtime updates)
   const currentPrice = useMemo(() => {
@@ -85,16 +83,13 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const fetchTokenBalance = useCallback(async () => {
     if (!connected || !publicKey || !token) {
       setTokenBalance(0);
-      setTokenBalanceLoading(false);
       return;
     }
 
-    setTokenBalanceLoading(true);
     try {
       // Use client-side RPC to avoid rate limiting
       const balance = await fetchBalanceClient(mint, publicKey);
       setTokenBalance(balance);
-      setTokenBalanceLoading(false);
     } catch (err) {
       console.error('Failed to fetch token balance:', err);
       // Fallback to API
@@ -106,8 +101,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         }
       } catch (_e) {
         setTokenBalance(0);
-      } finally {
-        setTokenBalanceLoading(false);
       }
     }
   }, [connected, publicKey, token, mint]);
@@ -393,7 +386,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [token, amount, tradeType, estimatedOutput]);
 
   // Contract now caps sells at available liquidity, so max is just token balance
-  const _maxSellableTokens = tokenBalance;
 
   const handleTrade = async () => {
     if (!amount || !token || !connected || !publicKey) return;
@@ -604,21 +596,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     return n.toFixed(2);
   };
 
-  const formatUsd = (n: number) => {
-    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'K';
-    if (n >= 1) return '$' + n.toFixed(2);
-    if (n >= 0.01) return '$' + n.toFixed(4);
-    if (n >= 0.0001) return '$' + n.toFixed(6);
-    if (n >= 0.000001) return '$' + n.toFixed(8);
-    return '$' + n.toFixed(10);
-  };
 
-  const formatSol = (n: number) => {
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M SOL';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K SOL';
-    return n.toFixed(2) + ' SOL';
-  };
 
   const formatSolOutput = (n: number) => {
     if (n === 0) return '0 SOL';
@@ -628,31 +606,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     return n.toExponential(4) + ' SOL';
   };
 
-  const _formatValue = (solAmount: number) => {
-    if (onChainStats?.solPriceUsd) {
-      return formatUsd(solAmount * onChainStats.solPriceUsd);
-    }
-    return formatSol(solAmount);
-  };
 
   // Calculate graduation market cap from bonding curve
-  const _graduationMarketCap = useMemo(() => {
-    const GRADUATION_SOL = 120;
-    const INITIAL_VIRTUAL_SOL = 30;
-    const INITIAL_VIRTUAL_TOKENS = 1_073_000_000;
-    const TOTAL_SUPPLY = 1_000_000_000;
-    
-    const k = INITIAL_VIRTUAL_SOL * INITIAL_VIRTUAL_TOKENS;
-    const gradVirtualSol = INITIAL_VIRTUAL_SOL + GRADUATION_SOL;
-    const gradVirtualTokens = k / gradVirtualSol;
-    const gradPrice = gradVirtualSol / gradVirtualTokens;
-    const mcapSol = gradPrice * TOTAL_SUPPLY;
-    
-    return {
-      sol: mcapSol,
-      usd: solPrice !== null ? mcapSol * solPrice : null,
-    };
-  }, [solPrice]);
 
   // Calculate graduation progress from token's real_sol_reserves (updated via realtime)
   const fundsRaised = useMemo(() => {

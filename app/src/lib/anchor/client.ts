@@ -34,65 +34,6 @@ export function findMetadataPDA(mint: PublicKey): [PublicKey, number] {
   );
 }
 
-/**
- * Build CreateMetadataAccountV3 instruction
- */
-function _buildCreateMetadataInstruction(
-  metadataPDA: PublicKey,
-  mint: PublicKey,
-  mintAuthority: PublicKey,
-  payer: PublicKey,
-  updateAuthority: PublicKey,
-  name: string,
-  symbol: string,
-  uri: string
-): TransactionInstruction {
-  // CreateMetadataAccountV3 instruction data
-  // Discriminator: 33
-  const nameBuffer = Buffer.from(name.slice(0, 32));
-  const symbolBuffer = Buffer.from(symbol.slice(0, 10));
-  const uriBuffer = Buffer.from(uri.slice(0, 200));
-  
-  // Build instruction data (Borsh serialization)
-  const data = Buffer.concat([
-    Buffer.from([33]), // CreateMetadataAccountV3 discriminator
-    // Name (string: 4-byte length + data)
-    Buffer.from([nameBuffer.length, 0, 0, 0]),
-    nameBuffer,
-    // Symbol (string: 4-byte length + data)
-    Buffer.from([symbolBuffer.length, 0, 0, 0]),
-    symbolBuffer,
-    // URI (string: 4-byte length + data)
-    Buffer.from([uriBuffer.length, 0, 0, 0]),
-    uriBuffer,
-    // Seller fee basis points (u16)
-    Buffer.from([0, 0]),
-    // Creators (Option<Vec>): None
-    Buffer.from([0]),
-    // Collection (Option): None
-    Buffer.from([0]),
-    // Uses (Option): None
-    Buffer.from([0]),
-    // Is mutable (bool)
-    Buffer.from([1]),
-    // Collection details (Option): None
-    Buffer.from([0]),
-  ]);
-  
-  return new TransactionInstruction({
-    programId: TOKEN_METADATA_PROGRAM_ID,
-    keys: [
-      { pubkey: metadataPDA, isSigner: false, isWritable: true },
-      { pubkey: mint, isSigner: false, isWritable: false },
-      { pubkey: mintAuthority, isSigner: true, isWritable: false },
-      { pubkey: payer, isSigner: true, isWritable: true },
-      { pubkey: updateAuthority, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: new PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false },
-    ],
-    data,
-  });
-}
 
 // Seeds
 const CONFIG_SEED = Buffer.from('config');

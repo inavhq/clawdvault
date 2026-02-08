@@ -5,8 +5,6 @@
 
 import { PrismaClient } from '@prisma/client';
 
-const _TOTAL_SUPPLY = 1_073_000_000;
-
 async function main() {
   const prisma = new PrismaClient();
 
