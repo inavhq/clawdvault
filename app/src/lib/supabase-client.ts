@@ -293,14 +293,14 @@ export function useReactions(
         {
           event: '*',
           schema: 'public',
-          table: 'chat_reactions',
+          table: 'message_reactions',
         },
         () => {
           onChangeRef.current?.();
         }
       )
       .subscribe((status, err) => {
-        logSubscriptionStatus('useReactions/chat_reactions', status, err);
+        logSubscriptionStatus('useReactions/message_reactions', status, err);
       });
     
     return () => {
