@@ -1,38 +1,47 @@
-// ClawdVault Types
+// ClawdVault Types - Derived from Prisma schema
+
+import { Agent as PrismaAgent } from '@prisma/client';
+import { PrismaToApi, CamelToSnake } from './type-utils';
+
+// ============================================
+// Base types derived from Prisma
+// ============================================
+
+type AgentBase = PrismaToApi<CamelToSnake<PrismaAgent>>;
+
+// ============================================
+// API Types with computed fields
+// ============================================
 
 export interface Token {
+  // Required core fields
   id: string;
   mint: string;
   name: string;
   symbol: string;
-  description?: string;
-  image?: string;
   creator: string;
-  creator_name?: string;
   created_at: string;
-  
-  // Bonding curve state
   virtual_sol_reserves: number;
   virtual_token_reserves: number;
   real_sol_reserves: number;
   real_token_reserves: number;
+  graduated: boolean;
   
-  // Computed
+  // Optional fields
+  description?: string;
+  image?: string;
+  creator_name?: string;
+  raydium_pool?: string;
+  twitter?: string;
+  telegram?: string;
+  website?: string;
+  updated_at?: string;
+  
+  // Computed fields that don't exist in DB
   price_sol: number;
   price_usd?: number;
   market_cap_sol: number;
   market_cap_usd?: number;
-  
-  // Status
-  graduated: boolean;
-  raydium_pool?: string;
-  
-  // Social links
-  twitter?: string;
-  telegram?: string;
-  website?: string;
-  
-  // Stats
   volume_24h?: number;
   trades_24h?: number;
   holders?: number;
@@ -40,37 +49,39 @@ export interface Token {
 }
 
 export interface Trade {
+  // Required core fields
   id: string;
   token_mint: string;
   trader: string;
-  type: 'buy' | 'sell';
+  type: 'buy' | 'sell'; // Renamed from trade_type
   sol_amount: number;
   token_amount: number;
   price_sol: number;
-  price_usd?: number; // Derived from sol_price_usd * price_sol
-  sol_price_usd?: number; // SOL price at trade time
-  signature: string;
-  created_at: string;
-}
-
-export interface Agent {
-  id: string;
-  wallet: string;
-  name?: string;
-  api_key: string;
   created_at: string;
   
-  // Verification
+  // Optional fields
+  signature?: string;
+  total_fee?: number;
+  protocol_fee?: number;
+  creator_fee?: number;
+  sol_price_usd?: number;
+  
+  // Add computed USD price field
+  price_usd?: number; // Derived from sol_price_usd * price_sol
+}
+
+export interface Agent extends Omit<AgentBase, 'updated_at' | 'moltbook_verified' | 'moltx_verified' | 'twitter_handle' | 'total_fees'> {
+  // Make some fields optional for API responses
+  updated_at?: string;
   moltbook_verified?: boolean;
   moltx_verified?: boolean;
   twitter_handle?: string;
-  
-  // Stats
-  tokens_created: number;
-  total_volume: number;
+  total_fees?: number;
 }
 
+// ============================================
 // On-chain stats from /api/stats
+// ============================================
 export interface OnChainStats {
   totalSupply: number;
   bondingCurveBalance: number;
@@ -85,6 +96,10 @@ export interface OnChainStats {
   solPriceUsd?: number | null;
   graduated?: boolean;
 }
+
+// ============================================
+// Request/Response Types (manual)
+// ============================================
 
 export interface CreateTokenRequest {
   name: string;
@@ -140,7 +155,9 @@ export interface TokenListResponse {
   per_page: number;
 }
 
+// ============================================
 // Bonding curve math helpers
+// ============================================
 export const INITIAL_VIRTUAL_SOL = 30;  // 30 SOL
 export const INITIAL_VIRTUAL_TOKENS = 1_073_000_000;  // 1.073B tokens
 export const GRADUATION_THRESHOLD_SOL = 120; // ~$69K market cap at $100/SOL
