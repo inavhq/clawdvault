@@ -332,8 +332,26 @@ export default function PriceChart({
     // If the chart is already rendered
     if (candlesForChart.length > 0 && chartRef.current) {
       if (timeInterval !== lastRenderedRangeRef.current) {
-        // New time range selected - fit content
+        // New time range selected - fit content initially, then set 24h range for short intervals
         chartRef.current?.timeScale().fitContent();
+        
+        // For intervals other than 1d, set visible range to last 24 hours
+        if (timeInterval !== '1d' && candlesForChart.length > 0) {
+          const lastCandle = candlesForChart[candlesForChart.length - 1];
+          const firstCandle = candlesForChart[0];
+          const twentyFourHoursAgo = lastCandle.time - (24 * 60 * 60); // 24 hours in seconds
+          
+          // Only set range if we have data older than 24 hours
+          if (firstCandle.time <= twentyFourHoursAgo) {
+            chartRef.current.timeScale().setVisibleRange({
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
+              from: twentyFourHoursAgo as any,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
+              to: lastCandle.time as any,
+            });
+          }
+        }
+        
         lastRenderedRangeRef.current = timeInterval;
         lastCandleCountRef.current = candlesForChart.length;
       } else if (timeScale && logicalRange && candlesForChart.length !== lastCandleCountRef.current) {
