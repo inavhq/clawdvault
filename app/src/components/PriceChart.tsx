@@ -336,9 +336,7 @@ export default function PriceChart({
     if (candlesForChart.length > 0 && chartRef.current) {
       if (timeInterval !== lastRenderedRangeRef.current) {
         // New time range selected - fit content
-        requestAnimationFrame(() => {
-          chartRef.current?.timeScale().fitContent();
-        });
+        chartRef.current?.timeScale().fitContent();
         lastRenderedRangeRef.current = timeInterval;
         lastCandleCountRef.current = candlesForChart.length;
       } else if (timeScale && logicalRange && candlesForChart.length !== lastCandleCountRef.current) {
