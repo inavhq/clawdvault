@@ -49,7 +49,7 @@ export default function PriceChart({
   const chartRef = useRef<IChartApi | null>(null);
   // Separate refs for each series type to prevent recreation on updates (Issue #47)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const lineSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   // Ref to store last rendered time interval for viewport preservation (Issue #36)
   const lastRenderedRangeRef = useRef<Interval | null>(null);
   
