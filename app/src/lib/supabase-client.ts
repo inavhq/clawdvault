@@ -136,18 +136,6 @@ function logSubscriptionStatus(hookName: string, status: string, err?: Error | n
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// React StrictMode (dev only) double-invokes effects: mount → unmount → remount.
-// Immediate removeChannel kills the WebSocket before it connects, causing TIMED_OUT.
-// In dev, we delay removal so if StrictMode remounts quickly, we cancel the removal.
-function safeRemoveChannel(client: SupabaseClient, channel: RealtimeChannel): () => void {
-  if (isDev) {
-    const timer = setTimeout(() => client.removeChannel(channel), 500);
-    return () => clearTimeout(timer);
-  }
-  client.removeChannel(channel);
-  return () => {};
-}
-
 // ============================================
 // REACT HOOKS WITH AUTO-CLEANUP
 // ============================================
@@ -205,8 +193,14 @@ export function useChatMessages(
       logSubscriptionStatus('useChatMessages/chat_messages', status, err);
     });
     
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, [mint]);
 }
 
@@ -243,8 +237,14 @@ export function useTrades(
         logSubscriptionStatus('useTrades/trades', status, err);
       });
     
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, [mint]);
 }
 
@@ -281,8 +281,14 @@ export function useCandles(
         logSubscriptionStatus('useCandles/price_candles', status, err);
       });
     
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, [mint]);
 }
 
@@ -313,8 +319,14 @@ export function useSolPrice(onUpdate: (price: SolPriceUpdate) => void) {
         logSubscriptionStatus('useSolPrice/sol_price', status, err);
       });
     
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, []);
 }
 
@@ -350,8 +362,14 @@ export function useReactions(
         logSubscriptionStatus('useReactions/message_reactions', status, err);
       });
     
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, [mint]);
 }
 
@@ -393,8 +411,14 @@ export function useTokenStats(
         logSubscriptionStatus('useTokenStats/tokens', status, err);
       });
 
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, [mint]);
 }
 
@@ -441,8 +465,14 @@ export function useAllTokens(
         logSubscriptionStatus('useAllTokens/tokens', status, err);
       });
 
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, []);
 }
 
@@ -475,8 +505,14 @@ export function useSolPriceHook(
         logSubscriptionStatus('useSolPriceHook/sol_price', status, err);
       });
 
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, []);
 }
 
@@ -509,7 +545,13 @@ export function useAllTrades(
         logSubscriptionStatus('useAllTrades/trades', status, err);
       });
 
-    const cancelRemove = safeRemoveChannel(client, channel);
-    return cancelRemove;
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
   }, []);
 }
