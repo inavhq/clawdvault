@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineData, CandlestickData, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
-import { subscribeToCandles, subscribeToSolPrice, unsubscribeChannel } from '@/lib/supabase-client';
+import { useCandles, useSolPriceHook } from '@/lib/supabase-client';
 
 interface Candle {
   time: number;
@@ -196,27 +196,22 @@ export default function PriceChart({
     // to avoid flickering on realtime updates
     fetchCandles().finally(() => setLoading(false));
     fetch24hCandles();
-
-    // Subscribe to realtime candle updates
-    const candleChannel = subscribeToCandles(mint, () => {
-      console.log('[PriceChart] Candle update received, refetching...');
-      fetchCandles();
-      fetch24hCandles();
-    });
-
-    // Subscribe to SOL price updates - refetch candles when SOL price changes
-    // This updates the USD close price dynamically
-    const solPriceChannel = subscribeToSolPrice(() => {
-      console.log('[PriceChart] SOL price update received, refetching candles...');
-      fetchCandles();
-      fetch24hCandles();
-    });
-
-    return () => {
-      unsubscribeChannel(candleChannel);
-      unsubscribeChannel(solPriceChannel);
-    };
   }, [mint, timeInterval, fetchCandles, fetch24hCandles]);
+
+  // Subscribe to realtime candle updates
+  useCandles(mint, () => {
+    console.log('[PriceChart] Candle update received, refetching...');
+    fetchCandles();
+    fetch24hCandles();
+  });
+
+  // Subscribe to SOL price updates - refetch candles when SOL price changes
+  // This updates the USD close price dynamically
+  useSolPriceHook(() => {
+    console.log('[PriceChart] SOL price update received, refetching candles...');
+    fetchCandles();
+    fetch24hCandles();
+  });
 
   // Create/update chart
   useEffect(() => {

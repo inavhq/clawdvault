@@ -1,6 +1,7 @@
 'use client';
 
-import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { useEffect, useRef } from 'react';
 
 // Client-side Supabase client for realtime subscriptions
 let supabaseClient: SupabaseClient | null = null;
@@ -9,8 +10,6 @@ export function getSupabaseClient(): SupabaseClient {
   if (!supabaseClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    console.log('[Supabase] Initializing client with URL:', url);
     
     if (!url || !key) {
       throw new Error('Supabase URL and Anon Key are required');
@@ -49,272 +48,6 @@ export interface RealtimeTrade {
   created_at: string;
 }
 
-// Subscribe to chat messages for a specific token
-export function subscribeToChatMessages(
-  mint: string,
-  onInsert: (message: RealtimeMessage) => void,
-  onDelete?: (id: string) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to chat for:', mint);
-  
-  // Subscribe without filter - filter client-side (more reliable with hosted Supabase)
-  const channel = client
-    .channel(`chat:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-      },
-      (payload) => {
-        const msg = payload.new as RealtimeMessage;
-        if (msg?.token_mint === mint) {
-          console.log('[Realtime] Chat message received:', msg.id);
-          onInsert(msg);
-        }
-      }
-    );
-  
-  if (onDelete) {
-    channel.on(
-      'postgres_changes',
-      {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'chat_messages',
-      },
-      (payload) => {
-        const old = payload.old as any;
-        if (old?.token_mint === mint) {
-          console.log('[Realtime] Chat message deleted:', old.id);
-          onDelete(old.id);
-        }
-      }
-    );
-  }
-  
-  channel.subscribe((status) => {
-    console.log('[Realtime] Chat subscription status:', status);
-  });
-  return channel;
-}
-
-// Subscribe to trades for a specific token
-export function subscribeToTrades(
-  mint: string,
-  onInsert: (trade: RealtimeTrade) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to trades for:', mint);
-  
-  // Subscribe without filter - filter client-side (more reliable with hosted Supabase)
-  const channel = client
-    .channel(`trades:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'trades',
-      },
-      (payload) => {
-        const trade = payload.new as RealtimeTrade;
-        if (trade?.token_mint === mint) {
-          console.log('[Realtime] Trade received:', trade.id);
-          onInsert(trade);
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] Trades subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to reactions for a token's messages
-export function subscribeToReactions(
-  mint: string,
-  onChange: () => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to reactions for:', mint);
-  
-  // Subscribe to both inserts and deletes on reactions
-  const channel = client
-    .channel(`reactions:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'message_reactions'
-      },
-      (payload) => {
-        console.log('[Realtime] Reaction change:', payload.eventType);
-        // Trigger refetch of messages to get updated reaction counts
-        onChange();
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] Reactions subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to token stats updates (reserves, price changes)
-export function subscribeToTokenStats(
-  mint: string,
-  onUpdate: (token: any) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to token stats for:', mint);
-  
-  // Subscribe without filter - filter in callback instead (more reliable with local Supabase)
-  const channel = client
-    .channel(`token:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tokens',
-      },
-      (payload) => {
-        const record = payload.new as any;
-        if (record?.mint === mint) {
-          console.log('[Realtime] Token update received:', payload);
-          onUpdate(record);
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] Subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Unsubscribe from a channel
-export function unsubscribeChannel(channel: RealtimeChannel): void {
-  const client = getSupabaseClient();
-  client.removeChannel(channel);
-}
-
-// Subscribe to all token changes (for browse/home pages)
-export function subscribeToAllTokens(
-  onInsert: (token: any) => void,
-  onUpdate: (token: any) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to all tokens');
-  
-  const channel = client
-    .channel('all-tokens')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'tokens'
-      },
-      (payload) => {
-        console.log('[Realtime] New token created:', payload.new);
-        onInsert(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tokens'
-      },
-      (payload) => {
-        console.log('[Realtime] Token updated:', payload.new);
-        onUpdate(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] All tokens subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to all trades (for volume updates)
-export function subscribeToAllTrades(
-  onInsert: (trade: any) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-  
-  console.log('[Realtime] Subscribing to all trades');
-  
-  const channel = client
-    .channel('all-trades')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'trades'
-      },
-      (payload) => {
-        console.log('[Realtime] New trade:', payload.new);
-        onInsert(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] All trades subscription status:', status);
-    });
-  
-  return channel;
-}
-
-// Subscribe to candle updates for a specific token
-export function subscribeToCandles(
-  mint: string,
-  onUpdate: () => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
-
-  console.log('[Realtime] Subscribing to candles for:', mint);
-
-  // Subscribe without filter - filter in callback instead (more reliable with local Supabase)
-  const channel = client
-    .channel(`candles:${mint}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*', // INSERT or UPDATE
-        schema: 'public',
-        table: 'price_candles',
-      },
-      (payload) => {
-        // Filter client-side
-        const record = payload.new as any;
-        if (record?.token_mint === mint) {
-          console.log('[Realtime] Candle update for this token:', payload);
-          onUpdate();
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] Candles subscription status:', status);
-    });
-
-  return channel;
-}
-
-// SOL Price type for realtime updates
 export interface SolPriceUpdate {
   id: string;
   price: number;
@@ -322,32 +55,444 @@ export interface SolPriceUpdate {
   updated_at: string;
 }
 
-// Subscribe to SOL price updates
-export function subscribeToSolPrice(
-  onUpdate: (price: SolPriceUpdate) => void
-): RealtimeChannel {
-  const client = getSupabaseClient();
 
-  console.log('[Realtime] Subscribing to SOL price updates');
 
-  const channel = client
-    .channel('sol-price')
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'sol_price',
-      },
-      (payload) => {
-        const record = payload.new as SolPriceUpdate;
-        console.log('[Realtime] SOL price update:', record);
-        onUpdate(record);
-      }
-    )
-    .subscribe((status) => {
-      console.log('[Realtime] SOL price subscription status:', status);
+// Shared logging helper for subscription status
+function logSubscriptionStatus(hookName: string, status: string, err?: Error | null) {
+  if (status === 'SUBSCRIBED') {
+    console.log(`[Realtime] ${hookName}: SUBSCRIBED`);
+  } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+    console.warn(`[Realtime] ${hookName}: ${status}`, err || '');
+  } else if (status === 'CLOSED') {
+    console.log(`[Realtime] ${hookName}: CLOSED`);
+  }
+}
+
+const isDev = process.env.NODE_ENV === 'development';
+
+// Counter for unique channel names — prevents StrictMode "mismatch" errors
+// when dev skips cleanup and a remount creates a new channel with the same name.
+let channelCounter = 0;
+function uniqueChannel(name: string): string {
+  return isDev ? `${name}:${++channelCounter}` : name;
+}
+
+// ============================================
+// REACT HOOKS WITH AUTO-CLEANUP
+// ============================================
+
+// Hook for subscribing to chat messages
+export function useChatMessages(
+  mint: string | null,
+  onInsert: (message: RealtimeMessage) => void,
+  onDelete?: (id: string) => void
+) {
+  const onInsertRef = useRef(onInsert);
+  const onDeleteRef = useRef(onDelete);
+  
+  // Keep callbacks fresh without re-subscribing
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+    onDeleteRef.current = onDelete;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel(`chat:${mint}`))
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `token_mint=eq.${mint}`, // Server-side filter
+        },
+        (payload: RealtimePostgresChangesPayload<RealtimeMessage>) => {
+          onInsertRef.current?.(payload.new as RealtimeMessage);
+        }
+      );
+    
+    if (onDeleteRef.current) {
+      channel.on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `token_mint=eq.${mint}`,
+        },
+        (payload: RealtimePostgresChangesPayload<RealtimeMessage>) => {
+          onDeleteRef.current?.((payload.old as RealtimeMessage).id);
+        }
+      );
+    }
+    
+    channel.subscribe((status, err) => {
+      logSubscriptionStatus('useChatMessages/chat_messages', status, err);
     });
+    
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [mint]);
+}
 
-  return channel;
+// Hook for subscribing to trades
+export function useTrades(
+  mint: string | null,
+  onInsert: (trade: RealtimeTrade) => void
+) {
+  const onInsertRef = useRef(onInsert);
+  
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel(`trades:${mint}`))
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'trades',
+          filter: `token_mint=eq.${mint}`, // Server-side filter
+        },
+        (payload: RealtimePostgresChangesPayload<RealtimeTrade>) => {
+          onInsertRef.current?.(payload.new as RealtimeTrade);
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useTrades/trades', status, err);
+      });
+    
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to candles
+export function useCandles(
+  mint: string | null,
+  onUpdate: () => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+  
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel(`candles:${mint}`))
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'price_candles',
+          filter: `token_mint=eq.${mint}`, // Server-side filter
+        },
+        () => {
+          onUpdateRef.current?.();
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useCandles/price_candles', status, err);
+      });
+    
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to SOL price
+export function useSolPrice(onUpdate: (price: SolPriceUpdate) => void) {
+  const onUpdateRef = useRef(onUpdate);
+  
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+  
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel('sol-price'))
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sol_price',
+        },
+        (payload: RealtimePostgresChangesPayload<SolPriceUpdate>) => {
+          onUpdateRef.current?.(payload.new as SolPriceUpdate);
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useSolPrice/sol_price', status, err);
+      });
+    
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, []);
+}
+
+// Hook for subscribing to reactions
+export function useReactions(
+  mint: string | null,
+  onChange: () => void
+) {
+  const onChangeRef = useRef(onChange);
+  
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+  
+  useEffect(() => {
+    if (!mint) return;
+    
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel(`reactions:${mint}`))
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'message_reactions',
+        },
+        () => {
+          onChangeRef.current?.();
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useReactions/message_reactions', status, err);
+      });
+    
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [mint]);
+}
+
+
+// ============================================
+// ADDITIONAL REACT HOOKS WITH AUTO-CLEANUP
+// ============================================
+
+// Hook for subscribing to token stats updates
+export function useTokenStats(
+  mint: string | null,
+  onUpdate: (token: any) => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+
+  useEffect(() => {
+    if (!mint) return;
+
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel(`token:${mint}:hook`))
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tokens',
+          filter: `mint=eq.${mint}`,
+        },
+        (payload) => {
+          onUpdateRef.current?.(payload.new);
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useTokenStats/tokens', status, err);
+      });
+
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [mint]);
+}
+
+// Hook for subscribing to all tokens (INSERT and UPDATE)
+export function useAllTokens(
+  onNewToken: (token: any) => void,
+  onUpdateToken: (token: any) => void
+) {
+  const onNewTokenRef = useRef(onNewToken);
+  const onUpdateTokenRef = useRef(onUpdateToken);
+
+  useEffect(() => {
+    onNewTokenRef.current = onNewToken;
+    onUpdateTokenRef.current = onUpdateToken;
+  });
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel('all-tokens:hook'))
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tokens',
+        },
+        (payload) => {
+          onNewTokenRef.current?.(payload.new);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tokens',
+        },
+        (payload) => {
+          onUpdateTokenRef.current?.(payload.new);
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useAllTokens/tokens', status, err);
+      });
+
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, []);
+}
+
+// Hook for subscribing to SOL price updates
+export function useSolPriceHook(
+  onUpdate: (price: SolPriceUpdate) => void
+) {
+  const onUpdateRef = useRef(onUpdate);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel('sol-price:hook'))
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'sol_price',
+        },
+        (payload) => {
+          onUpdateRef.current?.(payload.new as SolPriceUpdate);
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useSolPriceHook/sol_price', status, err);
+      });
+
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, []);
+}
+
+// Hook for subscribing to all trades (for volume updates)
+export function useAllTrades(
+  onNewTrade: (trade: any) => void
+) {
+  const onNewTradeRef = useRef(onNewTrade);
+
+  useEffect(() => {
+    onNewTradeRef.current = onNewTrade;
+  });
+
+  useEffect(() => {
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(uniqueChannel('all-trades:hook'))
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'trades',
+        },
+        (payload) => {
+          onNewTradeRef.current?.(payload.new);
+        }
+      )
+      .subscribe((status, err) => {
+        logSubscriptionStatus('useAllTrades/trades', status, err);
+      });
+
+    return () => {
+      // In dev, StrictMode double-invokes effects. Skipping cleanup on the
+      // fake unmount prevents killing the WebSocket prematurely.
+      // Real navigation/unmount in dev may leak channels, but that's acceptable.
+      if (!isDev) {
+        client.removeChannel(channel);
+      }
+    };
+  }, []);
 }

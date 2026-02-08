@@ -10,7 +10,7 @@ import Footer from '@/components/Footer';
 import ExplorerLink from '@/components/ExplorerLink';
 import { useWallet } from '@/contexts/WalletContext';
 import { fetchBalanceClient } from '@/lib/solana-client';
-import { subscribeToTokenStats, subscribeToCandles, unsubscribeChannel } from '@/lib/supabase-client';
+import { useTokenStats, useCandles } from '@/lib/supabase-client';
 import { useSolPrice } from '@/hooks/useSolPrice';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
@@ -156,34 +156,29 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     fetchOnChainStats();
     fetchLatestCandle(); // Get initial last candle
     fetch24hAgoCandle(); // Get initial 24h ago candle
-
-    // Subscribe to realtime token stats updates
-    const tokenChannel = subscribeToTokenStats(mint, (updatedToken) => {
-      // Update token state with new reserves/stats
-      setToken(prev => prev ? {
-        ...prev,
-        virtual_sol_reserves: updatedToken.virtual_sol_reserves,
-        virtual_token_reserves: updatedToken.virtual_token_reserves,
-        real_sol_reserves: updatedToken.real_sol_reserves,
-        real_token_reserves: updatedToken.real_token_reserves,
-        graduated: updatedToken.graduated,
-        volume_24h: updatedToken.volume_24h,
-      } : null);
-      // Also refresh on-chain stats
-      fetchOnChainStats();
-    });
-
-    // Subscribe to realtime candle updates for last candle
-    const candleChannel = subscribeToCandles(mint, () => {
-      // Refetch latest candle when new candle is created
-      fetchLatestCandle();
-    });
-
-    return () => {
-      unsubscribeChannel(tokenChannel);
-      unsubscribeChannel(candleChannel);
-    };
   }, [mint]);
+
+  // Subscribe to realtime token stats updates
+  useTokenStats(mint, (updatedToken) => {
+    // Update token state with new reserves/stats
+    setToken(prev => prev ? {
+      ...prev,
+      virtual_sol_reserves: updatedToken.virtual_sol_reserves,
+      virtual_token_reserves: updatedToken.virtual_token_reserves,
+      real_sol_reserves: updatedToken.real_sol_reserves,
+      real_token_reserves: updatedToken.real_token_reserves,
+      graduated: updatedToken.graduated,
+      volume_24h: updatedToken.volume_24h,
+    } : null);
+    // Also refresh on-chain stats
+    fetchOnChainStats();
+  });
+
+  // Subscribe to realtime candle updates for last candle
+  useCandles(mint, () => {
+    // Refetch latest candle when new candle is created
+    fetchLatestCandle();
+  });
 
   // Poll for 24h ago candle every minute (last candle comes from realtime)
   useEffect(() => {

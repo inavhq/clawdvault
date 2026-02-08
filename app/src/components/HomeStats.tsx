@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { subscribeToAllTokens, subscribeToAllTrades, unsubscribeChannel } from '@/lib/supabase-client';
+import { useAllTokens, useAllTrades } from '@/lib/supabase-client';
 
 interface HomeStatsProps {
   initialTokens: number;
@@ -20,34 +20,27 @@ export default function HomeStats({
   const [graduatedCount, setGraduatedCount] = useState(initialGraduated);
   const [totalVolume, setTotalVolume] = useState(initialVolume);
 
-  useEffect(() => {
-    // Subscribe to token changes
-    const tokenChannel = subscribeToAllTokens(
-      // New token created
-      () => {
-        setTotalTokens(prev => prev + 1);
-      },
-      // Token updated (check for graduation)
-      (updatedToken) => {
-        if (updatedToken.graduated) {
-          setGraduatedCount(prev => prev + 1);
-        }
+  // Subscribe to token changes
+  useAllTokens(
+    // New token created
+    () => {
+      setTotalTokens(prev => prev + 1);
+    },
+    // Token updated (check for graduation)
+    (updatedToken) => {
+      if (updatedToken.graduated) {
+        setGraduatedCount(prev => prev + 1);
       }
-    );
+    }
+  );
 
-    // Subscribe to trades for volume
-    const tradeChannel = subscribeToAllTrades(
-      (newTrade) => {
-        const amount = newTrade.sol_amount || newTrade.solAmount || 0;
-        setTotalVolume(prev => prev + Number(amount));
-      }
-    );
-
-    return () => {
-      unsubscribeChannel(tokenChannel);
-      unsubscribeChannel(tradeChannel);
-    };
-  }, []);
+  // Subscribe to trades for volume
+  useAllTrades(
+    (newTrade) => {
+      const amount = newTrade.sol_amount || newTrade.solAmount || 0;
+      setTotalVolume(prev => prev + Number(amount));
+    }
+  );
 
   const formatValue = (solAmount: number) => {
     if (solPrice !== null) {
