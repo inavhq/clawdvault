@@ -11,7 +11,6 @@ import {
   Transaction,
   TransactionInstruction,
   SystemProgram,
-  LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
@@ -38,7 +37,7 @@ export function findMetadataPDA(mint: PublicKey): [PublicKey, number] {
 /**
  * Build CreateMetadataAccountV3 instruction
  */
-function buildCreateMetadataInstruction(
+function _buildCreateMetadataInstruction(
   metadataPDA: PublicKey,
   mint: PublicKey,
   mintAuthority: PublicKey,

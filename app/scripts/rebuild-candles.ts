@@ -51,6 +51,7 @@ async function updateCandles(
 
     if (existing) {
       // Build update data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic Prisma update shape
       let updateData: any = {
         high: priceDecimal.greaterThan(existing.high) ? priceDecimal : existing.high,
         low: priceDecimal.lessThan(existing.low) ? priceDecimal : existing.low,
@@ -94,6 +95,7 @@ async function updateCandles(
       });
     } else {
       // Create new candle
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic Prisma create shape
       let createData: any = {
         tokenMint,
         interval,

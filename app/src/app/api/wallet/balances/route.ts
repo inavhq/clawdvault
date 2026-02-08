@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
         balances,
         count: Object.keys(balances).length,
       });
-    } catch (rpcError: any) {
-      console.error('RPC error fetching balances:', rpcError.message);
+    } catch (rpcError: unknown) {
+      console.error('RPC error fetching balances:', (rpcError as Error).message);
       return NextResponse.json({
         success: false,
         error: 'RPC error',

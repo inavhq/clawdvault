@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     // Upload to Supabase Storage
     const client = getSupabase();
-    const { data, error } = await client.storage
+    const { data: _data, error } = await client.storage
       .from('token-images')
       .upload(filename, buffer, {
         contentType: file.type,

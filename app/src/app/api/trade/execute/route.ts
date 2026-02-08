@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Connection, clusterApiUrl, Transaction, PublicKey } from '@solana/web3.js';
 import { getToken, recordTrade, getTradeBySignature } from '@/lib/db';
-import { PROGRAM_ID } from '@/lib/anchor/client';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -85,7 +85,7 @@ function parseTradeEventFromLogs(logs: string[]): ParsedTradeEvent | null {
             timestamp,
           };
         }
-      } catch (e) {
+      } catch (_e) {
         // Not our event, continue
       }
     }
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     
     // Deserialize the signed transaction
     const transactionBuffer = Buffer.from(body.signedTransaction, 'base64');
-    const transaction = Transaction.from(transactionBuffer);
+    const _transaction = Transaction.from(transactionBuffer);
     
     // Send the transaction
     console.log(`📤 Submitting ${body.type} transaction for ${body.mint}...`);

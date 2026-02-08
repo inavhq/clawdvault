@@ -103,7 +103,7 @@ function parseTradeEventFromLogs(logs: string[]): ParsedTradeEvent | null {
             timestamp,
           };
         }
-      } catch (e) {
+      } catch (_e) {
         // Not our event
       }
     }
@@ -152,7 +152,7 @@ function parseTokenCreatedEventFromLogs(logs: string[]): ParsedTokenCreatedEvent
           
           return { mint, creator, name, symbol, uri, timestamp };
         }
-      } catch (e) {
+      } catch (_e) {
         // Not our event
       }
     }

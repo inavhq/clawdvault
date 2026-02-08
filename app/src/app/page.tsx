@@ -200,11 +200,11 @@ async function getHomeData() {
   }
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
-  return num.toFixed(2)
-}
+// function formatNumber(num: number): string {
+//   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+//   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+//   return num.toFixed(2)
+// }
 
 function formatUsd(num: number): string {
   if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`
@@ -229,6 +229,7 @@ function formatValue(solAmount: number, solPrice: number | null): string {
 const TOTAL_SUPPLY = 1_000_000_000
 
 // Calculate market cap from last candle (includes heartbeat candles for USD continuity)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token object
 function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }): { sol: number; usd: number | null } {
   if (lastCandle?.priceUsd) {
     // Use last candle USD price × supply (includes heartbeat candles)
@@ -247,6 +248,7 @@ function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; price
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token object
 function TokenCard({ token, badge, solPrice, lastCandle, priceChange24h }: { token: any, badge?: string, solPrice: number | null, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }, priceChange24h?: number | null }) {
   const mcap = getMarketCap(token, lastCandle)
   
@@ -452,6 +454,7 @@ export default async function Home() {
               </h2>
               {data.trendingTokens.length > 0 ? (
                 <div className="space-y-3">
+{/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token */}
                   {data.trendingTokens.slice(0, 3).map((token: any) => (
                     <TokenCard 
                       key={token.mint} 
@@ -477,6 +480,7 @@ export default async function Home() {
               </h2>
               {data.recentTokens.length > 0 ? (
                 <div className="space-y-3">
+{/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token */}
                   {data.recentTokens.slice(0, 3).map((token: any) => (
                     <TokenCard 
                       key={token.mint} 

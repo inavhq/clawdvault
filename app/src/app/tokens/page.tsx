@@ -18,8 +18,8 @@ export default function TokensPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [solPrice, setSolPrice] = useState<number | null>(null);
-  const [walletBalances, setWalletBalances] = useState<Record<string, number>>({});
-  const [balancesLoading, setBalancesLoading] = useState(false);
+  const [_walletBalances, setWalletBalances] = useState<Record<string, number>>({});
+  const [_balancesLoading, setBalancesLoading] = useState(false);
 
   // Fetch wallet token balances
   const fetchWalletBalances = useCallback(async () => {
@@ -46,6 +46,7 @@ export default function TokensPage() {
   useEffect(() => {
     fetchTokens();
     fetchSolPrice();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run on sort change
   }, [sort]);
 
   // Subscribe to realtime token updates
@@ -72,7 +73,7 @@ export default function TokensPage() {
       const res = await fetch('/api/sol-price');
       const data = await res.json();
       setSolPrice(data.valid ? data.price : null);
-    } catch (err) {
+    } catch (_err) {
       console.warn('Price fetch failed');
       setSolPrice(null);
     }
@@ -144,7 +145,6 @@ export default function TokensPage() {
     if (n >= 0.0001) return '$' + n.toFixed(6);
     if (n >= 0.000001) return '$' + n.toFixed(8);
     return '$' + n.toFixed(10);
-    return '<$0.0001';
   };
 
   const formatSol = (n: number) => {
@@ -181,13 +181,13 @@ export default function TokensPage() {
     return mcapSol.toFixed(2) + ' SOL';
   };
 
-  const formatVolume = (vol?: number) => {
+  const _formatVolume = (vol?: number) => {
     if (!vol) return '--';
     if (vol >= 1000) return (vol / 1000).toFixed(1) + 'K';
     return vol.toFixed(2);
   };
 
-  const formatNumber = (n: number) => {
+  const _formatNumber = (n: number) => {
     if (n >= 1000000000) return (n / 1000000000).toFixed(2) + 'B';
     if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
     if (n >= 1000) return (n / 1000).toFixed(2) + 'K';
@@ -278,7 +278,7 @@ export default function TokensPage() {
           {/* Results count */}
           {search && (
             <div className="text-gray-400 text-sm mb-4">
-              Found {filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''} matching "{search}"
+              Found {filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''} matching &quot;{search}&quot;
             </div>
           )}
 

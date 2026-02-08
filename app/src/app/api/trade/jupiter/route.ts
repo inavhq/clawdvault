@@ -137,11 +137,11 @@ export async function POST(request: Request) {
       lastValidBlockHeight: swapResult.lastValidBlockHeight,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Jupiter swap error:', error);
     
     // Handle Jupiter-specific errors
-    if (error.message?.includes('No route found')) {
+    if ((error as Error).message?.includes('No route found')) {
       return NextResponse.json(
         { success: false, error: 'No liquidity available for this trade' },
         { status: 400 }
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { success: false, error: error.message || 'Jupiter swap failed' },
+      { success: false, error: (error as Error).message || 'Jupiter swap failed' },
       { status: 500 }
     );
   }
@@ -181,9 +181,9 @@ export async function GET(request: Request) {
       tradeEndpoint: graduated ? '/api/trade/jupiter' : '/api/trade/prepare',
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to check token status' },
+      { success: false, error: (error as Error).message || 'Failed to check token status' },
       { status: 500 }
     );
   }

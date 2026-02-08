@@ -1,5 +1,4 @@
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import * as borsh from 'borsh';
 
 const PROGRAM_ID = new PublicKey('GUyF2TVe32Cid4iGVt2F6wPYDhLSVmTUZBj2974outYM');
 
@@ -47,7 +46,7 @@ async function main() {
     // real_token_reserves: u64
     const realToken = Number(data.readBigUInt64LE(offset));
     
-    const initialBuySol = realSol; // real_sol = what was actually deposited
+    const _initialBuySol = realSol; // real_sol = what was actually deposited
     const tokensBought = 1_000_000_000 - realToken;
     
     console.log(`=== ${token.name} ===`);

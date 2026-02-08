@@ -16,15 +16,7 @@ const MOLTX_EVM_ADDRESS = process.env.MOLTX_EVM_ADDRESS;
 const CLAWDVAULT_URL = 'https://clawdvault.com';
 const TOP_N = 5; // Number of tokens to feature
 
-// Format SOL amount (handles very small prices like 0.00000003)
-function formatSol(amount: number): string {
-  if (amount >= 1) return amount.toFixed(2);
-  if (amount >= 0.1) return amount.toFixed(3);
-  if (amount >= 0.0001) return amount.toFixed(4);
-  if (amount >= 0.0000001) return amount.toFixed(8);
-  // For extremely small numbers, use scientific notation
-  return amount.toExponential(2);
-}
+// formatSol removed (unused)
 
 // Format market cap in SOL
 function formatMcap(mcap: number): string {

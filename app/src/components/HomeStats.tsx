@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAllTokens, useAllTrades } from '@/lib/supabase-client';
 
 interface HomeStatsProps {

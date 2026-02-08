@@ -90,7 +90,7 @@ export async function fetchHoldersClient(
   const accounts = largestData.result?.value || [];
   
   // Get owner for each account (batch request)
-  const ownerRequests = accounts.map((acc: any, i: number) => ({
+  const ownerRequests = accounts.map((acc: Record<string, unknown>, i: number) => ({
     jsonrpc: '2.0',
     id: i + 10,
     method: 'getAccountInfo',
@@ -121,13 +121,14 @@ export async function fetchHoldersClient(
     let owner = acc.address; // Default to token account address
     try {
       const ownerInfo = Array.isArray(ownersData) 
-        ? ownersData.find((r: any) => r.id === i + 10)
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC response
+        ownersData.find((r: any) => r.id === i + 10)
         : (i === 0 ? ownersData : null);
       
       if (ownerInfo?.result?.value?.data?.parsed?.info?.owner) {
         owner = ownerInfo.result.value.data.parsed.info.owner;
       }
-    } catch (e) {
+    } catch (_e) {
       console.warn('Failed to get owner for account:', acc.address);
     }
     

@@ -77,7 +77,7 @@ function parseTradeEventFromLogs(logs: string[]): ParsedTradeEvent | null {
             timestamp,
           };
         }
-      } catch (e) {
+      } catch (_e) {
         // Not our event
       }
     }

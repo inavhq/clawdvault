@@ -29,7 +29,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const [tradeResult, setTradeResult] = useState<TradeResponse | null>(null);
   const [copied, setCopied] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number>(0);
-  const [tokenBalanceLoading, setTokenBalanceLoading] = useState(false);
+  const [_tokenBalanceLoading, setTokenBalanceLoading] = useState(false);
   const [holders, setHolders] = useState<Array<{
     address: string;
     balance: number;
@@ -63,7 +63,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
   // Effective market cap: on-chain initially, then candles after first update
   // Candles include heartbeat candles, so they stay updated with current SOL price
-  const displayMarketCap = candleMarketCap > 0 ? candleMarketCap : (token?.market_cap_usd ?? onChainStats?.marketCapUsd ?? 0);
+  const _displayMarketCap = candleMarketCap > 0 ? candleMarketCap : (token?.market_cap_usd ?? onChainStats?.marketCapUsd ?? 0);
 
   // Current price from streamed last candle (realtime updates)
   const currentPrice = useMemo(() => {
@@ -104,7 +104,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         if (data.success) {
           setTokenBalance(data.tokenBalance || 0);
         }
-      } catch (e) {
+      } catch (_e) {
         setTokenBalance(0);
       } finally {
         setTokenBalanceLoading(false);
@@ -156,6 +156,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     fetchOnChainStats();
     fetchLatestCandle(); // Get initial last candle
     fetch24hAgoCandle(); // Get initial 24h ago candle
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when mint changes
   }, [mint]);
 
   // Subscribe to realtime token stats updates
@@ -185,6 +186,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     fetch24hAgoCandle();
     const interval = setInterval(fetch24hAgoCandle, 60 * 1000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when mint changes
   }, [mint]);
 
   // Refetch holders when token loads (to pass creator for labeling)
@@ -229,7 +231,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
           bondingCurveSol: data.onChain.bondingCurveSol,
         });
       }
-    } catch (err) {
+    } catch (_err) {
       console.warn('On-chain stats fetch failed');
     }
   };
@@ -275,7 +277,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       const res = await fetch('/api/network');
       const data = await res.json();
       setAnchorAvailable(data.anchorProgram === true);
-    } catch (err) {
+    } catch (_err) {
       console.warn('Network check failed');
       setAnchorAvailable(false);
     }
@@ -286,7 +288,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       const res = await fetch('/api/sol-price');
       const data = await res.json();
       setSolPrice(data.valid ? data.price : null);
-    } catch (err) {
+    } catch (_err) {
       console.warn('Price fetch failed');
       setSolPrice(null);
     }
@@ -321,7 +323,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       if (data.success && data.trades) {
         setTrades(data.trades);
       }
-    } catch (err) {
+    } catch (_err) {
       console.warn('Trades fetch failed');
     }
   }, [mint]);
@@ -391,7 +393,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [token, amount, tradeType, estimatedOutput]);
 
   // Contract now caps sells at available liquidity, so max is just token balance
-  const maxSellableTokens = tokenBalance;
+  const _maxSellableTokens = tokenBalance;
 
   const handleTrade = async () => {
     if (!amount || !token || !connected || !publicKey) return;
@@ -626,7 +628,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     return n.toExponential(4) + ' SOL';
   };
 
-  const formatValue = (solAmount: number) => {
+  const _formatValue = (solAmount: number) => {
     if (onChainStats?.solPriceUsd) {
       return formatUsd(solAmount * onChainStats.solPriceUsd);
     }
@@ -634,7 +636,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   };
 
   // Calculate graduation market cap from bonding curve
-  const graduationMarketCap = useMemo(() => {
+  const _graduationMarketCap = useMemo(() => {
     const GRADUATION_SOL = 120;
     const INITIAL_VIRTUAL_SOL = 30;
     const INITIAL_VIRTUAL_TOKENS = 1_073_000_000;
@@ -1064,7 +1066,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                   {estimatedOutput && (
                     <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">You'll receive (est.)</span>
+                        <span className="text-gray-400">You&apos;ll receive (est.)</span>
                         <span className="text-white font-mono">
                           {tradeType === 'buy' 
                             ? formatNumber(estimatedOutput.tokens || 0) + ' ' + token.symbol

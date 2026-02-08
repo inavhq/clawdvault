@@ -38,10 +38,10 @@ export default function PriceChart({
   height = 400,
   totalSupply = TOTAL_SUPPLY,
   currentMarketCap = 0,
-  marketCapSol = 0,
-  marketCapUsd = null,
-  volume24h = 0,
-  holders = 0,
+  marketCapSol: _marketCapSol = 0,
+  marketCapUsd: _marketCapUsd = null,
+  volume24h: _volume24h = 0,
+  holders: _holders = 0,
   priceChange24h: priceChange24hProp,
   onMarketCapUpdate,
 }: PriceChartProps) {
@@ -103,7 +103,7 @@ export default function PriceChart({
   }, [candles, candles24h, totalSupply]);
 
   // Calculate ATH and OHLCV from visible candles (candles are USD price)
-  const { athPrice, athTime, ohlcv } = useMemo(() => {
+  const { athPrice, athTime: _athTime, ohlcv: _ohlcv } = useMemo(() => {
     // Find ATH from all candle highs (use 24h candles for broader view)
     // Candles contain USD price per token
     const allCandles = candles24h.length > candles.length ? candles24h : candles;
@@ -300,6 +300,7 @@ export default function PriceChart({
     // Update candle data (Issue #47)
     if (candlesForChart.length > 0 && candleSeriesRef.current) {
       const candleData: CandlestickData[] = candlesForChart.map(c => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
         time: c.time as any,
         open: c.open * mcapMultiplier,
         high: c.high * mcapMultiplier,
@@ -312,6 +313,7 @@ export default function PriceChart({
     // Update line data (Issue #47)
     if (candlesForChart.length > 0 && lineSeriesRef.current) {
       const lineData: LineData[] = candlesForChart.map(c => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- lightweight-charts Time type
         time: c.time as any,
         value: c.close * mcapMultiplier,
       }));
@@ -348,6 +350,7 @@ export default function PriceChart({
       lastRenderedRangeRef.current = timeInterval;
       lastCandleCountRef.current = candlesForChart.length;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refs and multiplier are stable
   }, [chartData, chartType, height, totalSupply]);
 
   // Separate effect for line color updates - only runs when priceChange24h actually changes
@@ -400,12 +403,12 @@ export default function PriceChart({
     return '$' + n.toFixed(4);
   };
 
-  const formatMcapSol = (n: number) => {
+  const _formatMcapSol = (n: number) => {
     if (n >= 1000) return (n / 1000).toFixed(2) + 'K SOL';
     return n.toFixed(2) + ' SOL';
   };
 
-  const formatVolumeUsd = (usdAmount: number) => {
+  const _formatVolumeUsd = (usdAmount: number) => {
     if (usdAmount >= 1000000) return '$' + (usdAmount / 1000000).toFixed(2) + 'M';
     if (usdAmount >= 1000) return '$' + (usdAmount / 1000).toFixed(2) + 'K';
     return '$' + usdAmount.toFixed(2);

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { WalletProvider } from '@/contexts/WalletContext';
 import AgeGate from '@/components/AgeGate';
 

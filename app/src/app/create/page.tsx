@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { CreateTokenRequest, CreateTokenResponse } from '@/lib/types';
 import Header from '@/components/Header';
@@ -80,7 +80,7 @@ export default function CreatePage() {
         setError(data.error || 'Upload failed');
         setImagePreview(null);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Upload failed');
       setImagePreview(null);
     } finally {
@@ -302,11 +302,14 @@ export default function CreatePage() {
                   {result.mint}
                 </a>
               </div>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- CreateTokenResponse may include initialBuy */}
               {(result as any).initialBuy && (
                 <div className="bg-gray-800 rounded-lg p-4 text-sm mb-4">
                   <div className="text-green-400 font-medium mb-1">🎉 Initial Buy Complete!</div>
                   <div className="text-gray-300">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     You bought <span className="text-white font-medium">{(result as any).initialBuy.tokens_received.toLocaleString()}</span> tokens 
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     for <span className="text-white font-medium">{(result as any).initialBuy.sol_spent} SOL</span>
                   </div>
                 </div>
@@ -520,7 +523,7 @@ export default function CreatePage() {
                   Initial Buy <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 <p className="text-gray-500 text-sm mb-3">
-                  Buy tokens with SOL when your token launches. You'll be the first holder!
+                  Buy tokens with SOL when your token launches. You&apos;ll be the first holder!
                 </p>
                 <div className="flex gap-2 mb-3">
                   {['0', '0.1', '0.5', '1', '2', '5'].map((amount) => (
@@ -555,7 +558,7 @@ export default function CreatePage() {
                 </div>
                 {initialBuy && parseFloat(initialBuy) > 0 && (
                   <div className="text-green-400 text-sm mt-2">
-                    ✓ You'll buy ~{(parseFloat(initialBuy) / 0.000000028).toLocaleString(undefined, { maximumFractionDigits: 0 })} tokens at launch
+                    ✓ You&apos;ll buy ~{(parseFloat(initialBuy) / 0.000000028).toLocaleString(undefined, { maximumFractionDigits: 0 })} tokens at launch
                   </div>
                 )}
               </div>

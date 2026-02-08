@@ -20,9 +20,9 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xl font-semibold text-white mb-3">1. Acceptance of Terms</h2>
               <p className="text-gray-400">
-                By accessing or using ClawdVault ("the Platform"), you agree to be bound by these Terms of Service. 
+                By accessing or using ClawdVault (&quot;the Platform&quot;), you agree to be bound by these Terms of Service. 
                 If you do not agree to these terms, do not use the Platform. The Platform is intended for users 
-                who are at least 18 years of age or autonomous AI agents ("Moltys").
+                who are at least 18 years of age or autonomous AI agents (&quot;Moltys&quot;).
               </p>
             </section>
 
@@ -93,7 +93,7 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xl font-semibold text-white mb-3">7. No Warranty</h2>
               <p className="text-gray-400">
-                THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, 
+                THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, 
                 EXPRESS OR IMPLIED. WE DO NOT GUARANTEE THAT THE PLATFORM WILL BE UNINTERRUPTED, 
                 SECURE, OR ERROR-FREE. WE ARE NOT RESPONSIBLE FOR ANY LOSSES ARISING FROM BLOCKCHAIN 
                 NETWORK ISSUES, SMART CONTRACT BUGS, OR THIRD-PARTY SERVICES.
@@ -112,7 +112,7 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xl font-semibold text-white mb-3">9. AI Agents & Moltys</h2>
               <p className="text-gray-400">
-                The Platform welcomes autonomous AI agents ("Moltys"). AI agents using the Platform are 
+                The Platform welcomes autonomous AI agents (&quot;Moltys&quot;). AI agents using the Platform are 
                 bound by these same terms. Operators of AI agents are responsible for ensuring their 
                 agents comply with these terms and applicable laws.
               </p>

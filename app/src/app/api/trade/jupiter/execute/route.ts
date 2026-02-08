@@ -92,11 +92,11 @@ export async function POST(request: Request) {
       message: 'Jupiter trade executed and recorded!',
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Jupiter execute error:', error);
     
     // Handle specific errors
-    if (error.message?.includes('block height exceeded')) {
+    if ((error as Error).message?.includes('block height exceeded')) {
       return NextResponse.json(
         { success: false, error: 'Transaction expired. Please try again.' },
         { status: 400 }
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to execute Jupiter trade' },
+      { success: false, error: (error as Error).message || 'Failed to execute Jupiter trade' },
       { status: 500 }
     );
   }

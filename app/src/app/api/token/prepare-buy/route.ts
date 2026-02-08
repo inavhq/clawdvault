@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
-import ClawdVaultClient, { findConfigPDA, PROGRAM_ID, INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, TOTAL_FEE_BPS } from '@/lib/anchor/client';
+import ClawdVaultClient, { INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, TOTAL_FEE_BPS } from '@/lib/anchor/client';
 import { db } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';

@@ -19,12 +19,12 @@ function calculatePrice(virtualSol: number, virtualTokens: number): number {
 }
 
 // Calculate market cap
-function calculateMarketCap(virtualSol: number, virtualTokens: number): number {
+function _calculateMarketCap(virtualSol: number, virtualTokens: number): number {
   return calculatePrice(virtualSol, virtualTokens) * INITIAL_VIRTUAL_TOKENS;
 }
 
 // Get 24h price change from candle data (using USD candles)
-async function get24hPriceChange(tokenMint: string, currentPriceUsd: number): Promise<number | null> {
+async function _get24hPriceChange(tokenMint: string, currentPriceUsd: number): Promise<number | null> {
   try {
     // Get candle from ~24h ago
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -58,6 +58,7 @@ async function get24hPriceChange(tokenMint: string, currentPriceUsd: number): Pr
 
 // Convert Prisma token to API token
 function toApiToken(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token
   token: any, 
   stats?: { volume24h?: number; trades24h?: number; holders?: number }, 
   lastCandle?: { closeUsd?: number | null; close?: number | null } | null,
@@ -117,7 +118,7 @@ export async function getAllTokens(options?: {
     where.graduated = graduated;
   }
   
-  let orderBy: Prisma.TokenOrderByWithRelationInput = { createdAt: 'desc' };
+  let orderBy: Prisma.TokenOrderByWithRelationInput;
   switch (sort) {
     case 'market_cap':
       orderBy = { virtualSolReserves: 'desc' };

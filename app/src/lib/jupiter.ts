@@ -5,7 +5,7 @@
  * instead of the bonding curve. This gives users seamless UX.
  */
 
-import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { VersionedTransaction } from '@solana/web3.js';
 
 const JUPITER_API_URL = 'https://quote-api.jup.ag/v6';
 const NATIVE_SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL
@@ -16,6 +16,7 @@ export interface JupiterQuote {
   inAmount: string;
   outAmount: string;
   priceImpactPct: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Jupiter API response
   routePlan: any[];
   otherAmountThreshold: string;
   swapMode: string;

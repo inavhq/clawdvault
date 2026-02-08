@@ -127,7 +127,7 @@ async function getOrCreateCandle(
   lastTradePriceSol: number,
   currentPriceUsd: number,
   solPriceUsd: number
-): Promise<any> {
+): Promise<unknown> {
   // Check if candle exists
   let candle = await db().priceCandle.findUnique({
     where: {

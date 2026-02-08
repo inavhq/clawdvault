@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const STORAGE_KEY = 'clawdvault_age_verified';
 
@@ -74,7 +74,7 @@ export default function AgeGate({ children }: { children: React.ReactNode }) {
               <li>Trading tokens involves significant risk of financial loss</li>
               <li>Tokens on this platform are highly speculative and may have no value</li>
               <li>You are solely responsible for your trading decisions</li>
-              <li>This platform is provided "as is" without warranties</li>
+              <li>This platform is provided &quot;as is&quot; without warranties</li>
               <li>You should only trade with funds you can afford to lose</li>
             </ul>
             <p>

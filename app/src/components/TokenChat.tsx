@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { authenticatedPost, authenticatedDelete } from '@/lib/signRequest';
 
@@ -132,8 +132,8 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         setError(data.error || 'Failed to save');
       }
-    } catch (err: any) {
-      setError(err.message || 'Network error');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Network error');
     } finally {
       setSavingUsername(false);
     }
@@ -252,8 +252,8 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         setError(data.error || 'Failed to send');
       }
-    } catch (err: any) {
-      setError(err.message || 'Network error');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Network error');
     } finally {
       setSending(false);
     }

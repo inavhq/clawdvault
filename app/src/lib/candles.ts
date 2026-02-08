@@ -53,6 +53,7 @@ export async function updateCandles(
     
     if (existing) {
       // Calculate USD values
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic Prisma update
       let updateData: any = {
         high: priceDecimal.gt(existing.high) ? priceDecimal : existing.high,
         low: priceDecimal.lt(existing.low) ? priceDecimal : existing.low,
@@ -96,6 +97,7 @@ export async function updateCandles(
       });
     } else {
       // Create new candle
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic Prisma create
       let createData: any = {
         tokenMint,
         interval,

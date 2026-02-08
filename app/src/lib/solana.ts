@@ -15,7 +15,6 @@ import {
   getMinimumBalanceForRentExemptMint,
   MINT_SIZE,
   TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import bs58 from 'bs58';
 
@@ -45,15 +44,16 @@ function createMetadataInstruction(
   name: string,
   symbol: string,
   uri: string,
-  creators: { address: PublicKey; verified: boolean; share: number }[] | null
+  _creators: { address: PublicKey; verified: boolean; share: number }[] | null
 ): import('@solana/web3.js').TransactionInstruction {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic import of already-imported module
   const { TransactionInstruction } = require('@solana/web3.js');
   
   // Data for CreateMetadataAccountV3
   // Discriminator: 33 (CreateMetadataAccountV3)
-  const nameBytes = Buffer.from(name.slice(0, 32).padEnd(32, '\0'));
-  const symbolBytes = Buffer.from(symbol.slice(0, 10).padEnd(10, '\0'));
-  const uriBytes = Buffer.from(uri.slice(0, 200).padEnd(200, '\0'));
+  const _nameBytes = Buffer.from(name.slice(0, 32).padEnd(32, '\0'));
+  const _symbolBytes = Buffer.from(symbol.slice(0, 10).padEnd(10, '\0'));
+  const _uriBytes = Buffer.from(uri.slice(0, 200).padEnd(200, '\0'));
   
   // Build data buffer manually
   const data = Buffer.alloc(1 + 4 + 32 + 4 + 10 + 4 + 200 + 2 + 1 + 1 + 1 + 1 + 1);
@@ -180,7 +180,7 @@ export async function createTokenOnChain(
   const creatorPubkey = new PublicKey(params.creator);
   
   // Get associated token accounts
-  const creatorATA = await getAssociatedTokenAddress(mint, creatorPubkey);
+  const _creatorATA = await getAssociatedTokenAddress(mint, creatorPubkey);
   const platformATA = await getAssociatedTokenAddress(mint, payer.publicKey);
   
   // Build transaction
@@ -282,7 +282,7 @@ export async function getTokenBalance(
     const ata = await getAssociatedTokenAddress(mintPubkey, walletPubkey);
     const balance = await connection.getTokenAccountBalance(ata);
     return parseFloat(balance.value.uiAmountString || '0');
-  } catch (error) {
+  } catch (_error) {
     return 0;
   }
 }
@@ -481,11 +481,11 @@ export async function createBuyTransaction(
   
   // Calculate fee
   const feeAmount = params.solAmount * (TOTAL_FEE_BPS / 10000);
-  const solToTrade = params.solAmount - feeAmount;
+  const _solToTrade = params.solAmount - feeAmount;
   
   // Get buyer's token account
-  const buyerATA = await getAssociatedTokenAddress(mintPubkey, buyerPubkey);
-  const platformATA = await getAssociatedTokenAddress(mintPubkey, PLATFORM_WALLET.publicKey);
+  const _buyerATA = await getAssociatedTokenAddress(mintPubkey, buyerPubkey);
+  const _platformATA = await getAssociatedTokenAddress(mintPubkey, PLATFORM_WALLET.publicKey);
   
   const transaction = new Transaction();
   
@@ -536,7 +536,7 @@ export async function completeBuyTransaction(
   
   // Deserialize and verify user's signed transaction
   const txBuffer = Buffer.from(userSignedTx, 'base64');
-  const userTx = Transaction.from(txBuffer);
+  const _userTx = Transaction.from(txBuffer);
   
   // Broadcast user's SOL transfer transaction
   const solSignature = await connection.sendRawTransaction(txBuffer);

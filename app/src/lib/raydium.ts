@@ -4,8 +4,7 @@
 
 import { 
   Raydium, 
-  TxVersion, 
-  parseTokenAccountResp,
+  TxVersion,
   CREATE_CPMM_POOL_PROGRAM,
   CREATE_CPMM_POOL_FEE_ACC,
   DEVNET_PROGRAM_ID,
@@ -17,7 +16,7 @@ import {
   PublicKey,
   clusterApiUrl,
 } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, NATIVE_MINT } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, NATIVE_MINT } from '@solana/spl-token';
 import BN from 'bn.js';
 import bs58 from 'bs58';
 

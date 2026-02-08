@@ -48,7 +48,7 @@ export async function postToMoltx(
     const message = challengeData.data.typed_data.message;
 
     // Remove EIP712Domain from types (ethers handles it)
-    const { EIP712Domain, ...signTypes } = types;
+    const { EIP712Domain: _EIP712Domain, ...signTypes } = types;
 
     const signature = await wallet.signTypedData(domain, signTypes, message);
 

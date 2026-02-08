@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { authenticatedPost, authenticatedDelete } from '@/lib/signRequest';
 import { Trade } from '@/lib/types';
@@ -120,7 +120,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
   // Realtime chat messages subscription (auto-cleanup via hook)
   useChatMessages(
     mint,
-    async (newMsg: RealtimeMessage) => {
+    async (_newMsg: RealtimeMessage) => {
       // Fetch the full message with profile info from API
       // (realtime only gives us the raw row)
       try {
@@ -149,7 +149,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
   }, [onTradesUpdate]);
 
   // Realtime trades subscription (auto-cleanup via hook)
-  useTrades(mint, (newTrade: RealtimeTrade) => {
+  useTrades(mint, (_newTrade: RealtimeTrade) => {
     if (onTradesUpdate) onTradesUpdate();
   });
 
@@ -186,8 +186,8 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
       } else {
         setError(data.error || 'Failed to save');
       }
-    } catch (err: any) {
-      setError(err.message || 'Network error');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Network error');
     } finally {
       setSavingUsername(false);
     }
@@ -299,8 +299,8 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
       } else {
         setError(data.error || 'Failed to send');
       }
-    } catch (err: any) {
-      setError(err.message || 'Network error');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Network error');
     } finally {
       setSending(false);
     }

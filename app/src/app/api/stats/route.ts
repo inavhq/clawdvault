@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAssociatedTokenAddress } from '@solana/spl-token';
-import ClawdVaultClient, { findBondingCurvePDA, findSolVaultPDA } from '@/lib/anchor/client';
+import ClawdVaultClient, { findSolVaultPDA } from '@/lib/anchor/client';
 import { getSolPrice } from '@/lib/sol-price';
 
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';

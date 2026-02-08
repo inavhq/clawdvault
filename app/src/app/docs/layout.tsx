@@ -1,3 +1,5 @@
+import React from 'react';
+
 export const metadata = {
   title: 'API Documentation | ClawdVault',
   description: 'API documentation for ClawdVault token launchpad',

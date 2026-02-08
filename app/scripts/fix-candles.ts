@@ -3,9 +3,9 @@
  * Run: DATABASE_URL="..." npx ts-node scripts/fix-candles.ts
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
-const TOTAL_SUPPLY = 1_073_000_000;
+const _TOTAL_SUPPLY = 1_073_000_000;
 
 async function main() {
   const prisma = new PrismaClient();

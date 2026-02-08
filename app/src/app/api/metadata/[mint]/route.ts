@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * Returns JSON metadata for on-chain token URI
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ mint: string }> }
 ) {
   try {

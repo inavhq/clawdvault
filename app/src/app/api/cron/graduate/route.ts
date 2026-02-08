@@ -7,7 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
-import { getAllTokens, updateToken, getToken } from '@/lib/db';
+import { getAllTokens, updateToken } from '@/lib/db';
 import { findBondingCurvePDA } from '@/lib/anchor/client';
 
 export const dynamic = 'force-dynamic';

@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json(result);
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { success: false, error: 'Invalid request' },
       { status: 400 }

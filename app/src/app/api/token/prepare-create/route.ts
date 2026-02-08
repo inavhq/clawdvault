@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Connection, Keypair, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import ClawdVaultClient, { findConfigPDA, PROGRAM_ID } from '@/lib/anchor/client';
-import bs58 from 'bs58';
 
 export const dynamic = 'force-dynamic';
 

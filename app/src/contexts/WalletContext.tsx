@@ -41,7 +41,9 @@ interface PhantomProvider {
   connect: () => Promise<{ publicKey: { toString: () => string } }>;
   disconnect: () => Promise<void>;
   signMessage: (message: Uint8Array, encoding: string) => Promise<{ signature: Uint8Array }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Phantom wallet type
   signTransaction: (transaction: any) => Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Phantom wallet type
   signAndSendTransaction: (transaction: any, options?: any) => Promise<{ signature: string }>;
   on: (event: string, callback: () => void) => void;
   off: (event: string, callback: () => void) => void;
@@ -115,8 +117,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (data.error) {
         console.warn(`[Wallet] RPC proxy error:`, data.error);
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if ((err as Error).name === 'AbortError') {
         console.warn(`[Wallet] RPC proxy timed out after 10s`);
       } else {
         console.warn(`[Wallet] Failed to fetch from proxy:`, err);
@@ -151,7 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Store in localStorage for reconnection
       localStorage.setItem('walletConnected', 'true');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Wallet] Connection failed:', err);
       // User rejected or other error
       if (err?.code === 4001) {
@@ -280,7 +282,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             console.log('[Wallet] Auto-reconnected:', address);
             setPublicKey(address);
             setConnected(true);
-          } catch (err) {
+          } catch (_err) {
             console.log('[Wallet] Auto-reconnect failed, clearing state');
             localStorage.removeItem('walletConnected');
           }

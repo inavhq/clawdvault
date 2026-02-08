@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Connection, clusterApiUrl, Transaction } from '@solana/web3.js';
+import { Connection, clusterApiUrl } from '@solana/web3.js';
 import { createToken } from '@/lib/db';
 import { db } from '@/lib/prisma';
 import { announceNewToken } from '@/lib/moltx';

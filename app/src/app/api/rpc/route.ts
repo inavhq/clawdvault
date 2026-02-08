@@ -79,6 +79,7 @@ function checkRateLimit(ip: string): boolean {
 /**
  * Validate and sanitize RPC request
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic RPC body
 function validateRequest(body: any): { valid: boolean; error?: string } {
   if (!body || typeof body !== 'object') {
     return { valid: false, error: 'Invalid request body' };
@@ -99,6 +100,7 @@ function validateRequest(body: any): { valid: boolean; error?: string } {
   return validateSingleRequest(body);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic RPC body
 function validateSingleRequest(body: any): { valid: boolean; error?: string } {
   if (!body.jsonrpc || body.jsonrpc !== '2.0') {
     return { valid: false, error: 'Invalid jsonrpc version' };
@@ -194,10 +196,10 @@ export async function POST(request: NextRequest) {
       const data = await response.json();
       return NextResponse.json(data);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
       
-      if (error.name === 'AbortError') {
+      if ((error as Error).name === 'AbortError') {
         return NextResponse.json(
           { jsonrpc: '2.0', error: { code: -32603, message: 'Request timeout' }, id: body.id || null },
           { status: 504 }

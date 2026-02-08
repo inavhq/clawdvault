@@ -322,6 +322,7 @@ export function useReactions(
 // Hook for subscribing to token stats updates
 export function useTokenStats(
   mint: string | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase realtime payload
   onUpdate: (token: any) => void
 ) {
   const onUpdateRef = useRef(onUpdate);
@@ -365,7 +366,9 @@ export function useTokenStats(
 
 // Hook for subscribing to all tokens (INSERT and UPDATE)
 export function useAllTokens(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase realtime payload
   onNewToken: (token: any) => void,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase realtime payload
   onUpdateToken: (token: any) => void
 ) {
   const onNewTokenRef = useRef(onNewToken);
@@ -459,6 +462,7 @@ export function useSolPriceHook(
 
 // Hook for subscribing to all trades (for volume updates)
 export function useAllTrades(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase realtime payload
   onNewTrade: (trade: any) => void
 ) {
   const onNewTradeRef = useRef(onNewTrade);

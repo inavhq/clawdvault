@@ -3,18 +3,14 @@ import { getToken } from '@/lib/db';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import ClawdVaultClient, { 
   findConfigPDA, 
-  findBondingCurvePDA,
   calculateBuyTokensOut,
   calculateSellSolOut,
-  PROTOCOL_FEE_BPS,
-  CREATOR_FEE_BPS,
-  BPS_DENOMINATOR,
 } from '@/lib/anchor/client';
 
 export const dynamic = 'force-dynamic';
 
 // Config PDA - protocol fee recipient
-const [configPDA] = findConfigPDA();
+const [_configPDA] = findConfigPDA();
 
 // Fee recipient (protocol wallet)
 const FEE_RECIPIENT = new PublicKey(
