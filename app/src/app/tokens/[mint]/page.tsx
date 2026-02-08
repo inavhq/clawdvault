@@ -11,18 +11,15 @@ import ExplorerLink from '@/components/ExplorerLink';
 import { useWallet } from '@/contexts/WalletContext';
 import { fetchBalanceClient } from '@/lib/solana-client';
 import { useTokenStats, useCandles } from '@/lib/supabase-client';
-import { useSolPrice } from '@/hooks/useSolPrice';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
   const { mint } = use(params);
   const { connected, publicKey, balance: solBalance, connect, signTransaction, refreshBalance } = useWallet();
-  const { price: liveSolPrice } = useSolPrice({ fetchOnMount: true, realtime: true });
   const [anchorAvailable, setAnchorAvailable] = useState<boolean | null>(null);
   
   const [token, setToken] = useState<Token | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
-  const [_solPrice, setSolPrice] = useState<number | null>(null);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
   const [trading, setTrading] = useState(false);
@@ -45,7 +42,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     solPriceUsd?: number;
     bondingCurveSol: number;
   } | null>(null);
-  const [_candleMarketCap, setCandleMarketCap] = useState<number>(0);
   const [creatorUsername, setCreatorUsername] = useState<string | null>(null);
   const [candle24hAgo, setCandle24hAgo] = useState<{ closeUsd: number } | null>(null);
   const [lastCandle, setLastCandle] = useState<{ closeUsd: number; close: number } | null>(null);
@@ -144,7 +140,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
 
   useEffect(() => {
     fetchToken();
-    fetchSolPrice();
     fetchNetworkMode();
     fetchOnChainStats();
     fetchLatestCandle(); // Get initial last candle
@@ -202,13 +197,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         .catch(() => {});
     }
   }, [token?.creator]);
-
-  // Sync live SOL price with local state
-  useEffect(() => {
-    if (liveSolPrice !== null) {
-      setSolPrice(liveSolPrice);
-    }
-  }, [liveSolPrice]);
 
   const fetchOnChainStats = async () => {
     try {
@@ -276,16 +264,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     }
   };
 
-  const fetchSolPrice = async () => {
-    try {
-      const res = await fetch('/api/sol-price');
-      const data = await res.json();
-      setSolPrice(data.valid ? data.price : null);
-    } catch (_err) {
-      console.warn('Price fetch failed');
-      setSolPrice(null);
-    }
-  };
 
   useEffect(() => {
     if (token && connected) {
@@ -763,7 +741,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 volume24h={token.volume_24h || 0}
                 holders={holders.length > 0 ? holders.length : (token.holders || 0)}
                 priceChange24h={priceChange24h}
-                onMarketCapUpdate={setCandleMarketCap}
               />
             </div>
 

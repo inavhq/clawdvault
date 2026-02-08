@@ -16,8 +16,6 @@ const MOLTX_EVM_ADDRESS = process.env.MOLTX_EVM_ADDRESS;
 const CLAWDVAULT_URL = 'https://clawdvault.com';
 const TOP_N = 5; // Number of tokens to feature
 
-// formatSol removed (unused)
-
 // Format market cap in SOL
 function formatMcap(mcap: number): string {
   if (mcap >= 1000) return (mcap / 1000).toFixed(1) + 'K';
