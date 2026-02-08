@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'RPC error',
-        message: rpcError.message,
+        message: (rpcError as Error).message,
       }, { status: 503 });
     }
   } catch (error) {

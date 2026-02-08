@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         mint,
         tokenBalance: 0,
         error: 'RPC error',
-        note: rpcError.message,
+        note: (rpcError as Error).message,
       });
     }
   } catch (error) {

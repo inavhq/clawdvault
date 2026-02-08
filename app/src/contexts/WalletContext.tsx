@@ -156,7 +156,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[Wallet] Connection failed:', err);
       // User rejected or other error
-      if (err?.code === 4001) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 4001) {
         console.log('[Wallet] User rejected connection');
       }
     } finally {
