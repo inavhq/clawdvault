@@ -49,7 +49,7 @@ export default function PriceChart({
   const chartRef = useRef<IChartApi | null>(null);
   // Separate refs for each series type to prevent recreation on updates (Issue #47)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const lineSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   // Ref to store last rendered time interval for viewport preservation (Issue #36)
   const lastRenderedRangeRef = useRef<Interval | null>(null);
   
@@ -254,38 +254,48 @@ export default function PriceChart({
     // Candles are USD price per token from API - convert to market cap for display
     const mcapMultiplier = totalSupply;
 
-    // Create candle series once (Issue #47)
-    if (!candleSeriesRef.current) {
-      candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
-        upColor: '#22c55e',
-        downColor: '#ef4444',
-        borderUpColor: '#22c55e',
-        borderDownColor: '#ef4444',
-        wickUpColor: '#22c55e',
-        wickDownColor: '#ef4444',
-        priceScaleId: 'right',
-      });
-      candleSeriesRef.current.priceScale().applyOptions({
-        scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
-      });
+    // Create or remove candle series based on chart type
+    if (chartType === 'candle') {
+      if (!candleSeriesRef.current) {
+        candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries, {
+          upColor: '#22c55e',
+          downColor: '#ef4444',
+          borderUpColor: '#22c55e',
+          borderDownColor: '#ef4444',
+          wickUpColor: '#22c55e',
+          wickDownColor: '#ef4444',
+          priceScaleId: 'right',
+        });
+        candleSeriesRef.current.priceScale().applyOptions({
+          scaleMargins: { top: 0.1, bottom: 0.3 },
+        });
+      }
+    } else if (candleSeriesRef.current) {
+      chartRef.current.removeSeries(candleSeriesRef.current);
+      candleSeriesRef.current = null;
     }
 
-    // Create line series once (Issue #47)
-    if (!lineSeriesRef.current) {
-      lineSeriesRef.current = chartRef.current.addSeries(LineSeries, {
-        color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
-        lineWidth: 2,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 4,
-        priceLineVisible: false,
-        priceScaleId: 'right',
-      });
-      lineSeriesRef.current.priceScale().applyOptions({
-        scaleMargins: { top: 0.1, bottom: 0.3 }, // More room at top for pumps
-      });
+    // Create or remove line series based on chart type
+    if (chartType === 'line') {
+      if (!lineSeriesRef.current) {
+        lineSeriesRef.current = chartRef.current.addSeries(LineSeries, {
+          color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
+          lineWidth: 2,
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 4,
+          priceLineVisible: false,
+          priceScaleId: 'right',
+        });
+        lineSeriesRef.current.priceScale().applyOptions({
+          scaleMargins: { top: 0.1, bottom: 0.3 },
+        });
+      }
+    } else if (lineSeriesRef.current) {
+      chartRef.current.removeSeries(lineSeriesRef.current);
+      lineSeriesRef.current = null;
     }
 
-    // Update candle data (Issue #47)
+    // Update candle data
     if (candles.length > 0 && candleSeriesRef.current) {
       const candleData: CandlestickData[] = candles.map(c => ({
         time: c.time as any,
@@ -297,28 +307,19 @@ export default function PriceChart({
       candleSeriesRef.current.setData(candleData);
     }
 
-    // Update line data (Issue #47)
+    // Update line data (and update color in case priceChange24h changed)
     if (candles.length > 0 && lineSeriesRef.current) {
       const lineData: LineData[] = candles.map(c => ({
         time: c.time as any,
         value: c.close * mcapMultiplier,
       }));
       lineSeriesRef.current.setData(lineData);
-    }
-
-    // Toggle visibility based on chart type (Issue #47)
-    if (candleSeriesRef.current) {
-      candleSeriesRef.current.applyOptions({ visible: chartType === 'candle' });
-    }
-    if (lineSeriesRef.current) {
-      lineSeriesRef.current.applyOptions({ 
-        visible: chartType === 'line',
+      lineSeriesRef.current.applyOptions({
         color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
       });
     }
 
     // Handle viewport preservation (Issue #36)
-    // If the chart is already rendered
     if (candles.length > 0 && chartRef.current) {
       if (timeInterval !== lastRenderedRangeRef.current) {
         // New time range selected - fit content
