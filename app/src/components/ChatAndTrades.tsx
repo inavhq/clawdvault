@@ -186,7 +186,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
       } else {
         setError(data.error || 'Failed to save');
       }
-    } catch (err: unknown) {
+    } catch (err) {
       setError((err as Error).message || 'Network error');
     } finally {
       setSavingUsername(false);
@@ -299,7 +299,7 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
       } else {
         setError(data.error || 'Failed to send');
       }
-    } catch (err: unknown) {
+    } catch (err) {
       setError((err as Error).message || 'Network error');
     } finally {
       setSending(false);

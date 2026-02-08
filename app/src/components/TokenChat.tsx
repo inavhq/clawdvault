@@ -132,7 +132,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         setError(data.error || 'Failed to save');
       }
-    } catch (err: unknown) {
+    } catch (err) {
       setError((err as Error).message || 'Network error');
     } finally {
       setSavingUsername(false);
@@ -252,7 +252,7 @@ export default function TokenChat({ mint, tokenSymbol }: TokenChatProps) {
       } else {
         setError(data.error || 'Failed to send');
       }
-    } catch (err: unknown) {
+    } catch (err) {
       setError((err as Error).message || 'Network error');
     } finally {
       setSending(false);

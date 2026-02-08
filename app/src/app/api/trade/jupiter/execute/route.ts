@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       message: 'Jupiter trade executed and recorded!',
     });
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Jupiter execute error:', error);
     
     // Handle specific errors

@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       lastValidBlockHeight: swapResult.lastValidBlockHeight,
     });
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Jupiter swap error:', error);
     
     // Handle Jupiter-specific errors
@@ -181,7 +181,7 @@ export async function GET(request: Request) {
       tradeEndpoint: graduated ? '/api/trade/jupiter' : '/api/trade/prepare',
     });
 
-  } catch (error: unknown) {
+  } catch (error) {
     return NextResponse.json(
       { success: false, error: (error as Error).message || 'Failed to check token status' },
       { status: 500 }

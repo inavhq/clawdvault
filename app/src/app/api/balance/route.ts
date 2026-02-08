@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
           rawBalance: balance,
           ata: ata.toBase58(),
         });
-      } catch (e: unknown) {
+      } catch (e) {
         // Account doesn't exist = 0 balance
         if ((e as Error).name === 'TokenAccountNotFoundError') {
           return NextResponse.json({
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         }
         throw e;
       }
-    } catch (rpcError: unknown) {
+    } catch (rpcError) {
       console.error('RPC error fetching balance:', (rpcError as Error).message);
       // Fallback to 0 on RPC errors
       return NextResponse.json({

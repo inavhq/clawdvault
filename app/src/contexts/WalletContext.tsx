@@ -117,7 +117,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (data.error) {
         console.warn(`[Wallet] RPC proxy error:`, data.error);
       }
-    } catch (err: unknown) {
+    } catch (err) {
       if ((err as Error).name === 'AbortError') {
         console.warn(`[Wallet] RPC proxy timed out after 10s`);
       } else {
@@ -153,7 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Store in localStorage for reconnection
       localStorage.setItem('walletConnected', 'true');
-    } catch (err: unknown) {
+    } catch (err) {
       console.error('[Wallet] Connection failed:', err);
       // User rejected or other error
       if (err?.code === 4001) {

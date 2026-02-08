@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
       const data = await response.json();
       return NextResponse.json(data);
       
-    } catch (error: unknown) {
+    } catch (error) {
       clearTimeout(timeoutId);
       
       if ((error as Error).name === 'AbortError') {
