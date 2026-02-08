@@ -123,6 +123,17 @@ function createChannelWithRetry(
   return { channel, cleanup };
 }
 
+// Shared logging helper for subscription status
+function logSubscriptionStatus(hookName: string, status: string, err?: Error | null) {
+  if (status === 'SUBSCRIBED') {
+    console.log(`[Realtime] ${hookName}: SUBSCRIBED`);
+  } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+    console.warn(`[Realtime] ${hookName}: ${status}`, err || '');
+  } else if (status === 'CLOSED') {
+    console.log(`[Realtime] ${hookName}: CLOSED`);
+  }
+}
+
 // ============================================
 // REACT HOOKS WITH AUTO-CLEANUP
 // ============================================
@@ -177,9 +188,7 @@ export function useChatMessages(
     }
     
     channel.subscribe((status, err) => {
-      if (status === 'CHANNEL_ERROR') {
-        console.error('[Realtime] Chat subscription error:', err);
-      }
+      logSubscriptionStatus('useChatMessages/chat_messages', status, err);
     });
     
     return () => {
@@ -218,9 +227,7 @@ export function useTrades(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Trades subscription error:', err);
-        }
+        logSubscriptionStatus('useTrades/trades', status, err);
       });
     
     return () => {
@@ -259,9 +266,7 @@ export function useCandles(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Candles subscription error:', err);
-        }
+        logSubscriptionStatus('useCandles/price_candles', status, err);
       });
     
     return () => {
@@ -294,9 +299,7 @@ export function useSolPrice(onUpdate: (price: SolPriceUpdate) => void) {
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] SOL price subscription error:', err);
-        }
+        logSubscriptionStatus('useSolPrice/sol_price', status, err);
       });
     
     return () => {
@@ -334,9 +337,7 @@ export function useReactions(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Reactions subscription error:', err);
-        }
+        logSubscriptionStatus('useReactions/message_reactions', status, err);
       });
     
     return () => {
@@ -380,9 +381,7 @@ export function useTokenStats(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] Token stats subscription error:', err);
-        }
+        logSubscriptionStatus('useTokenStats/tokens', status, err);
       });
 
     return () => {
@@ -431,9 +430,7 @@ export function useAllTokens(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] All tokens subscription error:', err);
-        }
+        logSubscriptionStatus('useAllTokens/tokens', status, err);
       });
 
     return () => {
@@ -468,9 +465,7 @@ export function useSolPriceHook(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] SOL price subscription error:', err);
-        }
+        logSubscriptionStatus('useSolPriceHook/sol_price', status, err);
       });
 
     return () => {
@@ -505,9 +500,7 @@ export function useAllTrades(
         }
       )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[Realtime] All trades subscription error:', err);
-        }
+        logSubscriptionStatus('useAllTrades/trades', status, err);
       });
 
     return () => {
