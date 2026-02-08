@@ -49,15 +49,25 @@ export default function PriceChart({
   const chartRef = useRef<IChartApi | null>(null);
   // Separate refs for each series type to prevent recreation on updates (Issue #47)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const lineSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   // Ref to store last rendered time interval for viewport preservation (Issue #36)
   const lastRenderedRangeRef = useRef<Interval | null>(null);
+  // Track if chart has ever been initialized to prevent unmounting on refetch
+  const hasChartInitializedRef = useRef(false);
+  // Track last candle count to detect actual data updates vs just re-renders
+  const lastCandleCountRef = useRef<number>(0);
   
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('candle');
-  const [timeInterval, setTimeInterval] = useState<Interval>('5m');
+  // Group interval with candles to update atomically - prevents double render on change
+  const [chartData, setChartData] = useState<{ interval: Interval; candles: Candle[] }>({
+    interval: '5m',
+    candles: [],
+  });
+  const timeInterval = chartData.interval;
+  const candlesForChart = chartData.candles;
 
   // Use API-provided 24h change for consistency across all intervals
   // This is well-defined (1m candle 24h ago vs current) vs ambiguous "today"
@@ -152,16 +162,20 @@ export default function PriceChart({
   const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
   const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 100;
 
-  // Fetch candles function (reusable)
-  const fetchCandles = useCallback(async () => {
+  // Fetch candles function (reusable) - updates chartData atomically
+  const fetchCandles = useCallback(async (targetInterval: Interval = timeInterval) => {
     try {
       // Fetch USD candles directly from API
-      const res = await fetch(`/api/candles?mint=${mint}&interval=${timeInterval}&limit=200&currency=usd`);
+      const res = await fetch(`/api/candles?mint=${mint}&interval=${targetInterval}&limit=200&currency=usd`);
       const data = await res.json();
-      setCandles(data.candles?.length > 0 ? data.candles : []);
+      const newCandles = data.candles?.length > 0 ? data.candles : [];
+      setCandles(newCandles);
+      // Update chartData atomically with interval and candles together
+      setChartData({ interval: targetInterval, candles: newCandles });
     } catch (err) {
       console.error('Failed to fetch candles:', err);
       setCandles([]);
+      setChartData({ interval: targetInterval, candles: [] });
     }
   }, [mint, timeInterval]);
 
@@ -178,7 +192,8 @@ export default function PriceChart({
 
   // Initial fetch and realtime subscription for candles
   useEffect(() => {
-    setLoading(true);
+    // Note: loading is already true from initial state, don't set it here
+    // to avoid flickering on realtime updates
     fetchCandles().finally(() => setLoading(false));
     fetch24hCandles();
 
@@ -245,11 +260,13 @@ export default function PriceChart({
           priceFormatter: formatAxisPrice,
         },
       });
+      // Mark chart as initialized to prevent unmounting on data refetch
+      hasChartInitializedRef.current = true;
     }
 
-    // Get the visible range BEFORE the data update (time-based, not index-based) (Issue #36)
+    // Get the visible logical range BEFORE the data update (index-based, not time-based) (Issue #36)
     const timeScale = chartRef.current?.timeScale();
-    const visibleRange = timeScale?.getVisibleRange();
+    const logicalRange = timeScale?.getVisibleLogicalRange();
 
     // Candles are USD price per token from API - convert to market cap for display
     const mcapMultiplier = totalSupply;
@@ -286,8 +303,8 @@ export default function PriceChart({
     }
 
     // Update candle data (Issue #47)
-    if (candles.length > 0 && candleSeriesRef.current) {
-      const candleData: CandlestickData[] = candles.map(c => ({
+    if (candlesForChart.length > 0 && candleSeriesRef.current) {
+      const candleData: CandlestickData[] = candlesForChart.map(c => ({
         time: c.time as any,
         open: c.open * mcapMultiplier,
         high: c.high * mcapMultiplier,
@@ -298,8 +315,8 @@ export default function PriceChart({
     }
 
     // Update line data (Issue #47)
-    if (candles.length > 0 && lineSeriesRef.current) {
-      const lineData: LineData[] = candles.map(c => ({
+    if (candlesForChart.length > 0 && lineSeriesRef.current) {
+      const lineData: LineData[] = candlesForChart.map(c => ({
         time: c.time as any,
         value: c.close * mcapMultiplier,
       }));
@@ -311,30 +328,43 @@ export default function PriceChart({
       candleSeriesRef.current.applyOptions({ visible: chartType === 'candle' });
     }
     if (lineSeriesRef.current) {
-      lineSeriesRef.current.applyOptions({ 
-        visible: chartType === 'line',
-        color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
-      });
+      lineSeriesRef.current.applyOptions({ visible: chartType === 'line' });
     }
 
     // Handle viewport preservation (Issue #36)
     // If the chart is already rendered
-    if (candles.length > 0 && chartRef.current) {
+    if (candlesForChart.length > 0 && chartRef.current) {
       if (timeInterval !== lastRenderedRangeRef.current) {
         // New time range selected - fit content
         requestAnimationFrame(() => {
           chartRef.current?.timeScale().fitContent();
         });
         lastRenderedRangeRef.current = timeInterval;
-      } else if (timeScale && visibleRange && candles.at(-2)?.time !== visibleRange.to) {
-        // Same range, new data arrived - preserve viewport position
-        timeScale.setVisibleRange(visibleRange);
+        lastCandleCountRef.current = candlesForChart.length;
+      } else if (timeScale && logicalRange && candlesForChart.length !== lastCandleCountRef.current) {
+        // Same range, new data arrived (candle count changed) - preserve viewport position
+        // Only preserve if user has panned away from the right edge (viewing history)
+        const isAtLiveEdge = logicalRange.to >= candlesForChart.length - 2;
+        if (!isAtLiveEdge) {
+          timeScale.setVisibleLogicalRange(logicalRange);
+        }
+        lastCandleCountRef.current = candlesForChart.length;
       }
     } else if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
       lastRenderedRangeRef.current = timeInterval;
+      lastCandleCountRef.current = candlesForChart.length;
     }
-  }, [candles, chartType, height, totalSupply, priceChange24h, timeInterval]);
+  }, [chartData, chartType, height, totalSupply]);
+
+  // Separate effect for line color updates - only runs when priceChange24h actually changes
+  useEffect(() => {
+    if (lineSeriesRef.current && chartType === 'line') {
+      lineSeriesRef.current.applyOptions({
+        color: priceChange24h >= 0 ? '#22c55e' : '#ef4444',
+      });
+    }
+  }, [priceChange24h, chartType]);
 
   // Separate resize handling effect - only depends on chart existence
   useEffect(() => {
@@ -366,24 +396,6 @@ export default function PriceChart({
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      // Remove series before chart cleanup (Issue #47)
-      if (chartRef.current) {
-        if (candleSeriesRef.current) {
-          chartRef.current.removeSeries(candleSeriesRef.current);
-          candleSeriesRef.current = null;
-        }
-        if (lineSeriesRef.current) {
-          chartRef.current.removeSeries(lineSeriesRef.current);
-          lineSeriesRef.current = null;
-        }
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
     };
   }, []);
 
@@ -454,7 +466,11 @@ export default function PriceChart({
             {(['1m', '5m', '15m', '1h', '1d'] as Interval[]).map((i) => (
               <button
                 key={i}
-                onClick={() => setTimeInterval(i)}
+                onClick={() => {
+                  if (i !== timeInterval) {
+                    fetchCandles(i);
+                  }
+                }}
                 className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
                   timeInterval === i
                     ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
@@ -495,18 +511,18 @@ export default function PriceChart({
       </div>
       
       {/* Chart */}
-      {loading && candles.length === 0 ? (
+      {loading && candlesForChart.length === 0 ? (
         <div className="flex items-center justify-center text-gray-500" style={{ height: height - 160 }}>
           Loading chart...
         </div>
-      ) : candles.length === 0 ? (
+      ) : candlesForChart.length === 0 && !hasChartInitializedRef.current ? (
         <div className="flex flex-col items-center justify-center text-gray-500" style={{ height: height - 160 }}>
           <span className="text-2xl mb-2">📊</span>
           <span>No price history yet</span>
           <span className="text-xs text-gray-600 mt-1">Chart appears after first trade</span>
         </div>
       ) : (
-            <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
+        <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
       )}
     </div>
   );
