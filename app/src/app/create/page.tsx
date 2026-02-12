@@ -348,7 +348,7 @@ export default function CreatePage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Wolf Pack Token"
+                  placeholder="Solana Governance Token"
                   maxLength={32}
                   required
                   className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
@@ -365,7 +365,7 @@ export default function CreatePage() {
                   type="text"
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  placeholder="e.g. WOLF"
+                  placeholder="SGT"
                   maxLength={10}
                   required
                   className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 uppercase text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
@@ -379,7 +379,7 @@ export default function CreatePage() {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What's your token about?"
+                  placeholder="Describe the purpose, utility, and vision for your token"
                   rows={3}
                   className="w-full resize-none rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
                 />
@@ -468,7 +468,7 @@ export default function CreatePage() {
                       type="text"
                       value={twitter}
                       onChange={(e) => setTwitter(e.target.value)}
-                      placeholder="@username or URL"
+                      placeholder="@handle or https://x.com/..."
                       className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
                     />
                   </div>
@@ -479,7 +479,7 @@ export default function CreatePage() {
                       type="text"
                       value={telegram}
                       onChange={(e) => setTelegram(e.target.value)}
-                      placeholder="@group or URL"
+                      placeholder="@group or https://t.me/..."
                       className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
                     />
                   </div>
@@ -490,7 +490,7 @@ export default function CreatePage() {
                       type="text"
                       value={website}
                       onChange={(e) => setWebsite(e.target.value)}
-                      placeholder="example.com"
+                      placeholder="yourproject.io"
                       className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
                     />
                   </div>
