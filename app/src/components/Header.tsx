@@ -1,26 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import WalletButton from './WalletButton';
 import SolPriceDisplay from './SolPriceDisplay';
-
-function ClawdVaultLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="32" height="32" rx="8" fill="url(#logo-grad)" />
-      <path d="M8 16L12 10L16 16L20 10L24 16" stroke="#08080c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10 20H22" stroke="#08080c" strokeWidth="2.5" strokeLinecap="round" />
-      <defs>
-        <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32">
-          <stop stopColor="#f97316" />
-          <stop offset="1" stopColor="#ea580c" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
 
 const navLinks = [
   { href: '/create', label: 'Launch', mobileLabel: 'Launch' },
@@ -37,7 +22,14 @@ export default function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <ClawdVaultLogo />
+          <Image
+            src="/lobster-emoji.png"
+            alt="ClawdVault lobster logo"
+            width={32}
+            height={32}
+            className="h-8 w-8"
+            priority
+          />
           <span className="hidden min-[420px]:inline text-lg font-bold tracking-tight text-vault-text">
             CLAWDVAULT
           </span>

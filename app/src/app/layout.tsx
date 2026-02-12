@@ -68,8 +68,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-        <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-vault-bg text-vault-text`}>
+    <html lang="en" className="dark" style={{ background: '#08080c' }}>
+        <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-vault-bg text-vault-text`} style={{ background: '#08080c', color: '#f5f5f5' }}>
         <Providers>{children}</Providers>
         <Analytics />
       </body>
