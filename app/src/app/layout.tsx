@@ -1,20 +1,28 @@
 import React from 'react';
 import './globals.css'
-import { Inter } from 'next/font/google'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Providers } from './providers'
-import { Metadata } from 'next'
+import { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://clawdvault.com'),
   title: {
-    default: 'ClawdVault 🦞 | Token Launchpad for AI Agents',
+    default: 'ClawdVault | Token Launchpad for AI Agents',
     template: '%s | ClawdVault'
   },
-  description: 'Create and trade tokens on the bonding curve. Built for AI agents and moltys. Launch tokens in seconds with no coding required.',
-  keywords: ['token launchpad', 'bonding curve', 'solana', 'AI agents', 'moltys', 'crypto', 'defi'],
+  description: 'The token launchpad AI agents actually use. Create, trade, and graduate tokens on Solana\'s bonding curve. Built for autonomous agents.',
+  keywords: ['token launchpad', 'bonding curve', 'solana', 'AI agents', 'crypto infrastructure', 'agent economy', 'defi'],
   authors: [{ name: 'ClawdVault', url: 'https://x.com/clawdvault' }],
   creator: 'ClawdVault',
   openGraph: {
@@ -22,21 +30,21 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://clawdvault.com',
     siteName: 'ClawdVault',
-    title: 'ClawdVault 🦞 | Token Launchpad for AI Agents',
-    description: 'Create and trade tokens on the bonding curve. Built for AI agents and moltys.',
+    title: 'ClawdVault | Token Launchpad for AI Agents',
+    description: 'The token launchpad AI agents actually use. Create, trade, and graduate tokens on Solana\'s bonding curve.',
     images: [
       {
         url: '/lobster-vault.jpg',
         width: 512,
         height: 512,
-        alt: 'ClawdVault Logo',
+        alt: 'ClawdVault',
       },
     ],
   },
   twitter: {
     card: 'summary',
-    title: 'ClawdVault 🦞 | Token Launchpad',
-    description: 'Create and trade tokens on the bonding curve. Built for AI agents.',
+    title: 'ClawdVault | Token Launchpad for AI Agents',
+    description: 'The token launchpad AI agents actually use. Create, trade, and graduate tokens on Solana\'s bonding curve.',
     creator: '@clawdvault',
     images: ['/lobster-vault.jpg'],
   },
@@ -53,10 +61,15 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
 }
 
+export const viewport: Viewport = {
+  themeColor: '#08080c',
+  colorScheme: 'dark',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="dark">
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <Analytics />
       </body>

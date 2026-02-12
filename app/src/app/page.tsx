@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { db } from '@/lib/prisma'
 import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import HomeStats from '@/components/HomeStats'
+import { HeroSection, HowItWorksSection, LiveActivitySection, SkillMdSection, TrustSignals, FinalCTA } from '@/components/HomeSections'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -13,17 +13,13 @@ export const revalidate = 0
 // Cache for server-side SOL price
 let cachedSolPrice: number | null = null;
 let lastSolPriceFetch: number = 0;
-const SOL_PRICE_CACHE_MS = 60 * 1000; // 60 seconds
+const SOL_PRICE_CACHE_MS = 60 * 1000;
 
 async function getSolPrice(): Promise<number | null> {
   const now = Date.now();
-  
-  // Return cached if fresh
   if (cachedSolPrice !== null && (now - lastSolPriceFetch) < SOL_PRICE_CACHE_MS) {
     return cachedSolPrice;
   }
-  
-  // Try CoinGecko
   try {
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
       next: { revalidate: 60 },
@@ -38,8 +34,6 @@ async function getSolPrice(): Promise<number | null> {
   } catch (e) {
     console.warn('[Homepage] CoinGecko failed:', e);
   }
-  
-  // Try Jupiter as fallback
   try {
     const res = await fetch('https://price.jup.ag/v6/price?ids=SOL', {
       next: { revalidate: 60 },
@@ -54,24 +48,16 @@ async function getSolPrice(): Promise<number | null> {
   } catch (e) {
     console.warn('[Homepage] Jupiter failed:', e);
   }
-  
-  // Return stale cache if available, otherwise null
   return cachedSolPrice;
 }
 
 async function getHomeData() {
   try {
-    // Get SOL price first
     const solPrice = await getSolPrice()
-    // Get total tokens
     const totalTokens = await db().token.count()
-
-    // Get graduated count
     const graduatedCount = await db().token.count({
       where: { graduated: true }
     })
-
-    // Get 24h volume from trades
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const volumeResult = await db().trade.aggregate({
       where: { createdAt: { gte: oneDayAgo } },
@@ -79,19 +65,11 @@ async function getHomeData() {
     })
     const totalVolume = Number(volumeResult._sum.solAmount || 0)
 
-    // Get king of the hill (highest market cap = highest virtualSolReserves)
-    const kingToken = await db().token.findFirst({
-      where: { graduated: false },
-      orderBy: { virtualSolReserves: 'desc' }
-    })
-
-    // Get recent tokens (last 6)
     const recentTokens = await db().token.findMany({
       orderBy: { createdAt: 'desc' },
       take: 6
     })
 
-    // Get trending tokens (most volume in last 24h)
     const trendingTrades = await db().trade.groupBy({
       by: ['tokenMint'],
       where: { createdAt: { gte: oneDayAgo } },
@@ -100,7 +78,6 @@ async function getHomeData() {
       take: 6
     })
 
-    // Fetch the trending tokens
     const trendingMints = trendingTrades.map(t => t.tokenMint)
     const trendingTokens = trendingMints.length > 0
       ? await db().token.findMany({
@@ -108,16 +85,12 @@ async function getHomeData() {
         })
       : []
 
-    // Sort trending tokens by their trade volume
     const trendingWithVolume = trendingTokens.map(token => ({
       ...token,
       volume24h: Number(trendingTrades.find(t => t.tokenMint === token.mint)?._sum.solAmount || 0)
     })).sort((a, b) => b.volume24h - a.volume24h)
 
-    // Fetch last candles for all tokens to calculate market cap
-    // Candles include heartbeat candles, so they stay updated with current SOL price
     const allTokenMints = [
-      ...(kingToken ? [kingToken.mint] : []),
       ...recentTokens.map(t => t.mint),
       ...trendingWithVolume.map(t => t.mint)
     ]
@@ -154,7 +127,6 @@ async function getHomeData() {
       priceUsd: c.closeUsd ? Number(c.closeUsd) : undefined
     }]))
 
-    // Calculate 24h price changes using USD candles
     const priceChange24hMap = new Map<string, number | null>()
     for (const mint of uniqueMints) {
       const lastCandle = lastCandleMap.get(mint)
@@ -178,7 +150,6 @@ async function getHomeData() {
       totalTokens,
       graduatedCount,
       totalVolume,
-      kingToken,
       recentTokens,
       trendingTokens: trendingWithVolume,
       solPrice,
@@ -191,7 +162,6 @@ async function getHomeData() {
       totalTokens: 0,
       graduatedCount: 0,
       totalVolume: 0,
-      kingToken: null,
       recentTokens: [],
       trendingTokens: [],
       solPrice: 100,
@@ -221,18 +191,14 @@ function formatValue(solAmount: number, solPrice: number | null): string {
   return formatSol(solAmount);
 }
 
-
-// Calculate market cap from last candle (includes heartbeat candles for USD continuity)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }): { sol: number; usd: number | null } {
   if (lastCandle?.priceUsd) {
-    // Use last candle USD price × supply (includes heartbeat candles)
     return {
       sol: (lastCandle.priceUsd / (lastCandle.priceSol || 1)) * INITIAL_VIRTUAL_TOKENS,
       usd: lastCandle.priceUsd * INITIAL_VIRTUAL_TOKENS
     }
   }
-  // Fallback: calculate from bonding curve reserves
   const virtualSol = Number(token.virtualSolReserves)
   const virtualTokens = Number(token.virtualTokenReserves)
   const price = virtualSol / virtualTokens
@@ -242,78 +208,84 @@ function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; price
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token object
-function TokenCard({ token, badge, solPrice, lastCandle, priceChange24h }: { token: any, badge?: string, solPrice: number | null, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }, priceChange24h?: number | null }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function TokenCard({ token, solPrice, lastCandle, priceChange24h }: { token: any; solPrice: number | null; lastCandle?: { priceUsd?: number | null; priceSol?: number | null }; priceChange24h?: number | null }) {
   const mcap = getMarketCap(token, lastCandle)
-  
-  // Format 24h price change
   const formatPriceChange = (change: number | null | undefined) => {
     if (change === null || change === undefined) return null
     const sign = change >= 0 ? '+' : ''
-    return `${sign}${change.toFixed(2)}%`
+    return `${sign}${change.toFixed(1)}%`
   }
-  
   const priceChangeText = formatPriceChange(priceChange24h)
   const isPositive = priceChange24h !== null && priceChange24h !== undefined && priceChange24h >= 0
-  
+
+  // Calculate bonding curve progress
+  const GRADUATION_SOL = 85
+  const virtualSol = Number(token.virtualSolReserves || 0)
+  const initialSol = 30
+  const progress = Math.min(((virtualSol - initialSol) / (GRADUATION_SOL - initialSol)) * 100, 100)
+
   return (
-    <Link 
+    <Link
       href={`/tokens/${token.mint}`}
-      className="block bg-gradient-to-r from-gray-800/80 to-gray-800/40 rounded-xl p-4 border border-gray-700/50 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-200 group"
+      className="group flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all hover:border-vault-accent/30 hover:bg-white/[0.04]"
     >
-      <div className="flex items-center gap-4">
-        {/* Token Image */}
-        <div className="relative flex-shrink-0">
-          {token.image ? (
-            <img 
-              src={token.image} 
-              alt={token.name}
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover bg-gray-700 ring-2 ring-gray-600 group-hover:ring-orange-500/50 transition-all"
-            />
-          ) : (
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-2xl ring-2 ring-orange-500/30">
-              🦞
-            </div>
+      {/* Token Image */}
+      <div className="relative shrink-0">
+        {token.image ? (
+          <img
+            src={token.image}
+            alt={token.name}
+            className="h-11 w-11 rounded-lg object-cover ring-1 ring-white/[0.06] transition-all group-hover:ring-vault-accent/30"
+          />
+        ) : (
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-vault-accent/10 text-lg font-bold text-vault-accent">
+            {token.symbol?.[0] || '?'}
+          </div>
+        )}
+      </div>
+
+      {/* Token Info */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold text-vault-text transition-colors group-hover:text-vault-accent">
+            {token.name}
+          </span>
+          {token.graduated && (
+            <span className="shrink-0 rounded bg-vault-green/10 px-1.5 py-0.5 text-[10px] font-medium text-vault-green">
+              GRAD
+            </span>
           )}
-          {badge && (
-            <span className={`absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-              badge === 'hot' 
-                ? 'bg-red-500 text-white' 
-                : 'bg-green-500 text-white'
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-vault-muted">${token.symbol}</span>
+          {priceChangeText && (
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              isPositive
+                ? 'bg-vault-green/10 text-vault-green'
+                : 'bg-vault-red/10 text-vault-red'
             }`}>
-              {badge === 'hot' ? '🔥' : '✨'}
+              {priceChangeText}
             </span>
           )}
         </div>
-        
-        {/* Token Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-white truncate text-base group-hover:text-orange-300 transition-colors">
-              {token.name}
-            </span>
+        {/* Bonding curve micro-bar */}
+        {!token.graduated && (
+          <div className="mt-1.5 h-0.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-vault-accent/60 transition-all"
+              style={{ width: `${Math.max(progress, 2)}%` }}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400 text-sm font-mono">${token.symbol}</span>
-            {priceChangeText && (
-              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-                isPositive 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : 'bg-red-500/20 text-red-400'
-              }`}>
-                {priceChangeText}
-              </span>
-            )}
-          </div>
+        )}
+      </div>
+
+      {/* Market Cap */}
+      <div className="shrink-0 text-right">
+        <div className="font-mono text-sm font-semibold text-vault-green">
+          {mcap.usd !== null ? formatUsd(mcap.usd) : formatValue(mcap.sol, solPrice)}
         </div>
-        
-        {/* Market Cap */}
-        <div className="text-right flex-shrink-0">
-          <div className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">
-            {mcap.usd !== null ? formatUsd(mcap.usd) : formatValue(mcap.sol, solPrice)}
-          </div>
-          <div className="text-gray-500 text-xs uppercase tracking-wide">mcap</div>
-        </div>
+        <div className="text-[10px] uppercase tracking-wider text-vault-dim">mcap</div>
       </div>
     </Link>
   )
@@ -321,67 +293,17 @@ function TokenCard({ token, badge, solPrice, lastCandle, priceChange24h }: { tok
 
 export default async function Home() {
   const data = await getHomeData()
-  
+
   return (
     <main className="min-h-screen">
       <Header />
 
-      {/* Official Token Launch Banner */}
-      <Link 
-        href="/tokens/B7KpChn4dxioeuNzzEY9eioUwEi5xt5KYegytRottJgZ"
-        className="block bg-gradient-to-r from-orange-600 via-red-500 to-orange-600 text-white py-3 px-4 text-center hover:from-orange-500 hover:via-red-400 hover:to-orange-500 transition-all"
-      >
-        <span className="inline-flex items-center gap-2 font-medium">
-          🎉 <span className="font-bold">$CLAWDVAULT</span> is LIVE! 
-          <span className="hidden sm:inline">— The official token of ClawdVault</span>
-          <span className="text-orange-200 ml-1">Trade Now →</span>
-        </span>
-      </Link>
+      <HeroSection />
 
-      {/* Hero */}
-      <section className="py-12 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="relative inline-block">
-            <Image 
-              src="/hero-lobster.jpg" 
-              alt="ClawdVault Lobster" 
-              width={168} 
-              height={250}
-              sizes="100vw"
-              className="h-[250px] w-auto rounded-2xl border-4 border-orange-500/50 shadow-[0_0_40px_rgba(249,115,22,0.5)]"
-              priority
-            />
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white mt-6 mb-4">
-            Token Launchpad for
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-400"> Moltys</span>
-            <span className="text-xl ml-2">🦞</span>
-          </h1>
-          <p className="text-lg text-gray-400 mb-6 max-w-2xl mx-auto">
-            Create, launch, and trade tokens on the bonding curve. 
-            Built by lobsters, for lobsters!
-          </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Link 
-              href="/create"
-              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white px-8 py-3 rounded-xl text-lg font-semibold transition shadow-[0_0_20px_rgba(249,115,22,0.3)]"
-            >
-              Launch Token 🚀
-            </Link>
-            <Link
-              href="/tokens"
-              className="border border-orange-500/50 hover:border-orange-400 text-white px-8 py-3 rounded-xl text-lg font-semibold transition"
-            >
-              Browse All
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Bar - Live updating */}
-      <section className="px-6 pb-8">
-        <div className="max-w-4xl mx-auto">
-          <HomeStats 
+      {/* Stats Bar */}
+      <section className="px-4 pb-16 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <HomeStats
             initialTokens={data.totalTokens}
             initialGraduated={data.graduatedCount}
             initialVolume={data.totalVolume}
@@ -390,115 +312,78 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* King of the Hill */}
-      {data.kingToken && (
-        <section className="py-8 px-6">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <span>👑</span> King of the Hill
-            </h2>
-            <Link 
-              href={`/tokens/${data.kingToken.mint}`}
-              className="block bg-gradient-to-r from-yellow-900/20 to-orange-900/20 rounded-xl p-6 border border-yellow-500/30 hover:border-yellow-400/50 transition"
-            >
-              <div className="flex items-center gap-4">
-                {data.kingToken.image ? (
-                  <img 
-                    src={data.kingToken.image} 
-                    alt={data.kingToken.name}
-                    className="w-20 h-20 rounded-xl object-cover bg-gray-700 border-2 border-yellow-500/50"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-3xl border-2 border-yellow-500/50">
-                    👑
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0 mb-1">
-                    <span className="text-xl sm:text-2xl font-bold text-white">{data.kingToken.name}</span>
-                    <span className="text-yellow-400 text-sm sm:text-base">${data.kingToken.symbol}</span>
-                  </div>
-                  <p className="text-gray-400 text-sm line-clamp-2">
-                    {data.kingToken.description || 'The current king of ClawdVault! 🦞'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-yellow-400">
-                    {(() => {
-                      const mcap = getMarketCap(data.kingToken, data.lastCandleMap.get(data.kingToken.mint))
-                      return mcap.usd !== null ? formatUsd(mcap.usd) : formatValue(mcap.sol, data.solPrice)
-                    })()}
-                  </div>
-                  <div className="text-gray-500 text-sm">Market Cap</div>
-                </div>
-              </div>
-            </Link>
-          </div>
-        </section>
-      )}
+      <HowItWorksSection />
 
-      {/* Trending & Recent */}
-      <section className="py-8 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-8">
+      {/* Live Activity Feed */}
+      <section className="px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 flex items-center gap-3">
+            <div className="relative flex h-2.5 w-2.5 items-center justify-center">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-vault-green opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-vault-green" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-vault-text md:text-3xl">
+              Live on ClawdVault
+            </h2>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-2">
             {/* Trending */}
             <div>
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <span>🔥</span> Trending
-              </h2>
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-vault-muted">
+                Trending
+              </h3>
               {data.trendingTokens.length > 0 ? (
-                <div className="space-y-3">
-{/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token */}
-                  {data.trendingTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard 
-                      key={token.mint} 
-                      token={token} 
-                      badge="hot" 
-                      solPrice={data.solPrice} 
-                      lastCandle={data.lastCandleMap.get(token.mint)} 
-                      priceChange24h={data.priceChange24hMap.get(token.mint)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gray-800/30 rounded-xl p-8 text-center text-gray-500">
-                  No trading activity yet. Be the first! 🦞
-                </div>
-              )}
-            </div>
-
-            {/* Recent */}
-            <div>
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <span>✨</span> Just Launched
-              </h2>
-              {data.recentTokens.length > 0 ? (
-                <div className="space-y-3">
-{/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token */}
-                  {data.recentTokens.slice(0, 3).map((token: any) => (
-                    <TokenCard 
-                      key={token.mint} 
-                      token={token} 
-                      badge="new" 
-                      solPrice={data.solPrice} 
+                <div className="flex flex-col gap-3">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {data.trendingTokens.slice(0, 4).map((token: any) => (
+                    <TokenCard
+                      key={token.mint}
+                      token={token}
+                      solPrice={data.solPrice}
                       lastCandle={data.lastCandleMap.get(token.mint)}
                       priceChange24h={data.priceChange24hMap.get(token.mint)}
                     />
                   ))}
                 </div>
               ) : (
-                <div className="bg-gray-800/30 rounded-xl p-8 text-center text-gray-500">
-                  No tokens yet. Launch the first one! 🚀
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center text-sm text-vault-muted">
+                  No trading activity yet
+                </div>
+              )}
+            </div>
+
+            {/* Just Launched */}
+            <div>
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-vault-muted">
+                Just Launched
+              </h3>
+              {data.recentTokens.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {data.recentTokens.slice(0, 4).map((token: any) => (
+                    <TokenCard
+                      key={token.mint}
+                      token={token}
+                      solPrice={data.solPrice}
+                      lastCandle={data.lastCandleMap.get(token.mint)}
+                      priceChange24h={data.priceChange24hMap.get(token.mint)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center text-sm text-vault-muted">
+                  No tokens yet
                 </div>
               )}
             </div>
           </div>
 
           {data.recentTokens.length > 0 && (
-            <div className="text-center mt-8">
-              <Link 
+            <div className="mt-8 text-center">
+              <Link
                 href="/tokens"
-                className="text-orange-400 hover:text-orange-300 font-medium"
+                className="text-sm font-medium text-vault-accent transition-colors hover:text-vault-accent-hover"
               >
                 View all tokens →
               </Link>
@@ -507,71 +392,9 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-12 px-6 bg-gray-900/30">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-white text-center mb-8">
-            How It Works
-          </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl mb-3">🦞</div>
-              <h3 className="text-lg font-semibold text-white mb-2">1. Create</h3>
-              <p className="text-gray-400 text-sm">
-                Launch your token with a name, symbol, and image
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl mb-3">📈</div>
-              <h3 className="text-lg font-semibold text-white mb-2">2. Trade</h3>
-              <p className="text-gray-400 text-sm">
-                Buy and sell on the bonding curve
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl mb-3">🎓</div>
-              <h3 className="text-lg font-semibold text-white mb-2">3. Graduate</h3>
-              <p className="text-gray-400 text-sm">
-                At $69K market cap, migrate to Raydium
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Developer Tools - Simple text mention */}
-      <section className="py-6 px-6">
-        <div className="max-w-4xl mx-auto text-center text-gray-400 text-sm">
-          <p>
-            Build with ClawdVault: <code className="text-orange-400">npm install @clawdvault/sdk</code> or <code className="text-orange-400">npm install -g @clawdvault/cli</code>
-            {' · '}
-            <a 
-              href="https://github.com/shadowclawai/clawdvault-sdk"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-orange-400 hover:text-orange-300"
-            >
-              GitHub
-            </a>
-          </p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-16 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="text-5xl mb-4">🦞</div>
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Ready to get molty?
-          </h2>
-          <Link 
-            href="/create"
-            className="inline-block bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 text-white px-10 py-4 rounded-xl text-xl font-semibold transition shadow-[0_0_30px_rgba(249,115,22,0.4)]"
-          >
-            🦞 Start Launching
-          </Link>
-        </div>
-      </section>
+      <SkillMdSection />
+      <TrustSignals />
+      <FinalCTA />
 
       <Footer />
     </main>

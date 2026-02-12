@@ -8,7 +8,7 @@ import Footer from '@/components/Footer';
 import { useAllTokens } from '@/lib/supabase-client';
 import { useWallet } from '@/contexts/WalletContext';
 
-type FilterTab = 'all' | 'trending' | 'new' | 'graduated';
+type FilterTab = 'all' | 'trending' | 'new' | 'near_grad' | 'graduated';
 
 export default function TokensPage() {
   const { connected, publicKey } = useWallet();
@@ -21,20 +21,16 @@ export default function TokensPage() {
   const [_walletBalances, setWalletBalances] = useState<Record<string, number>>({});
   const [_balancesLoading, setBalancesLoading] = useState(false);
 
-  // Fetch wallet token balances
   const fetchWalletBalances = useCallback(async () => {
     if (!connected || !publicKey) {
       setWalletBalances({});
       return;
     }
-
     setBalancesLoading(true);
     try {
       const res = await fetch(`/api/wallet/balances?wallet=${publicKey}`);
       const data = await res.json();
-      if (data.success) {
-        setWalletBalances(data.balances || {});
-      }
+      if (data.success) setWalletBalances(data.balances || {});
     } catch (err) {
       console.warn('Failed to fetch wallet balances:', err);
       setWalletBalances({});
@@ -46,24 +42,17 @@ export default function TokensPage() {
   useEffect(() => {
     fetchTokens();
     fetchSolPrice();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run on sort change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sort]);
 
-  // Subscribe to realtime token updates
   useAllTokens(
-    // On new token
-    (newToken) => {
-      setTokens(prev => [newToken, ...prev]);
-    },
-    // On token update
-    (updatedToken) => {
-      setTokens(prev => prev.map(t =>
-        t.mint === updatedToken.mint ? { ...t, ...updatedToken } : t
-      ));
-    }
+    (newToken) => setTokens((prev) => [newToken, ...prev]),
+    (updatedToken) =>
+      setTokens((prev) =>
+        prev.map((t) => (t.mint === updatedToken.mint ? { ...t, ...updatedToken } : t))
+      )
   );
 
-  // Fetch wallet balances when connection changes
   useEffect(() => {
     fetchWalletBalances();
   }, [fetchWalletBalances]);
@@ -73,8 +62,7 @@ export default function TokensPage() {
       const res = await fetch('/api/sol-price');
       const data = await res.json();
       setSolPrice(data.valid ? data.price : null);
-    } catch (_err) {
-      console.warn('Price fetch failed');
+    } catch {
       setSolPrice(null);
     }
   };
@@ -92,12 +80,10 @@ export default function TokensPage() {
     }
   };
 
-  // Filter and search tokens
   const filteredTokens = useMemo(() => {
     if (!tokens || !Array.isArray(tokens)) return [];
     let result = [...tokens];
 
-    // Apply tab filter
     switch (filter) {
       case 'trending':
         result = result.sort((a, b) => (b.volume_24h || 0) - (a.volume_24h || 0)).slice(0, 20);
@@ -105,27 +91,39 @@ export default function TokensPage() {
       case 'new':
         result = result.filter((t) => {
           const created = new Date(t.created_at);
-          const hourAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-          return created > hourAgo;
+          const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          return created > dayAgo;
         });
         break;
+      case 'near_grad': {
+        const GRADUATION_SOL = 85;
+        const INITIAL_SOL = 30;
+        result = result
+          .filter((t) => !t.graduated)
+          .filter((t) => {
+            const virtualSol = Number(t.virtual_sol_reserves || 0);
+            const progress = ((virtualSol - INITIAL_SOL) / (GRADUATION_SOL - INITIAL_SOL)) * 100;
+            return progress >= 60;
+          })
+          .sort((a, b) => Number(b.virtual_sol_reserves || 0) - Number(a.virtual_sol_reserves || 0));
+        break;
+      }
       case 'graduated':
         result = result.filter((t) => t.graduated);
         break;
     }
 
-    // Apply search
     if (search.trim()) {
       const query = search.toLowerCase().trim();
-      result = result.filter((t) =>
-        t.symbol.toLowerCase().includes(query) ||
-        t.name.toLowerCase().includes(query) ||
-        t.mint.toLowerCase().includes(query) ||
-        (t.creator_name && t.creator_name.toLowerCase().includes(query))
+      result = result.filter(
+        (t) =>
+          t.symbol.toLowerCase().includes(query) ||
+          t.name.toLowerCase().includes(query) ||
+          t.mint.toLowerCase().includes(query) ||
+          (t.creator_name && t.creator_name.toLowerCase().includes(query))
       );
     }
 
-    // Apply client-side sorting for price_change (since server may not support it)
     if (sort === 'price_change') {
       result = result.sort((a, b) => {
         const changeA = a.price_change_24h ?? -Infinity;
@@ -137,188 +135,189 @@ export default function TokensPage() {
     return result;
   }, [tokens, filter, search, sort]);
 
-  const formatUsd = (n: number) => {
-    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return '$' + (n / 1000).toFixed(1) + 'K';
-    if (n >= 1) return '$' + n.toFixed(2);
-    if (n >= 0.01) return '$' + n.toFixed(4);
-    if (n >= 0.0001) return '$' + n.toFixed(6);
-    if (n >= 0.000001) return '$' + n.toFixed(8);
-    return '$' + n.toFixed(10);
-  };
-
-  const formatSol = (n: number) => {
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M SOL';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K SOL';
-    if (n >= 0.01) return n.toFixed(4) + ' SOL';
-    if (n >= 0.0001) return n.toFixed(6) + ' SOL';
-    return n.toFixed(9) + ' SOL';
-  };
-
-  const formatValue = (solAmount: number) => {
-    if (solPrice !== null) {
-      return formatUsd(solAmount * solPrice);
-    }
-    return formatSol(solAmount);
-  };
-
-  const formatPrice = (price: number) => {
-    if (price < 0.0000000001) return '<0.0000000001 SOL';
-    if (price < 0.000001) return price.toFixed(12) + ' SOL';
-    if (price < 0.001) return price.toFixed(9) + ' SOL';
-    return price.toFixed(6) + ' SOL';
-  };
-
   const formatMcap = (mcapSol: number, mcapUsd?: number) => {
     if (mcapUsd !== undefined && mcapUsd !== null) {
-      // Use USD market cap directly from API (based on last trade)
       if (mcapUsd >= 1000000) return '$' + (mcapUsd / 1000000).toFixed(1) + 'M';
       if (mcapUsd >= 1000) return '$' + (mcapUsd / 1000).toFixed(1) + 'K';
       return '$' + mcapUsd.toFixed(0);
     }
-    // Fallback: convert SOL market cap using current SOL price
+    if (solPrice !== null) {
+      const usd = mcapSol * solPrice;
+      if (usd >= 1000000) return '$' + (usd / 1000000).toFixed(1) + 'M';
+      if (usd >= 1000) return '$' + (usd / 1000).toFixed(1) + 'K';
+      return '$' + usd.toFixed(0);
+    }
     if (mcapSol >= 1000) return (mcapSol / 1000).toFixed(1) + 'K SOL';
     return mcapSol.toFixed(2) + ' SOL';
   };
 
-  const _formatVolume = (vol?: number) => {
-    if (!vol) return '--';
-    if (vol >= 1000) return (vol / 1000).toFixed(1) + 'K';
-    return vol.toFixed(2);
-  };
-
-  const _formatNumber = (n: number) => {
-    if (n >= 1000000000) return (n / 1000000000).toFixed(2) + 'B';
-    if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(2) + 'K';
-    return n.toFixed(2);
-  };
-
   const formatTimeAgo = (date: string) => {
     const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-    if (seconds < 60) return `${seconds}s ago`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+    return `${Math.floor(seconds / 86400)}d`;
   };
 
-  const tabs: { id: FilterTab; label: string; icon: string }[] = [
-    { id: 'all', label: 'All', icon: '🌐' },
-    { id: 'trending', label: 'Trending', icon: '🔥' },
-    { id: 'new', label: 'New', icon: '✨' },
-    { id: 'graduated', label: 'Graduated', icon: '🎓' },
+  // Bonding curve progress
+  const getBondingProgress = (token: Token) => {
+    if (token.graduated) return 100;
+    const GRADUATION_SOL = 85;
+    const INITIAL_SOL = 30;
+    const virtualSol = Number(token.virtual_sol_reserves || 0);
+    return Math.min(((virtualSol - INITIAL_SOL) / (GRADUATION_SOL - INITIAL_SOL)) * 100, 100);
+  };
+
+  // Has recent activity (trade within last 5 min)
+  const hasRecentActivity = (token: Token) => {
+    if (!token.last_trade_at) return false;
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    return new Date(token.last_trade_at).getTime() > fiveMinAgo;
+  };
+
+  const tabs: { id: FilterTab; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'trending', label: 'Trending' },
+    { id: 'new', label: 'New' },
+    { id: 'near_grad', label: 'Near Graduation' },
+    { id: 'graduated', label: 'Graduated' },
   ];
 
   return (
     <main className="min-h-screen">
       <Header />
 
-      {/* Content */}
-      <section className="py-8 px-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Search & Filters */}
-          <div className="mb-6 space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                🔍
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, symbol, mint, or creator..."
-                className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+      <section className="px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          {/* Page Header */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-vault-text md:text-3xl">
+              Browse Tokens
+            </h1>
+            <p className="mt-1 text-sm text-vault-muted">
+              {tokens.length} tokens on ClawdVault
+            </p>
+          </div>
 
-            {/* Tabs & Sort */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              {/* Filter Tabs */}
-              <div className="flex bg-gray-800 rounded-lg p-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setFilter(tab.id)}
-                    className={`px-4 py-2 rounded-md text-sm transition flex items-center gap-2 ${
-                      filter === tab.id
-                        ? 'bg-orange-500 text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <span>{tab.icon}</span>
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Sort Dropdown */}
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-orange-500"
+          {/* Search Bar */}
+          <div className="relative mb-6">
+            <svg
+              className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-vault-muted"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, symbol, mint, or creator..."
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] py-3 pl-11 pr-10 text-sm text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40 focus:bg-white/[0.04]"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-vault-muted transition-colors hover:text-vault-text"
               >
-                <option value="created_at">Newest</option>
-                <option value="market_cap">Market Cap</option>
-                <option value="volume">24h Volume</option>
-                <option value="price">Price</option>
-                <option value="price_change">24h Change</option>
-              </select>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Filters & Sort */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            {/* Tabs */}
+            <div className="flex flex-wrap gap-1.5">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilter(tab.id)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                    filter === tab.id
+                      ? 'bg-vault-accent text-vault-bg'
+                      : 'border border-white/[0.06] bg-white/[0.02] text-vault-muted hover:border-white/[0.1] hover:text-vault-text'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            {/* Sort */}
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-vault-text outline-none transition-colors focus:border-vault-accent/40"
+            >
+              <option value="created_at">Newest</option>
+              <option value="market_cap">Market Cap</option>
+              <option value="volume">24h Volume</option>
+              <option value="price">Price</option>
+              <option value="price_change">24h Change</option>
+            </select>
           </div>
 
           {/* Results count */}
           {search && (
-            <div className="text-gray-400 text-sm mb-4">
-              Found {filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''} matching &quot;{search}&quot;
-            </div>
+            <p className="mb-4 text-xs text-vault-muted">
+              {filteredTokens.length} result{filteredTokens.length !== 1 ? 's' : ''} for &quot;{search}&quot;
+            </p>
           )}
 
+          {/* Content */}
           {loading ? (
-            <div className="text-center text-gray-400 py-12">
-              <div className="animate-pulse">Loading tokens...</div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-white/[0.06]" />
+                    <div className="flex-1">
+                      <div className="mb-1.5 h-4 w-20 rounded bg-white/[0.06]" />
+                      <div className="h-3 w-14 rounded bg-white/[0.04]" />
+                    </div>
+                  </div>
+                  <div className="mb-3 h-5 w-16 rounded bg-white/[0.06]" />
+                  <div className="h-1 w-full rounded-full bg-white/[0.04]" />
+                </div>
+              ))}
             </div>
           ) : filteredTokens.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="py-20 text-center">
               {search ? (
                 <>
-                  <div className="text-6xl mb-4">🔍</div>
-                  <h2 className="text-xl font-bold text-white mb-2">No tokens found</h2>
-                  <p className="text-gray-400 mb-6">Try a different search term</p>
+                  <h2 className="mb-2 text-lg font-semibold text-vault-text">No tokens found</h2>
+                  <p className="mb-4 text-sm text-vault-muted">Try a different search term</p>
                   <button
                     onClick={() => setSearch('')}
-                    className="text-orange-400 hover:text-orange-300 transition"
+                    className="text-sm font-medium text-vault-accent transition-colors hover:text-vault-accent-hover"
                   >
                     Clear search
                   </button>
                 </>
               ) : filter !== 'all' ? (
                 <>
-                  <div className="text-6xl mb-4">{tabs.find(t => t.id === filter)?.icon}</div>
-                  <h2 className="text-xl font-bold text-white mb-2">No {filter} tokens</h2>
+                  <h2 className="mb-2 text-lg font-semibold text-vault-text">
+                    No {tabs.find((t) => t.id === filter)?.label.toLowerCase()} tokens
+                  </h2>
                   <button
                     onClick={() => setFilter('all')}
-                    className="text-orange-400 hover:text-orange-300 transition"
+                    className="text-sm font-medium text-vault-accent transition-colors hover:text-vault-accent-hover"
                   >
                     View all tokens
                   </button>
                 </>
               ) : (
                 <>
-                  <div className="text-6xl mb-4">🦞</div>
-                  <h2 className="text-xl font-bold text-white mb-2">No tokens yet</h2>
-                  <p className="text-gray-400 mb-6">Be the first to launch!</p>
+                  <h2 className="mb-2 text-lg font-semibold text-vault-text">No tokens yet</h2>
+                  <p className="mb-4 text-sm text-vault-muted">Be the first to launch</p>
                   <Link
                     href="/create"
-                    className="inline-block bg-orange-500 hover:bg-orange-400 text-white px-6 py-3 rounded-lg transition"
+                    className="inline-flex items-center gap-2 rounded-lg bg-vault-accent px-5 py-2.5 text-sm font-semibold text-vault-bg transition hover:bg-vault-accent-hover"
                   >
                     Create Token
                   </Link>
@@ -326,92 +325,95 @@ export default function TokensPage() {
               )}
             </div>
           ) : (
-            <div className="grid gap-4">
-              {filteredTokens.map((token) => (
-                <Link
-                  key={token.mint}
-                  href={`/tokens/${token.mint}`}
-                  className="bg-gray-800/50 border border-gray-700 hover:border-orange-500 rounded-xl p-4 transition flex items-center gap-4 group"
-                >
-                  {/* Image */}
-                  <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition">
-                    {token.image ? (
-                      <img src={token.image} alt="" className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      '🪙'
-                    )}
-                  </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredTokens.map((token) => {
+                const progress = getBondingProgress(token);
+                const isActive = hasRecentActivity(token);
+                const change = token.price_change_24h;
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-white">${token.symbol}</span>
-                      {token.graduated && (
-                        <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full">
-                          🎓 Graduated
-                        </span>
+                return (
+                  <Link
+                    key={token.mint}
+                    href={`/tokens/${token.mint}`}
+                    className={`group relative rounded-xl border bg-white/[0.02] p-4 transition-all hover:bg-white/[0.04] ${
+                      isActive
+                        ? 'border-vault-accent/20 animate-pulse-border'
+                        : 'border-white/[0.06] hover:border-vault-accent/20'
+                    }`}
+                  >
+                    {/* Header row */}
+                    <div className="mb-3 flex items-center gap-3">
+                      {token.image ? (
+                        <img
+                          src={token.image}
+                          alt={token.name}
+                          className="h-10 w-10 rounded-lg object-cover ring-1 ring-white/[0.06] transition-all group-hover:ring-vault-accent/30"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-vault-accent/10 text-sm font-bold text-vault-accent">
+                          {token.symbol?.[0] || '?'}
+                        </div>
                       )}
-                      <span className="text-gray-500 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-semibold text-vault-text">
+                            {token.name}
+                          </span>
+                          {token.graduated && (
+                            <span className="shrink-0 rounded bg-vault-green/10 px-1 py-0.5 text-[9px] font-medium text-vault-green">
+                              GRAD
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-mono text-xs text-vault-muted">${token.symbol}</span>
+                      </div>
+                      <span className="shrink-0 text-[10px] text-vault-dim">
                         {formatTimeAgo(token.created_at)}
                       </span>
                     </div>
-                    <div className="text-gray-400 text-sm truncate">{token.name}</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500 text-xs">by {token.creator_name || 'Anonymous'}</span>
-                      {/* Mobile price - shows only on xs screens */}
-                      <span className="text-orange-400 text-xs font-mono sm:hidden">
-                        {formatMcap(token.market_cap_sol, token.market_cap_usd)}
-                      </span>
-                      {/* Mobile 24h change */}
-                      {token.price_change_24h !== null && token.price_change_24h !== undefined && (
-                        <span className={`text-xs font-mono sm:hidden ${
-                          token.price_change_24h >= 0 ? 'text-green-400' : 'text-red-400'
-                        }`}>
-                          {token.price_change_24h >= 0 ? '+' : ''}{token.price_change_24h.toFixed(2)}%
+
+                    {/* Market cap + change */}
+                    <div className="mb-3 flex items-end justify-between">
+                      <div>
+                        <div className="font-mono text-lg font-semibold text-vault-green">
+                          {formatMcap(token.market_cap_sol, token.market_cap_usd)}
+                        </div>
+                        <div className="text-[10px] uppercase tracking-wider text-vault-dim">mcap</div>
+                      </div>
+                      {change !== null && change !== undefined && (
+                        <span
+                          className={`rounded px-1.5 py-0.5 font-mono text-xs font-medium ${
+                            change >= 0
+                              ? 'bg-vault-green/10 text-vault-green'
+                              : 'bg-vault-red/10 text-vault-red'
+                          }`}
+                        >
+                          {change >= 0 ? '+' : ''}
+                          {change.toFixed(1)}%
                         </span>
                       )}
                     </div>
-                  </div>
 
-                  {/* Stats */}
-                  <div className="text-right hidden sm:block">
-                    <div className="text-white font-mono">{formatPrice(token.price_sol)}</div>
-                    <div className="text-gray-500 text-sm">Price</div>
-                  </div>
-                  <div className="text-right hidden md:block">
-                    <div className="text-orange-400 font-mono">{formatMcap(token.market_cap_sol, token.market_cap_usd)}</div>
-                    <div className="text-gray-500 text-sm">MCap</div>
-                  </div>
-                  <div className="text-right hidden sm:block">
-                    <div className={`font-mono ${
-                      token.price_change_24h === null || token.price_change_24h === undefined
-                        ? 'text-gray-400'
-                        : token.price_change_24h >= 0
-                          ? 'text-green-400'
-                          : 'text-red-400'
-                    }`}>
-                      {token.price_change_24h !== null && token.price_change_24h !== undefined
-                        ? `${token.price_change_24h >= 0 ? '+' : ''}${token.price_change_24h.toFixed(2)}%`
-                        : '--'
-                      }
-                    </div>
-                    <div className="text-gray-500 text-sm">24h</div>
-                  </div>
-                  <div className="text-right hidden lg:block">
-                    <div className="text-blue-400 font-mono">
-                      {token.volume_24h && token.volume_24h > 0.001 
-                        ? formatValue(token.volume_24h) 
-                        : '--'}
-                    </div>
-                    <div className="text-gray-500 text-sm">24h Vol</div>
-                  </div>
-
-                  {/* Arrow */}
-                  <div className="text-gray-600 group-hover:text-orange-400 transition">
-                    →
-                  </div>
-                </Link>
-              ))}
+                    {/* Bonding curve progress */}
+                    {!token.graduated && (
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-[10px] text-vault-dim">Bonding Curve</span>
+                          <span className="font-mono text-[10px] text-vault-muted">
+                            {progress.toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                          <div
+                            className="h-full rounded-full bg-vault-accent/70 transition-all"
+                            style={{ width: `${Math.max(progress, 2)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

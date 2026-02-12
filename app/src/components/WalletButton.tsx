@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { authenticatedPost } from '@/lib/signRequest';
 
-// Official Phantom ghost logo
 function PhantomIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 200 180" fill="none">
@@ -27,7 +26,6 @@ export default function WalletButton() {
   const [savingUsername, setSavingUsername] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch profile when connected
   const fetchProfile = useCallback(async () => {
     if (!publicKey) return;
     try {
@@ -50,7 +48,6 @@ export default function WalletButton() {
     }
   }, [connected, publicKey, fetchProfile]);
 
-  // Save username
   const saveUsername = async () => {
     if (!publicKey || savingUsername) return;
     setSavingUsername(true);
@@ -72,7 +69,6 @@ export default function WalletButton() {
     }
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -84,12 +80,11 @@ export default function WalletButton() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Show skeleton while checking auto-reconnect
   if (initializing) {
     return (
-      <div className="bg-gray-800 border border-gray-700 px-4 py-2 rounded-lg animate-pulse flex items-center gap-2">
-        <div className="w-4 h-4 bg-gray-600 rounded-full" />
-        <div className="w-20 h-4 bg-gray-600 rounded" />
+      <div className="glass-card animate-pulse px-4 py-2 flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full bg-white/10" />
+        <div className="w-20 h-4 rounded bg-white/10" />
       </div>
     );
   }
@@ -100,16 +95,16 @@ export default function WalletButton() {
         onClick={connect}
         disabled={connecting}
         title="Connect your Phantom wallet to trade tokens"
-        className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 disabled:opacity-50 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition flex items-center gap-1.5 sm:gap-2 group"
+        className="flex items-center gap-1.5 rounded-lg bg-vault-accent px-3 py-2 text-sm font-semibold text-vault-bg transition-all hover:bg-vault-accent-hover disabled:opacity-50 sm:gap-2 sm:px-4"
       >
         {connecting ? (
           <>
-            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-vault-bg border-t-transparent sm:h-5 sm:w-5" />
             <span className="hidden sm:inline">Connecting...</span>
           </>
         ) : (
           <>
-            <PhantomIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
+            <PhantomIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="hidden sm:inline">Connect Wallet</span>
             <span className="sm:hidden">Connect</span>
           </>
@@ -122,23 +117,27 @@ export default function WalletButton() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-2 sm:px-4 py-2 rounded-lg font-medium transition flex items-center gap-1.5 sm:gap-2"
+        className="glass-card flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors hover:border-white/10 sm:gap-2 sm:px-3"
       >
-        <div className="w-2 h-2 bg-green-400 rounded-full flex-shrink-0" />
-        <span className="truncate max-w-[60px] sm:max-w-none text-sm sm:text-base">{username || shortenAddress(publicKey!)}</span>
+        <div className="h-2 w-2 shrink-0 rounded-full bg-vault-green" />
+        <span className="max-w-[60px] truncate font-mono text-xs text-vault-text sm:max-w-none sm:text-sm">
+          {username || shortenAddress(publicKey!)}
+        </span>
         {balance !== null && (
-          <span className="text-gray-400 text-xs sm:text-sm whitespace-nowrap">
+          <span className="whitespace-nowrap font-mono text-xs text-vault-muted">
             {balance.toFixed(2)} <span className="hidden sm:inline">SOL</span>
           </span>
         )}
-        <span className="text-gray-500 text-xs">▼</span>
+        <svg className="h-3 w-3 text-vault-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/[0.08] bg-vault-surface/95 shadow-2xl backdrop-blur-2xl">
           {/* Username Section */}
-          <div className="p-4 border-b border-gray-700">
-            <div className="text-gray-400 text-xs mb-2">Display Name</div>
+          <div className="border-b border-white/[0.06] p-4">
+            <div className="mb-2 text-xs text-vault-muted">Display Name</div>
             {editingUsername ? (
               <div className="flex gap-2">
                 <input
@@ -147,34 +146,34 @@ export default function WalletButton() {
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="Enter username"
                   maxLength={20}
-                  className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-vault-text placeholder-vault-muted focus:border-vault-accent focus:outline-none"
                   autoFocus
                 />
                 <button
                   onClick={saveUsername}
                   disabled={savingUsername}
-                  className="bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-sm transition"
+                  className="rounded-lg bg-vault-accent px-3 py-1.5 text-sm font-medium text-vault-bg transition hover:bg-vault-accent-hover disabled:opacity-50"
                 >
-                  {savingUsername ? '...' : '✓'}
+                  {savingUsername ? '...' : 'Save'}
                 </button>
                 <button
                   onClick={() => {
                     setEditingUsername(false);
                     setNewUsername(username || '');
                   }}
-                  className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded-lg text-sm transition"
+                  className="rounded-lg bg-white/[0.05] px-3 py-1.5 text-sm text-vault-muted transition hover:bg-white/[0.08]"
                 >
-                  ✕
+                  Cancel
                 </button>
               </div>
             ) : (
               <div className="flex items-center justify-between">
-                <span className="text-white font-medium">
-                  {username || <span className="text-gray-500 italic">Not set</span>}
+                <span className="font-medium text-vault-text">
+                  {username || <span className="italic text-vault-muted">Not set</span>}
                 </span>
                 <button
                   onClick={() => setEditingUsername(true)}
-                  className="text-orange-400 hover:text-orange-300 text-sm transition"
+                  className="text-sm text-vault-accent transition hover:text-vault-accent-hover"
                 >
                   Edit
                 </button>
@@ -183,15 +182,15 @@ export default function WalletButton() {
           </div>
 
           {/* Wallet Address */}
-          <div className="p-4 border-b border-gray-700">
-            <div className="text-gray-400 text-xs mb-1">Wallet Address</div>
-            <div className="text-white font-mono text-sm break-all">{publicKey}</div>
+          <div className="border-b border-white/[0.06] p-4">
+            <div className="mb-1 text-xs text-vault-muted">Wallet Address</div>
+            <div className="break-all font-mono text-sm text-vault-text">{publicKey}</div>
           </div>
           
           {/* Balance */}
-          <div className="p-4 border-b border-gray-700">
-            <div className="text-gray-400 text-xs mb-1">Balance</div>
-            <div className="text-white text-lg font-semibold">
+          <div className="border-b border-white/[0.06] p-4">
+            <div className="mb-1 text-xs text-vault-muted">Balance</div>
+            <div className="text-lg font-semibold text-vault-text">
               {balance !== null ? `${balance.toFixed(4)} SOL` : 'Loading...'}
             </div>
           </div>
@@ -203,19 +202,23 @@ export default function WalletButton() {
                 navigator.clipboard.writeText(publicKey!);
                 setShowDropdown(false);
               }}
-              className="w-full text-left px-3 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition flex items-center gap-2"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-vault-secondary transition hover:bg-white/[0.05]"
             >
-              <span>📋</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+              </svg>
               Copy Address
             </button>
             <a
               href={`https://solscan.io/account/${publicKey}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full text-left px-3 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition flex items-center gap-2 block"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-vault-secondary transition hover:bg-white/[0.05]"
               onClick={() => setShowDropdown(false)}
             >
-              <span>🔍</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
               View on Solscan
             </a>
             <button
@@ -223,9 +226,11 @@ export default function WalletButton() {
                 disconnect();
                 setShowDropdown(false);
               }}
-              className="w-full text-left px-3 py-2 text-red-400 hover:bg-gray-700 rounded-lg transition flex items-center gap-2"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-vault-red transition hover:bg-white/[0.05]"
             >
-              <span>🚪</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+              </svg>
               Disconnect
             </button>
           </div>
