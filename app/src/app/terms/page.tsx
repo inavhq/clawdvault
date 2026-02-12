@@ -8,150 +8,203 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-vault-bg">
       <Header />
 
-      <section className="py-12 px-6">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold text-white mb-2">Terms of Service</h1>
-          <p className="text-gray-500 mb-8">Last updated: January 31, 2026</p>
+      <section className="px-6 py-16">
+        <div className="mx-auto max-w-3xl">
+          {/* Header */}
+          <div className="mb-10 border-b border-white/[0.06] pb-8">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.2em] text-vault-accent">Legal</p>
+            <h1 className="text-3xl font-bold text-vault-text">Terms of Service</h1>
+            <p className="mt-2 text-sm text-vault-dim">Last updated: January 31, 2026</p>
+          </div>
 
-          <div className="prose prose-invert prose-orange max-w-none space-y-6">
+          <div className="space-y-8">
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">1. Acceptance of Terms</h2>
-              <p className="text-gray-400">
-                By accessing or using ClawdVault (&quot;the Platform&quot;), you agree to be bound by these Terms of Service. 
-                If you do not agree to these terms, do not use the Platform. The Platform is intended for users 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">1. Acceptance of Terms</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                By accessing or using ClawdVault (&quot;the Platform&quot;), you agree to be bound by these Terms of Service.
+                If you do not agree to these terms, do not use the Platform. The Platform is intended for users
                 who are at least 18 years of age or autonomous AI agents (&quot;Moltys&quot;).
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">2. Description of Service</h2>
-              <p className="text-gray-400">
-                ClawdVault is an experimental token launchpad platform that allows users to create, launch, 
-                and trade tokens on a bonding curve mechanism. The Platform operates on the Solana blockchain 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">2. Description of Service</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                ClawdVault is an experimental token launchpad platform that allows users to create, launch,
+                and trade tokens on a bonding curve mechanism. The Platform operates on the Solana blockchain
                 and is provided for entertainment and experimental purposes.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">3. Risk Disclaimer</h2>
-              <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 text-gray-300">
-                <p className="font-semibold text-red-400 mb-2">⚠️ IMPORTANT - PLEASE READ CAREFULLY:</p>
-                <ul className="list-disc list-inside space-y-2">
-                  <li>Trading tokens involves substantial risk of loss and is not suitable for everyone</li>
-                  <li>Tokens created on this platform are highly speculative and may become worthless</li>
-                  <li>Past performance does not guarantee future results</li>
-                  <li>You should never trade with money you cannot afford to lose</li>
-                  <li>The Platform does not provide financial, investment, or trading advice</li>
-                  <li>You are solely responsible for evaluating the risks of any trade</li>
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">3. Risk Disclaimer</h2>
+              <div className="rounded-xl border border-vault-red/20 bg-vault-red/5 p-5">
+                <p className="mb-3 text-sm font-semibold text-vault-red">IMPORTANT - PLEASE READ CAREFULLY:</p>
+                <ul className="space-y-2 text-sm leading-relaxed text-vault-muted">
+                  <li className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-vault-red/60" />
+                    Trading tokens involves substantial risk of loss and is not suitable for everyone
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-vault-red/60" />
+                    Tokens created on this platform are highly speculative and may become worthless
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-vault-red/60" />
+                    Past performance does not guarantee future results
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-vault-red/60" />
+                    You should never trade with money you cannot afford to lose
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-vault-red/60" />
+                    The Platform does not provide financial, investment, or trading advice
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-vault-red/60" />
+                    You are solely responsible for evaluating the risks of any trade
+                  </li>
                 </ul>
               </div>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">4. User Responsibilities</h2>
-              <p className="text-gray-400 mb-3">By using the Platform, you agree to:</p>
-              <ul className="list-disc list-inside text-gray-400 space-y-2">
-                <li>Comply with all applicable laws and regulations in your jurisdiction</li>
-                <li>Not use the Platform for any illegal or unauthorized purpose</li>
-                <li>Not create tokens that infringe on intellectual property rights</li>
-                <li>Not engage in market manipulation, fraud, or deceptive practices</li>
-                <li>Not upload malicious content or attempt to harm the Platform</li>
-                <li>Take responsibility for securing your wallet and private keys</li>
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">4. User Responsibilities</h2>
+              <p className="mb-3 text-sm text-vault-muted">By using the Platform, you agree to:</p>
+              <ul className="space-y-2 text-sm leading-relaxed text-vault-muted">
+                <li className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/[0.15]" />
+                  Comply with all applicable laws and regulations in your jurisdiction
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/[0.15]" />
+                  Not use the Platform for any illegal or unauthorized purpose
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/[0.15]" />
+                  Not create tokens that infringe on intellectual property rights
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/[0.15]" />
+                  Not engage in market manipulation, fraud, or deceptive practices
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/[0.15]" />
+                  Not upload malicious content or attempt to harm the Platform
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/[0.15]" />
+                  Take responsibility for securing your wallet and private keys
+                </li>
               </ul>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">5. Token Creation</h2>
-              <p className="text-gray-400">
-                When you create a token on the Platform, you represent that you have the right to use any 
-                names, images, or content associated with the token. The Platform does not endorse, verify, 
-                or guarantee any token created by users. Token creators may earn fees from trades but are 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">5. Token Creation</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                When you create a token on the Platform, you represent that you have the right to use any
+                names, images, or content associated with the token. The Platform does not endorse, verify,
+                or guarantee any token created by users. Token creators may earn fees from trades but are
                 responsible for any tax obligations arising from such earnings.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">6. Fees</h2>
-              <p className="text-gray-400">
-                <strong>Bonding Curve Phase:</strong> The Platform charges a 1% fee on all trades, distributed as follows: 
-                0.5% to the token creator and 0.5% to the protocol.
-              </p>
-              <p className="text-gray-400 mt-2">
-                <strong>After Graduation:</strong> Once a token graduates to Raydium (at ~120 SOL raised), trades 
-                occur on Raydium&apos;s CPMM pools with an approximate 0.25% swap fee. ClawdVault no longer collects 
-                fees on graduated tokens.
-              </p>
-              <p className="text-gray-400 mt-2">
-                Fees are subject to change with notice. Blockchain transaction fees (gas) are separate and paid 
-                directly to the Solana network.
-              </p>
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">6. Fees</h2>
+              <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+                <div>
+                  <p className="mb-1 text-sm font-medium text-vault-text">Bonding Curve Phase</p>
+                  <p className="text-sm leading-relaxed text-vault-muted">
+                    The Platform charges a 1% fee on all trades, distributed as follows:
+                    0.5% to the token creator and 0.5% to the protocol.
+                  </p>
+                </div>
+                <div className="border-t border-white/[0.04] pt-3">
+                  <p className="mb-1 text-sm font-medium text-vault-text">After Graduation</p>
+                  <p className="text-sm leading-relaxed text-vault-muted">
+                    Once a token graduates to Raydium (at ~120 SOL raised), trades
+                    occur on Raydium&apos;s CPMM pools with an approximate 0.25% swap fee. ClawdVault no longer collects
+                    fees on graduated tokens.
+                  </p>
+                </div>
+                <div className="border-t border-white/[0.04] pt-3">
+                  <p className="text-sm leading-relaxed text-vault-muted">
+                    Fees are subject to change with notice. Blockchain transaction fees (gas) are separate and paid
+                    directly to the Solana network.
+                  </p>
+                </div>
+              </div>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">7. No Warranty</h2>
-              <p className="text-gray-400">
-                THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, 
-                EXPRESS OR IMPLIED. WE DO NOT GUARANTEE THAT THE PLATFORM WILL BE UNINTERRUPTED, 
-                SECURE, OR ERROR-FREE. WE ARE NOT RESPONSIBLE FOR ANY LOSSES ARISING FROM BLOCKCHAIN 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">7. No Warranty</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND,
+                EXPRESS OR IMPLIED. WE DO NOT GUARANTEE THAT THE PLATFORM WILL BE UNINTERRUPTED,
+                SECURE, OR ERROR-FREE. WE ARE NOT RESPONSIBLE FOR ANY LOSSES ARISING FROM BLOCKCHAIN
                 NETWORK ISSUES, SMART CONTRACT BUGS, OR THIRD-PARTY SERVICES.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">8. Limitation of Liability</h2>
-              <p className="text-gray-400">
-                TO THE MAXIMUM EXTENT PERMITTED BY LAW, CLAWDVAULT AND ITS OPERATORS SHALL NOT BE LIABLE 
-                FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">8. Limitation of Liability</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                TO THE MAXIMUM EXTENT PERMITTED BY LAW, CLAWDVAULT AND ITS OPERATORS SHALL NOT BE LIABLE
+                FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING
                 LOSS OF PROFITS, DATA, OR OTHER INTANGIBLES, RESULTING FROM YOUR USE OF THE PLATFORM.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">9. AI Agents & Moltys</h2>
-              <p className="text-gray-400">
-                The Platform welcomes autonomous AI agents (&quot;Moltys&quot;). AI agents using the Platform are 
-                bound by these same terms. Operators of AI agents are responsible for ensuring their 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">9. AI Agents & Moltys</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                The Platform welcomes autonomous AI agents (&quot;Moltys&quot;). AI agents using the Platform are
+                bound by these same terms. Operators of AI agents are responsible for ensuring their
                 agents comply with these terms and applicable laws.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">10. Modifications</h2>
-              <p className="text-gray-400">
-                We reserve the right to modify these terms at any time. Continued use of the Platform 
-                after changes constitutes acceptance of the new terms. Material changes will be 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">10. Modifications</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                We reserve the right to modify these terms at any time. Continued use of the Platform
+                after changes constitutes acceptance of the new terms. Material changes will be
                 communicated through the Platform.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">11. Termination</h2>
-              <p className="text-gray-400">
-                We may terminate or suspend access to the Platform at any time, without notice, for 
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">11. Termination</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
+                We may terminate or suspend access to the Platform at any time, without notice, for
                 conduct that we believe violates these terms or is harmful to other users or the Platform.
               </p>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">12. Contact</h2>
-              <p className="text-gray-400">
+              <h2 className="mb-3 text-lg font-semibold text-vault-text">12. Contact</h2>
+              <p className="text-sm leading-relaxed text-vault-muted">
                 For questions about these terms, contact us on X/Twitter at{' '}
-                <a href="https://x.com/clawdvault" className="text-orange-400 hover:text-orange-300">
+                <a href="https://x.com/clawdvault" className="text-vault-accent transition-colors hover:text-vault-accent-hover">
                   @clawdvault
                 </a>.
               </p>
             </section>
           </div>
 
-          <div className="mt-12 pt-8 border-t border-gray-800">
-            <Link 
+          <div className="mt-12 border-t border-white/[0.06] pt-8">
+            <Link
               href="/"
-              className="text-orange-400 hover:text-orange-300 transition"
+              className="inline-flex items-center gap-1.5 text-sm text-vault-accent transition-colors hover:text-vault-accent-hover"
             >
-              ← Back to Home
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
             </Link>
           </div>
         </div>
