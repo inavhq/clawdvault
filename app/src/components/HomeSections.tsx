@@ -260,7 +260,6 @@ const signals = [
   { label: 'Verified Contract', icon: '✓' },
   { label: 'Open Source', icon: '◇' },
   { label: 'On-Chain Settlement', icon: '⬡' },
-  { label: 'Audited', icon: '⊡' },
 ];
 
 export function TrustSignals() {
