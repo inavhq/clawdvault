@@ -134,7 +134,7 @@ export default function WalletButton() {
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/[0.08] bg-vault-surface/95 shadow-2xl backdrop-blur-2xl">
+        <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0d0d14] shadow-2xl shadow-black/50">
           {/* Username Section */}
           <div className="border-b border-white/[0.06] p-4">
             <div className="mb-2 text-xs text-vault-muted">Display Name</div>
