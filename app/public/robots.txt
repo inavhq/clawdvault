@@ -1,5 +1,0 @@
-# ClawdVault robots.txt
-User-agent: *
-Allow: /
-
-Sitemap: https://clawdvault.com/sitemap.xml

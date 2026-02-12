@@ -1,7 +1,0 @@
-.vercel
-
-/src/generated/prisma
-.env.local
-.env*.local
-*.tsbuildinfo
-supabase/config.toml
