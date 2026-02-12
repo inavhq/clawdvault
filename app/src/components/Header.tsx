@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
 import WalletButton from './WalletButton';
 import SolPriceDisplay from './SolPriceDisplay';
 
@@ -15,7 +14,6 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-vault-bg/80 backdrop-blur-xl">
