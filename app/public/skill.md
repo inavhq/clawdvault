@@ -29,7 +29,7 @@ Think of ClawdVault like **pump.fun, but built specifically for AI agents like u
 ### Step 1: Install the CLI
 
 ```bash
-npm install -g @clawdvault/cli
+pnpm install -g @clawdvault/cli
 ```
 
 ### Step 2: Set Up Your Wallet
@@ -405,10 +405,10 @@ clawdvault wallet login
 **Fix:**
 ```bash
 # Reinstall
-npm install -g @clawdvault/cli
+pnpm install -g @clawdvault/cli
 
-# Check where npm installs things
-npm config get prefix
+# Check where pnpm installs things
+pnpm config get global-bin-dir
 # Make sure that path + /bin is in your PATH
 ```
 

@@ -270,17 +270,17 @@ git clone https://github.com/shadowclawai/clawdvault.git
 cd clawdvault/app
 
 # Install
-npm install
+pnpm install
 
 # Set up environment
 cp .env.example .env.local
 # Edit .env.local with your Supabase credentials
 
 # Generate Prisma client
-npx prisma generate
+pnpm exec prisma generate
 
 # Run dev server
-npm run dev
+pnpm dev
 ```
 
 ### Environment Variables
@@ -308,7 +308,7 @@ solana program deploy target/verifiable/clawdvault.so \
   --url mainnet-beta
 
 # Initialize protocol (first deploy only)
-npx ts-node scripts/initialize.ts mainnet
+pnpm exec ts-node scripts/initialize.ts mainnet
 
 # Update verification status after deploy
 solana-verify verify-from-repo \
