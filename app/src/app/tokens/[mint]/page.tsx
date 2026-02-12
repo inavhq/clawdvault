@@ -511,36 +511,8 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
               <ChatAndTrades mint={token.mint} tokenSymbol={token.symbol} trades={trades} onTradesUpdate={fetchTrades} />
             </div>
 
-            {/* Bonding Curve + Holders - Below chat on desktop */}
-            <div className="order-5 hidden lg:col-span-2 lg:flex lg:gap-4">
-              <div className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-vault-text">Bonding Curve</span>
-                  <span className="font-mono text-sm font-bold text-vault-accent">{progressPercent.toFixed(1)}%</span>
-                </div>
-                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-vault-accent transition-all duration-500" style={{ width: `${Math.min(progressPercent, 100)}%` }} />
-                </div>
-                <div className="text-xs">
-                  {token.graduated ? (
-                    <span className="text-vault-green">Graduated to Raydium</span>
-                  ) : (
-                    <span className="text-vault-dim">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex-1">
-                <HolderDistribution
-                  holders={holders}
-                  holdersLoading={holdersLoading}
-                  circulatingSupply={circulatingSupply}
-                  formatNumber={formatNumber}
-                />
-              </div>
-            </div>
-
-            {/* Sidebar: Trade Panel Only (sticky) */}
-            <div className="order-3 lg:sticky lg:top-6 lg:order-none lg:row-span-2 lg:row-start-1 lg:col-start-3 lg:self-start">
+            {/* Sidebar: Trade + Bonding + Holders */}
+            <div className="order-3 flex flex-col gap-4 lg:sticky lg:top-6 lg:order-none lg:row-span-3 lg:row-start-1 lg:col-start-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto dark-scrollbar">
               {/* Trade Panel */}
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-vault-muted">Trade</h3>
@@ -735,6 +707,33 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 </p>
               </div>
 
+              {/* Bonding Curve - Desktop sidebar */}
+              <div className="hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 lg:block">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-vault-text">Bonding Curve</span>
+                  <span className="font-mono text-sm font-bold text-vault-accent">{progressPercent.toFixed(1)}%</span>
+                </div>
+                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-vault-accent transition-all duration-500" style={{ width: `${Math.min(progressPercent, 100)}%` }} />
+                </div>
+                <div className="text-xs">
+                  {token.graduated ? (
+                    <span className="text-vault-green">Graduated to Raydium</span>
+                  ) : (
+                    <span className="text-vault-dim">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Holders - Desktop sidebar */}
+              <div className="hidden lg:block">
+                <HolderDistribution
+                  holders={holders}
+                  holdersLoading={holdersLoading}
+                  circulatingSupply={circulatingSupply}
+                  formatNumber={formatNumber}
+                />
+              </div>
             </div>
           </div>
         </div>
