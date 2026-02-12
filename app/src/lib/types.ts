@@ -25,6 +25,7 @@ type TokenComputed = {
   trades_24h?: number;
   holders?: number;
   price_change_24h?: number | null;
+  last_trade_at?: string;
 };
 
 /**

@@ -23,10 +23,11 @@ function calculatePrice(virtualSol: number, virtualTokens: number): number {
 // Convert Prisma token to API token
 function toApiToken(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token
-  token: any, 
-  stats?: { volume24h?: number; trades24h?: number; holders?: number }, 
+  token: any,
+  stats?: { volume24h?: number; trades24h?: number; holders?: number },
   lastCandle?: { closeUsd?: number | null; close?: number | null } | null,
-  priceChange24h?: number | null
+  priceChange24h?: number | null,
+  lastTradeAt?: string
 ): Token {
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
@@ -66,6 +67,7 @@ function toApiToken(
     trades_24h: stats?.trades24h || 0,
     holders: stats?.holders || 1,
     price_change_24h: priceChange24h ?? null,
+    last_trade_at: lastTradeAt,
   };
 }
 
@@ -141,6 +143,15 @@ export async function getAllTokens(options?: {
   });
   const candle24hMap = new Map(candles24hAgo.map(c => [c.tokenMint, Number(c.closeUsd) || 0]));
 
+  // Fetch last trade timestamp for each token (batch query)
+  const lastTrades = await db().trade.findMany({
+    where: { tokenMint: { in: tokenMints } },
+    orderBy: { createdAt: 'desc' },
+    distinct: ['tokenMint'],
+    select: { tokenMint: true, createdAt: true },
+  });
+  const lastTradeMap = new Map(lastTrades.map(t => [t.tokenMint, t.createdAt.toISOString()]));
+
   const tokensWithStats = await Promise.all(
     tokens.map(async (token) => {
       const [volumeResult, tradeCount, holderCount] = await Promise.all([
@@ -168,7 +179,7 @@ export async function getAllTokens(options?: {
         volume24h: Number(volumeResult._sum.solAmount || 0),
         trades24h: tradeCount,
         holders: holderCount.length || 1,
-      }, lastCandle, priceChange24h);
+      }, lastCandle, priceChange24h, lastTradeMap.get(token.mint));
     })
   );
 
@@ -187,7 +198,7 @@ export async function getToken(mint: string): Promise<Token | null> {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [volumeResult, tradeCount, holderCount, lastCandle, candle24hAgo] = await Promise.all([
+  const [volumeResult, tradeCount, holderCount, lastCandle, candle24hAgo, lastTrade] = await Promise.all([
     db().trade.aggregate({
       where: { tokenMint: mint, createdAt: { gte: dayAgo } },
       _sum: { solAmount: true },
@@ -213,6 +224,11 @@ export async function getToken(mint: string): Promise<Token | null> {
       orderBy: { bucketTime: 'desc' },
       select: { closeUsd: true },
     }),
+    db().trade.findFirst({
+      where: { tokenMint: mint },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    }),
   ]);
 
   // Use last candle for current price (includes heartbeat candles for USD continuity)
@@ -232,7 +248,7 @@ export async function getToken(mint: string): Promise<Token | null> {
     volume24h: Number(volumeResult._sum.solAmount || 0),
     trades24h: tradeCount,
     holders: holderCount.length || 1,
-  }, lastCandleData, priceChange24h);
+  }, lastCandleData, priceChange24h, lastTrade?.createdAt.toISOString());
 }
 
 // Update token fields
