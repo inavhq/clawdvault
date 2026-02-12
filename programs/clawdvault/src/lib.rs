@@ -38,7 +38,7 @@ pub const INITIAL_VIRTUAL_SOL: u64 = 30_000_000_000; // 30 SOL in lamports
 /// Initial virtual token reserves (matches total supply)
 pub const INITIAL_VIRTUAL_TOKENS: u64 = TOTAL_SUPPLY;
 
-/// Graduation threshold in lamports (~120 SOL for ~$69K market cap)
+/// Graduation threshold in lamports (~120 SOL)
 pub const GRADUATION_THRESHOLD: u64 = 120_000_000_000; // 120 SOL
 
 /// Protocol fee in basis points (0.5%)

@@ -1,7 +1,7 @@
 // In-memory store for development/testing
 // TODO: Replace with Supabase
 
-import { Token, Trade, Agent, INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, calculatePrice, calculateMarketCap } from './types';
+import { Token, Trade, Agent, INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS, GRADUATION_THRESHOLD_SOL, calculatePrice, calculateMarketCap } from './types';
 
 // In-memory data store (for testing only - production uses database)
 const tokens: Map<string, Token> = new Map();
@@ -160,7 +160,7 @@ export function executeTrade(
   token.trades_24h = (token.trades_24h || 0) + 1;
   
   // Check graduation
-  if (token.real_sol_reserves >= 85) {  // ~$69K at $800 SOL
+  if (token.real_sol_reserves >= GRADUATION_THRESHOLD_SOL) {
     token.graduated = true;
   }
   

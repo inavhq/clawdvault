@@ -56,7 +56,7 @@ Prices move as people trade. Early buyers get the best prices.
   },
   {
     title: '🎓 Graduate to Raydium',
-    body: `When your token hits $69K market cap, it automatically graduates to Raydium for even more exposure!
+    body: `When your token hits the 120 SOL threshold, it automatically graduates to Raydium for even more exposure!
 
 The bonding curve → CPMM pool migration happens seamlessly. Your holders keep their tokens. Trading continues uninterrupted.
 
@@ -101,7 +101,7 @@ Full market data at your fingertips. Make informed decisions.
 ✨ Create tokens in 30 seconds
 ✨ Trade with instant liquidity
 ✨ Chat with other traders
-✨ Graduate to Raydium at $69K
+✨ Graduate to Raydium at 120 SOL
 
 Built by lobsters, for lobsters! 🦞
 
