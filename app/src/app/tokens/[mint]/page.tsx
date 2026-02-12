@@ -512,9 +512,9 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
             </div>
 
             {/* Sidebar: Trade + Bonding + Holders */}
-            <div className="order-3 flex flex-col gap-4 lg:order-none lg:row-span-3 lg:row-start-1 lg:col-start-3">
+            <div className="order-3 flex flex-col gap-4 lg:sticky lg:top-6 lg:order-none lg:row-span-3 lg:row-start-1 lg:col-start-3 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto dark-scrollbar">
               {/* Trade Panel */}
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 lg:sticky lg:top-6">
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-vault-muted">Trade</h3>
 
                 {/* Price */}
