@@ -40,7 +40,7 @@ export default function ExplorerLink({
       href={getExplorerUrl(address, type)}
       target="_blank"
       rel="noopener noreferrer"
-      className={`text-cyan-400 hover:text-cyan-300 hover:underline ${className}`}
+      className={`text-vault-accent hover:text-vault-accent-hover hover:underline ${className}`}
       title={address}
     >
       {displayText}

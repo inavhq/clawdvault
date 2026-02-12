@@ -312,37 +312,37 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col" style={{ height: '480px' }}>
+    <div className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden" style={{ height: '480px' }}>
       {/* Tabs Header */}
-      <div className="bg-gray-800/50 border-b border-gray-800">
+      <div className="border-b border-white/[0.04]">
         <div className="flex">
           <button
             onClick={() => setActiveTab('thread')}
             className={`flex-1 px-4 py-3 text-sm font-medium transition border-b-2 ${
               activeTab === 'thread'
-                ? 'text-orange-400 border-orange-500 bg-gray-800/30'
-                : 'text-gray-400 border-transparent hover:text-white'
+                ? 'text-vault-accent border-vault-accent'
+                : 'text-vault-muted border-transparent hover:text-vault-text'
             }`}
           >
-            💬 Thread
-            <span className="ml-1 text-xs text-gray-500">({messages.length})</span>
+            Thread
+            <span className="ml-1 text-xs text-vault-dim">({messages.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('trades')}
             className={`flex-1 px-4 py-3 text-sm font-medium transition border-b-2 ${
               activeTab === 'trades'
-                ? 'text-orange-400 border-orange-500 bg-gray-800/30'
-                : 'text-gray-400 border-transparent hover:text-white'
+                ? 'text-vault-accent border-vault-accent'
+                : 'text-vault-muted border-transparent hover:text-vault-text'
             }`}
           >
-            📊 Trades
-            <span className="ml-1 text-xs text-gray-500">({trades.length})</span>
+            Trades
+            <span className="ml-1 text-xs text-vault-dim">({trades.length})</span>
           </button>
         </div>
         
-        {/* Username edit - only show on thread tab when connected */}
+        {/* Username edit */}
         {activeTab === 'thread' && connected && publicKey && (
-          <div className="px-4 py-2 border-t border-gray-700/50 flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-white/[0.04] px-4 py-2">
             {editingUsername ? (
               <div className="flex items-center gap-1">
                 <input
@@ -351,35 +351,21 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="username"
                   maxLength={20}
-                  className="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:border-orange-500 focus:outline-none"
+                  className="w-24 rounded border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-xs text-vault-text outline-none focus:border-vault-accent/40"
                 />
-                <button
-                  onClick={saveUsername}
-                  disabled={savingUsername}
-                  className="text-green-400 hover:text-green-300 text-xs"
-                >
+                <button onClick={saveUsername} disabled={savingUsername} className="text-xs text-vault-green hover:brightness-110">
                   {savingUsername ? '...' : '✓'}
                 </button>
-                <button
-                  onClick={() => {
-                    setEditingUsername(false);
-                    setNewUsername(profile?.username || '');
-                  }}
-                  className="text-gray-400 hover:text-gray-300 text-xs"
-                >
+                <button onClick={() => { setEditingUsername(false); setNewUsername(profile?.username || ''); }} className="text-xs text-vault-muted hover:text-vault-text">
                   ✕
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => setEditingUsername(true)}
-                className="text-xs text-orange-400 hover:text-orange-300 transition"
-                title="Edit username"
-              >
+              <button onClick={() => setEditingUsername(true)} className="text-xs text-vault-accent transition-colors hover:text-vault-accent-hover" title="Edit username">
                 {profile?.username || shortenAddress(publicKey)}
               </button>
             )}
-            <span className="text-green-400 text-xs">● Connected</span>
+            <span className="text-xs text-vault-green">Connected</span>
           </div>
         )}
       </div>
@@ -387,133 +373,78 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
       {/* Thread Content */}
       {activeTab === 'thread' && (
         <>
-          <div 
-            ref={chatContainerRef}
-            className="flex-1 min-h-0 overflow-y-auto dark-scrollbar flex flex-col-reverse"
-          >
+          <div ref={chatContainerRef} className="flex flex-1 flex-col-reverse overflow-y-auto min-h-0 dark-scrollbar">
             {loading ? (
-              <div className="flex items-center justify-center py-20 text-gray-500">
-                <div className="animate-spin w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full" />
+              <div className="flex items-center justify-center py-20">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-vault-accent border-t-transparent" />
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                <div className="text-4xl mb-2">🦞</div>
-                <div>No messages yet</div>
-                <div className="text-sm">{connected ? 'Be the first to chat!' : 'Connect wallet to chat'}</div>
+              <div className="flex flex-col items-center justify-center py-20 text-vault-dim">
+                <span className="text-sm">No messages yet</span>
+                <span className="text-xs">{connected ? 'Be the first to chat!' : 'Connect wallet to chat'}</span>
               </div>
             ) : (
               messages.map((msg) => {
                 const hasReactions = Object.keys(msg.reactions).length > 0;
                 return (
-                  <div key={msg.id} className="group px-4 py-1 mb-1 last:mb-0">
+                  <div key={msg.id} className="group mb-1 px-4 py-1 last:mb-0">
                     <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span 
-                            className={`font-medium text-sm ${
-                              msg.username ? 'text-orange-400' : 'text-gray-400'
-                            }`}
-                            title={msg.sender}
-                          >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className={`text-sm font-medium ${msg.username ? 'text-vault-accent' : 'text-vault-muted'}`} title={msg.sender}>
                             {getDisplayName(msg)}
                           </span>
-                          <span className="text-gray-600 text-xs">
-                            {formatTimeAgo(new Date(msg.createdAt))}
-                          </span>
+                          <span className="text-xs text-vault-dim">{formatTimeAgo(new Date(msg.createdAt))}</span>
                         </div>
-                        
-                        {/* Message text with + button inline */}
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <p className="text-gray-300 text-sm break-words">{msg.message}</p>
-                          
-                          {/* + button inline when no reactions */}
+                        <div className="flex flex-wrap items-center gap-1">
+                          <p className="break-words text-sm text-vault-text">{msg.message}</p>
                           {!hasReactions && connected && (
                             <div className="relative inline-block">
                               <button
-                                className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-xs text-gray-400 hover:text-white transition"
-                                onClick={(e) => {
-                                  const picker = e.currentTarget.nextElementSibling;
-                                  picker?.classList.toggle('hidden');
-                                }}
-                              >
-                                +
-                              </button>
-                              <div className="hidden absolute left-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
+                                className="flex h-5 w-5 items-center justify-center text-xs text-vault-dim opacity-0 transition hover:text-vault-text group-hover:opacity-100"
+                                onClick={(e) => { e.currentTarget.nextElementSibling?.classList.toggle('hidden'); }}
+                              >+</button>
+                              <div className="absolute bottom-full left-0 z-10 mb-1 hidden flex gap-1 rounded-lg border border-white/[0.06] bg-vault-bg p-1 shadow-lg">
                                 {EMOJI_OPTIONS.map(emoji => {
                                   const isSelected = getUserReaction(msg) === emoji;
                                   return (
-                                    <button
-                                      key={emoji}
-                                      onClick={(e) => {
-                                        toggleReaction(msg.id, emoji);
-                                        e.currentTarget.parentElement?.classList.add('hidden');
-                                      }}
-                                      className={`p-1.5 rounded transition ${
-                                        isSelected 
-                                          ? 'bg-orange-500/30 ring-1 ring-orange-500' 
-                                          : 'hover:bg-gray-700'
-                                      }`}
+                                    <button key={emoji} onClick={(e) => { toggleReaction(msg.id, emoji); e.currentTarget.parentElement?.classList.add('hidden'); }}
+                                      className={`rounded p-1.5 transition ${isSelected ? 'bg-vault-accent/20 ring-1 ring-vault-accent' : 'hover:bg-white/[0.06]'}`}
                                       title={isSelected ? 'Click to remove' : 'Click to react'}
-                                    >
-                                      {emoji}
-                                    </button>
+                                    >{emoji}</button>
                                   );
                                 })}
                               </div>
                             </div>
                           )}
                         </div>
-                        
-                        {/* Reactions row - only when reactions exist */}
                         {hasReactions && (
-                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
                             {Object.entries(msg.reactions).map(([emoji, data]) => (
-                              <button
-                                key={emoji}
-                                onClick={() => toggleReaction(msg.id, emoji)}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition ${
+                              <button key={emoji} onClick={() => toggleReaction(msg.id, emoji)}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
                                   connected && publicKey && data.wallets.includes(publicKey)
-                                    ? 'bg-orange-500/30 border border-orange-500/50 text-orange-300'
-                                    : 'bg-gray-700/50 hover:bg-gray-700 text-gray-400'
+                                    ? 'border border-vault-accent/30 bg-vault-accent/10 text-vault-accent'
+                                    : 'bg-white/[0.04] text-vault-muted hover:bg-white/[0.06]'
                                 }`}
                                 title={`${data.count} reaction${data.count !== 1 ? 's' : ''}`}
                               >
-                                <span>{emoji}</span>
-                                <span>{data.count}</span>
+                                <span>{emoji}</span><span>{data.count}</span>
                               </button>
                             ))}
-                            
-                            {/* + button at end of reactions */}
                             {connected && (
                               <div className="relative inline-block">
-                                <button
-                                  className="w-5 h-5 flex items-center justify-center text-xs text-gray-400 hover:text-white transition"
-                                  onClick={(e) => {
-                                    const picker = e.currentTarget.nextElementSibling;
-                                    picker?.classList.toggle('hidden');
-                                  }}
-                                >
-                                  +
-                                </button>
-                                <div className="hidden absolute left-0 bottom-full mb-1 bg-gray-800 border border-gray-700 rounded-lg p-1 flex gap-1 z-10 shadow-lg">
+                                <button className="flex h-5 w-5 items-center justify-center text-xs text-vault-dim transition hover:text-vault-text"
+                                  onClick={(e) => { e.currentTarget.nextElementSibling?.classList.toggle('hidden'); }}
+                                >+</button>
+                                <div className="absolute bottom-full left-0 z-10 mb-1 hidden flex gap-1 rounded-lg border border-white/[0.06] bg-vault-bg p-1 shadow-lg">
                                   {EMOJI_OPTIONS.map(emoji => {
                                     const isSelected = getUserReaction(msg) === emoji;
                                     return (
-                                      <button
-                                        key={emoji}
-                                        onClick={(e) => {
-                                          toggleReaction(msg.id, emoji);
-                                          e.currentTarget.parentElement?.classList.add('hidden');
-                                        }}
-                                        className={`p-1.5 rounded transition ${
-                                          isSelected 
-                                            ? 'bg-orange-500/30 ring-1 ring-orange-500' 
-                                            : 'hover:bg-gray-700'
-                                        }`}
+                                      <button key={emoji} onClick={(e) => { toggleReaction(msg.id, emoji); e.currentTarget.parentElement?.classList.add('hidden'); }}
+                                        className={`rounded p-1.5 transition ${isSelected ? 'bg-vault-accent/20 ring-1 ring-vault-accent' : 'hover:bg-white/[0.06]'}`}
                                         title={isSelected ? 'Click to remove' : 'Click to react'}
-                                      >
-                                        {emoji}
-                                      </button>
+                                      >{emoji}</button>
                                     );
                                   })}
                                 </div>
@@ -530,10 +461,8 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
           </div>
 
           {/* Chat Input */}
-          <div className="p-3 border-t border-gray-800">
-            {error && (
-              <div className="text-red-400 text-xs mb-2">{error}</div>
-            )}
+          <div className="border-t border-white/[0.04] p-3">
+            {error && <div className="mb-2 text-xs text-vault-red">{error}</div>}
             <form onSubmit={sendMessage}>
               <div className="flex gap-2">
                 <input
@@ -543,31 +472,19 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
                   placeholder={connected ? "Type a message..." : "Connect wallet to chat..."}
                   maxLength={500}
                   disabled={!connected}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:border-orange-500 focus:outline-none disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40 disabled:opacity-50"
                 />
                 {connected ? (
-                  <button
-                    type="submit"
-                    disabled={!newMessage.trim() || sending}
-                    className="bg-orange-500 hover:bg-orange-400 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition"
-                  >
-                    {sending ? '...' : 'Send'}
-                  </button>
+                  <button type="submit" disabled={!newMessage.trim() || sending}
+                    className="rounded-lg bg-vault-accent px-4 py-2 text-sm font-medium text-vault-bg transition-colors hover:bg-vault-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  >{sending ? '...' : 'Send'}</button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={connect}
-                    className="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap"
-                  >
-                    Connect
-                  </button>
+                  <button type="button" onClick={connect}
+                    className="whitespace-nowrap rounded-lg bg-vault-accent px-4 py-2 text-sm font-medium text-vault-bg transition-colors hover:bg-vault-accent-hover"
+                  >Connect</button>
                 )}
               </div>
-              {connected && (
-                <div className="text-xs text-gray-500 mt-2">
-                  {newMessage.length}/500
-                </div>
-              )}
+              {connected && <div className="mt-2 text-xs text-vault-dim">{newMessage.length}/500</div>}
             </form>
           </div>
         </>
@@ -575,92 +492,55 @@ export default function ChatAndTrades({ mint, tokenSymbol, trades, onTradesUpdat
 
       {/* Trades Content */}
       {activeTab === 'trades' && (
-        <div 
-          ref={tradesContainerRef}
-          className="flex-1 min-h-0 overflow-y-auto dark-scrollbar"
-        >
+        <div ref={tradesContainerRef} className="flex-1 min-h-0 overflow-y-auto dark-scrollbar">
           {trades.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-              <div className="text-4xl mb-2">📊</div>
-              <div>No trades yet</div>
-              <div className="text-sm">Be the first to trade!</div>
+            <div className="flex flex-col items-center justify-center py-20 text-vault-dim">
+              <span className="text-sm">No trades yet</span>
+              <span className="text-xs">Be the first to trade!</span>
             </div>
           ) : (
-            <div className="divide-y divide-gray-800/50">
+            <div className="divide-y divide-white/[0.04]">
               {trades.map((trade) => (
-                <div 
-                  key={trade.id} 
-                  className={`flex items-center gap-3 px-4 py-3 transition ${
-                    trade.type === 'buy' 
-                      ? 'hover:bg-green-900/10' 
-                      : 'hover:bg-red-900/10'
-                  }`}
-                >
-                  {/* Trade Type Icon */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    trade.type === 'buy' ? 'bg-green-500/20' : 'bg-red-500/20'
-                  }`}>
-                    <span className={`text-lg ${trade.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                      {trade.type === 'buy' ? '↗' : '↘'}
+                <div key={trade.id} className={`flex items-center gap-3 px-4 py-3 transition ${trade.type === 'buy' ? 'hover:bg-vault-green/5' : 'hover:bg-vault-red/5'}`}>
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${trade.type === 'buy' ? 'bg-vault-green/10' : 'bg-vault-red/10'}`}>
+                    <span className={`text-sm ${trade.type === 'buy' ? 'text-vault-green' : 'text-vault-red'}`}>
+                      {trade.type === 'buy' ? '\u2197' : '\u2198'}
                     </span>
                   </div>
-                  
-                  {/* Trade Details */}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <a 
-                        href={`https://solscan.io/account/${trade.trader}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-gray-300 hover:text-cyan-400 font-mono text-sm hover:underline"
-                      >
-                        {shortenAddress(trade.trader)}
-                      </a>
-                      <span className={`text-xs font-medium ${
-                        trade.type === 'buy' ? 'text-green-400' : 'text-red-400'
-                      }`}>
+                      <a href={`https://solscan.io/account/${trade.trader}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
+                        target="_blank" rel="noopener noreferrer" className="font-mono text-xs text-vault-muted hover:text-vault-accent hover:underline"
+                      >{shortenAddress(trade.trader)}</a>
+                      <span className={`text-xs font-medium ${trade.type === 'buy' ? 'text-vault-green' : 'text-vault-red'}`}>
                         {trade.type === 'buy' ? 'bought' : 'sold'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-white font-mono text-sm font-medium">
-                        {formatNumber(trade.token_amount)} {tokenSymbol}
-                      </span>
-                      <span className="text-gray-500 text-xs">
-                        for
-                      </span>
-                      <span className={`font-mono text-sm ${
-                        trade.type === 'buy' ? 'text-green-400' : 'text-red-400'
-                      }`}>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-medium text-vault-text">{formatNumber(trade.token_amount)} {tokenSymbol}</span>
+                      <span className="text-[10px] text-vault-dim">for</span>
+                      <span className={`font-mono text-sm ${trade.type === 'buy' ? 'text-vault-green' : 'text-vault-red'}`}>
                         {(trade.sol_amount || 0).toFixed(4)} SOL
                       </span>
                       {trade.sol_price_usd && (
-                        <span className="text-gray-400 text-xs">
+                        <span className="text-[10px] text-vault-dim">
                           (${(trade.sol_amount * trade.sol_price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })})
                         </span>
                       )}
                     </div>
                     {trade.price_usd && (
-                      <div className="text-gray-500 text-xs mt-0.5">
+                      <div className="mt-0.5 text-[10px] text-vault-dim">
                         @ ${trade.price_usd.toLocaleString(undefined, { maximumFractionDigits: 6 })}/token
                       </div>
                     )}
                   </div>
-                  
-                  {/* Timestamp & Tx Link */}
-                  <div className="text-right flex-shrink-0 flex items-center gap-2">
-                    <span className="text-gray-500 text-xs">
-                      {formatTimeAgo(new Date(trade.created_at))}
-                    </span>
+                  <div className="flex shrink-0 items-center gap-2 text-right">
+                    <span className="text-[10px] text-vault-dim">{formatTimeAgo(new Date(trade.created_at))}</span>
                     {trade.signature && (
-                      <a
-                        href={`https://solscan.io/tx/${trade.signature}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-gray-500 hover:text-cyan-400 transition"
-                        title="View transaction"
+                      <a href={`https://solscan.io/tx/${trade.signature}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
+                        target="_blank" rel="noopener noreferrer" className="text-vault-dim transition-colors hover:text-vault-accent" title="View transaction"
                       >
-                        🔗
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                       </a>
                     )}
                   </div>

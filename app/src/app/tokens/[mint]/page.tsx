@@ -46,110 +46,67 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   const [candle24hAgo, setCandle24hAgo] = useState<{ closeUsd: number } | null>(null);
   const [lastCandle, setLastCandle] = useState<{ closeUsd: number; close: number } | null>(null);
 
-  // Calculate 24h price change from streamed candles (frontend calculation)
   const priceChange24h = useMemo(() => {
     if (lastCandle?.closeUsd && candle24hAgo?.closeUsd && candle24hAgo.closeUsd > 0) {
       const change = ((lastCandle.closeUsd - candle24hAgo.closeUsd) / candle24hAgo.closeUsd) * 100;
       return Number(change.toFixed(2));
     }
-    // Fallback to API value if candles not available
     return token?.price_change_24h ?? null;
   }, [lastCandle, candle24hAgo, token?.price_change_24h]);
 
-  // Effective market cap: on-chain initially, then candles after first update
-  // Candles include heartbeat candles, so they stay updated with current SOL price
-
-  // Current price from streamed last candle (realtime updates)
   const currentPrice = useMemo(() => {
-    // Prefer streamed last candle for realtime updates
     if (lastCandle) {
-      return {
-        sol: lastCandle.close,
-        usd: lastCandle.closeUsd,
-      };
+      return { sol: lastCandle.close, usd: lastCandle.closeUsd };
     }
-    // Fallback to API data
     return {
       sol: token?.price_sol ?? onChainStats?.price ?? 0,
       usd: token?.price_usd ?? onChainStats?.priceUsd ?? null,
     };
   }, [lastCandle, token, onChainStats]);
 
-  // Fetch token holdings for connected wallet (client-side RPC)
   const fetchTokenBalance = useCallback(async () => {
-    if (!connected || !publicKey || !token) {
-      setTokenBalance(0);
-      return;
-    }
-
+    if (!connected || !publicKey || !token) { setTokenBalance(0); return; }
     try {
-      // Use client-side RPC to avoid rate limiting
       const balance = await fetchBalanceClient(mint, publicKey);
       setTokenBalance(balance);
     } catch (err) {
       console.error('Failed to fetch token balance:', err);
-      // Fallback to API
       try {
         const res = await fetch(`/api/balance?wallet=${publicKey}&mint=${mint}`);
         const data = await res.json();
-        if (data.success) {
-          setTokenBalance(data.tokenBalance || 0);
-        }
-      } catch (_e) {
-        setTokenBalance(0);
-      }
+        if (data.success) setTokenBalance(data.tokenBalance || 0);
+      } catch (_e) { setTokenBalance(0); }
     }
   }, [connected, publicKey, token, mint]);
 
-  // Refresh both SOL and token balances after trade
   const refreshBalancesAfterTrade = useCallback(async () => {
-    // Refresh SOL balance immediately
     await refreshBalance();
-    
-    // Wait a bit for blockchain to settle, then refresh token balance
-    // First attempt after 500ms
     setTimeout(async () => {
       await fetchTokenBalance();
-      
-      // Second attempt after 2 seconds to ensure finality
-      setTimeout(async () => {
-        await fetchTokenBalance();
-      }, 1500);
+      setTimeout(async () => { await fetchTokenBalance(); }, 1500);
     }, 500);
   }, [refreshBalance, fetchTokenBalance]);
 
   const fetchHolders = useCallback(async (creator?: string) => {
     setHoldersLoading(true);
     try {
-      // Use API endpoint (client-side RPC blocked by Solana Labs CORS)
-      const url = creator 
-        ? `/api/holders?mint=${mint}&creator=${creator}`
-        : `/api/holders?mint=${mint}`;
+      const url = creator ? `/api/holders?mint=${mint}&creator=${creator}` : `/api/holders?mint=${mint}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setHolders(data.holders || []);
         setCirculatingSupply(data.circulatingSupply || 0);
       }
-    } catch (err) {
-      console.warn('Holders fetch failed:', err);
-    } finally {
-      setHoldersLoading(false);
-    }
+    } catch (err) { console.warn('Holders fetch failed:', err); }
+    finally { setHoldersLoading(false); }
   }, [mint]);
 
   useEffect(() => {
-    fetchToken();
-    fetchNetworkMode();
-    fetchOnChainStats();
-    fetchLatestCandle(); // Get initial last candle
-    fetch24hAgoCandle(); // Get initial 24h ago candle
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when mint changes
+    fetchToken(); fetchNetworkMode(); fetchOnChainStats(); fetchLatestCandle(); fetch24hAgoCandle();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mint]);
 
-  // Subscribe to realtime token stats updates
   useTokenStats(mint, (updatedToken) => {
-    // Update token state with new reserves/stats
     setToken(prev => prev ? {
       ...prev,
       virtual_sol_reserves: updatedToken.virtual_sol_reserves,
@@ -159,41 +116,27 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       graduated: updatedToken.graduated,
       volume_24h: updatedToken.volume_24h,
     } : null);
-    // Also refresh on-chain stats
     fetchOnChainStats();
   });
 
-  // Subscribe to realtime candle updates for last candle
-  useCandles(mint, () => {
-    // Refetch latest candle when new candle is created
-    fetchLatestCandle();
-  });
+  useCandles(mint, () => { fetchLatestCandle(); });
 
-  // Poll for 24h ago candle every minute (last candle comes from realtime)
   useEffect(() => {
     fetch24hAgoCandle();
     const interval = setInterval(fetch24hAgoCandle, 60 * 1000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when mint changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mint]);
 
-  // Refetch holders when token loads (to pass creator for labeling)
   useEffect(() => {
-    if (token?.mint) {
-      fetchHolders(token.creator || undefined);
-    }
+    if (token?.mint) fetchHolders(token.creator || undefined);
   }, [token?.mint, token?.creator, fetchHolders]);
 
-  // Fetch creator's username from user_profiles
   useEffect(() => {
     if (token?.creator) {
       fetch(`/api/user/profile?wallet=${token.creator}`)
         .then(res => res.json())
-        .then(data => {
-          if (data.username) {
-            setCreatorUsername(data.username);
-          }
-        })
+        .then(data => { if (data.username) setCreatorUsername(data.username); })
         .catch(() => {});
     }
   }, [token?.creator]);
@@ -204,53 +147,32 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       const data = await res.json();
       if (data.success && data.onChain) {
         setOnChainStats({
-          marketCap: data.onChain.marketCap,
-          marketCapUsd: data.onChain.marketCapUsd,
-          price: data.onChain.price,
-          priceUsd: data.onChain.priceUsd,
-          solPriceUsd: data.onChain.solPriceUsd,
-          bondingCurveSol: data.onChain.bondingCurveSol,
+          marketCap: data.onChain.marketCap, marketCapUsd: data.onChain.marketCapUsd,
+          price: data.onChain.price, priceUsd: data.onChain.priceUsd,
+          solPriceUsd: data.onChain.solPriceUsd, bondingCurveSol: data.onChain.bondingCurveSol,
         });
       }
-    } catch (_err) {
-      console.warn('On-chain stats fetch failed');
-    }
+    } catch (_err) { console.warn('On-chain stats fetch failed'); }
   };
 
-  // Fetch 24h ago candle for change calculation (last candle comes from realtime)
   const fetch24hAgoCandle = async () => {
     try {
-      const now = new Date();
-      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-      // Fetch most recent candle at or before 24h ago
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const agoRes = await fetch(`/api/candles?mint=${mint}&interval=1m&limit=1&currency=usd&to=${oneDayAgo.toISOString()}`);
       const agoData = await agoRes.json();
-      console.log('[TokenPage] Fetched 24h ago candle:', agoData.candles?.[0]);
-      if (agoData.candles?.length > 0) {
-        setCandle24hAgo({ closeUsd: agoData.candles[0].close });
-      }
-    } catch (err) {
-      console.warn('Failed to fetch 24h ago candle:', err);
-    }
+      if (agoData.candles?.length > 0) setCandle24hAgo({ closeUsd: agoData.candles[0].close });
+    } catch (err) { console.warn('Failed to fetch 24h ago candle:', err); }
   };
 
-  // Fetch latest candle on mount (before realtime kicks in)
   const fetchLatestCandle = async () => {
     try {
       const res = await fetch(`/api/candles?mint=${mint}&interval=1m&limit=1&currency=usd`);
       const data = await res.json();
       if (data.candles?.length > 0) {
         const candle = data.candles[0];
-        setLastCandle({
-          closeUsd: candle.close,
-          close: candle.closeSol || candle.close
-        });
-        console.log('[TokenPage] Latest candle fetched:', { closeUsd: candle.close, close: candle.closeSol || candle.close });
+        setLastCandle({ closeUsd: candle.close, close: candle.closeSol || candle.close });
       }
-    } catch (err) {
-      console.warn('Failed to fetch latest candle:', err);
-    }
+    } catch (err) { console.warn('Failed to fetch latest candle:', err); }
   };
 
   const fetchNetworkMode = async () => {
@@ -258,307 +180,138 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       const res = await fetch('/api/network');
       const data = await res.json();
       setAnchorAvailable(data.anchorProgram === true);
-    } catch (_err) {
-      console.warn('Network check failed');
-      setAnchorAvailable(false);
-    }
+    } catch (_err) { setAnchorAvailable(false); }
   };
 
-
   useEffect(() => {
-    if (token && connected) {
-      fetchTokenBalance();
-    }
+    if (token && connected) fetchTokenBalance();
   }, [token, connected, fetchTokenBalance]);
 
   const fetchToken = async () => {
     try {
       const res = await fetch(`/api/tokens/${mint}`);
       const data = await res.json();
-      if (data.token) {
-        setToken(data.token);
-        setTrades(data.trades || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch token:', err);
-    } finally {
-      setLoading(false);
-    }
+      if (data.token) { setToken(data.token); setTrades(data.trades || []); }
+    } catch (err) { console.error('Failed to fetch token:', err); }
+    finally { setLoading(false); }
   };
 
-  // Standalone trades fetch for polling
   const fetchTrades = useCallback(async () => {
     try {
       const res = await fetch(`/api/trades?mint=${mint}&limit=50`);
       const data = await res.json();
-      if (data.success && data.trades) {
-        setTrades(data.trades);
-      }
-    } catch (_err) {
-      console.warn('Trades fetch failed');
-    }
+      if (data.success && data.trades) setTrades(data.trades);
+    } catch (_err) { console.warn('Trades fetch failed'); }
   }, [mint]);
 
-  // Update page title when token loads
   useEffect(() => {
-    if (token) {
-      document.title = `$${token.symbol} - ${token.name} | ClawdVault`;
-    }
-    return () => {
-      document.title = 'ClawdVault 🦞 | Token Launchpad for AI Agents';
-    };
+    if (token) document.title = `$${token.symbol} - ${token.name} | ClawdVault`;
+    return () => { document.title = 'ClawdVault | Token Launchpad for AI Agents'; };
   }, [token]);
 
-  // Calculate estimated output
   const estimatedOutput = useMemo(() => {
     if (!token || !amount || parseFloat(amount) <= 0) return null;
     const inputAmount = parseFloat(amount);
-    
     if (tradeType === 'buy') {
       const solAfterFee = inputAmount * 0.99;
       const k = token.virtual_sol_reserves * token.virtual_token_reserves;
       const newSolReserves = token.virtual_sol_reserves + solAfterFee;
       const newTokenReserves = k / newSolReserves;
-      const tokensOut = token.virtual_token_reserves - newTokenReserves;
-      return { tokens: tokensOut, sol: null };
+      return { tokens: token.virtual_token_reserves - newTokenReserves, sol: null };
     } else {
       const tokensAfterFee = inputAmount * 0.99;
       const k = token.virtual_sol_reserves * token.virtual_token_reserves;
       const newTokenReserves = token.virtual_token_reserves + tokensAfterFee;
       const newSolReserves = k / newTokenReserves;
       const solOutRaw = token.virtual_sol_reserves - newSolReserves;
-      // Cap at real_sol_reserves (can't withdraw more than was deposited)
       const solOut = Math.min(solOutRaw, token.real_sol_reserves || 0);
-      const cappedByLiquidity = solOutRaw > (token.real_sol_reserves || 0);
-      return { tokens: null, sol: solOut, cappedByLiquidity };
+      return { tokens: null, sol: solOut, cappedByLiquidity: solOutRaw > (token.real_sol_reserves || 0) };
     }
   }, [token, amount, tradeType]);
 
-  // Calculate price impact using bonding curve formula
   const priceImpact = useMemo(() => {
     if (!token || !amount || parseFloat(amount) <= 0) return 0;
     const inputAmount = parseFloat(amount);
-
-    // Spot price from virtual reserves
     const spotPrice = token.virtual_sol_reserves / token.virtual_token_reserves;
-
     if (tradeType === 'buy') {
-      // For buys: calculate average price paid per token
       const solAfterFee = inputAmount * 0.99;
       const tokensOut = estimatedOutput?.tokens || 0;
       if (tokensOut <= 0) return 0;
-      
-      const avgPrice = solAfterFee / tokensOut;
-      // Price impact is how much higher avg price is vs spot price
-      return ((avgPrice - spotPrice) / spotPrice) * 100;
+      return ((solAfterFee / tokensOut - spotPrice) / spotPrice) * 100;
     } else {
-      // For sells: calculate average price received per token
       const tokensAfterFee = inputAmount * 0.99;
       const solOut = estimatedOutput?.sol || 0;
       if (solOut <= 0 || tokensAfterFee <= 0) return 0;
-      
-      const avgPrice = solOut / tokensAfterFee;
-      // Price impact is how much lower avg price is vs spot price
-      return ((spotPrice - avgPrice) / spotPrice) * 100;
+      return ((spotPrice - solOut / tokensAfterFee) / spotPrice) * 100;
     }
   }, [token, amount, tradeType, estimatedOutput]);
 
-  // Contract now caps sells at available liquidity, so max is just token balance
-
   const handleTrade = async () => {
     if (!amount || !token || !connected || !publicKey) return;
+    if (anchorAvailable === null) { setTradeResult({ success: false, error: 'Loading network status...' }); return; }
+    if (!anchorAvailable && !token.graduated) { setTradeResult({ success: false, error: 'Anchor program not deployed - cannot trade on bonding curve' }); return; }
     
-    // Wait for network check to complete
-    if (anchorAvailable === null) {
-      setTradeResult({ success: false, error: 'Loading network status...' });
-      return;
-    }
-    
-    // Require Anchor program for non-graduated tokens
-    if (!anchorAvailable && !token.graduated) {
-      setTradeResult({ success: false, error: 'Anchor program not deployed - cannot trade on bonding curve' });
-      return;
-    }
-    
-    setTrading(true);
-    setTradeResult(null);
-
+    setTrading(true); setTradeResult(null);
     try {
-      console.log('Trade initiated:', { anchorAvailable, tradeType, amount: parseFloat(amount) });
-      
-      // On-chain trading via Anchor (bonding curve) or Jupiter (graduated)
-      console.log('Starting ON-CHAIN trade...');
-      
-      // Check if token is graduated - use Jupiter instead
       if (token.graduated) {
-        console.log('Token graduated, using Jupiter...');
-        
-        // Convert amount to proper units
         const amountUnits = tradeType === 'buy' 
-          ? Math.floor(parseFloat(amount) * 1e9).toString()  // SOL to lamports
-          : Math.floor(parseFloat(amount) * 1e6).toString(); // Tokens to units
-        
+          ? Math.floor(parseFloat(amount) * 1e9).toString()
+          : Math.floor(parseFloat(amount) * 1e6).toString();
         const jupiterRes = await fetch('/api/trade/jupiter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mint: token.mint,
-            action: tradeType,
-            amount: amountUnits,
-            userPublicKey: publicKey,
-            slippageBps: 100, // 1%
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mint: token.mint, action: tradeType, amount: amountUnits, userPublicKey: publicKey, slippageBps: 100 }),
         });
-
         const jupiterData = await jupiterRes.json();
-        
-        if (!jupiterData.success) {
-          console.error('Jupiter quote failed:', jupiterData);
-          setTradeResult({ success: false, error: jupiterData.error || 'Jupiter swap failed' });
-          return;
-        }
-        
-        console.log('Jupiter quote received:', jupiterData.quote);
-        
-        // Sign the Jupiter versioned transaction
+        if (!jupiterData.success) { setTradeResult({ success: false, error: jupiterData.error || 'Jupiter swap failed' }); return; }
         const signedTx = await signTransaction(jupiterData.transaction);
-        
-        if (!signedTx) {
-          setTradeResult({ success: false, error: 'Transaction signing cancelled' });
-          return;
-        }
-        
-        console.log('Transaction signed, executing via API...');
-        
-        // Calculate amounts from quote for DB recording
-        const solAmountDecimal = tradeType === 'buy' 
-          ? Number(jupiterData.quote.inAmount) / 1e9
-          : Number(jupiterData.quote.outAmount) / 1e9;
-        const tokenAmountDecimal = tradeType === 'buy'
-          ? Number(jupiterData.quote.outAmount) / 1e6
-          : Number(jupiterData.quote.inAmount) / 1e6;
-        
-        // Execute via our API (sends to Solana + records in DB)
+        if (!signedTx) { setTradeResult({ success: false, error: 'Transaction signing cancelled' }); return; }
+        const solAmountDecimal = tradeType === 'buy' ? Number(jupiterData.quote.inAmount) / 1e9 : Number(jupiterData.quote.outAmount) / 1e9;
+        const tokenAmountDecimal = tradeType === 'buy' ? Number(jupiterData.quote.outAmount) / 1e6 : Number(jupiterData.quote.inAmount) / 1e6;
         const executeRes = await fetch('/api/trade/jupiter/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mint: token.mint,
-            signedTransaction: signedTx,
-            type: tradeType,
-            wallet: publicKey,
-            solAmount: solAmountDecimal,
-            tokenAmount: tokenAmountDecimal,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mint: token.mint, signedTransaction: signedTx, type: tradeType, wallet: publicKey, solAmount: solAmountDecimal, tokenAmount: tokenAmountDecimal }),
         });
-        
         const executeData = await executeRes.json();
-        
-        if (!executeData.success) {
-          setTradeResult({ success: false, error: executeData.error || 'Jupiter trade failed' });
-          return;
-        }
-        
-        console.log('Jupiter trade executed:', executeData.signature);
-        
-        setTradeResult({
-          success: true,
-          signature: executeData.signature,
-          trade: executeData.trade,
-          message: 'Trade executed via Jupiter!',
-        });
-        setAmount('');
-        fetchToken(); fetchOnChainStats(); refreshBalancesAfterTrade();
+        if (!executeData.success) { setTradeResult({ success: false, error: executeData.error || 'Jupiter trade failed' }); return; }
+        setTradeResult({ success: true, signature: executeData.signature, trade: executeData.trade, message: 'Trade executed via Jupiter!' });
+        setAmount(''); fetchToken(); fetchOnChainStats(); refreshBalancesAfterTrade();
         return;
       }
       
-      // Step 1: Prepare unsigned transaction (bonding curve)
       const prepareRes = await fetch('/api/trade/prepare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mint: token.mint,
-          type: tradeType,
-          amount: parseFloat(amount),
-          wallet: publicKey,
-          slippage: 0.01, // 1%
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mint: token.mint, type: tradeType, amount: parseFloat(amount), wallet: publicKey, slippage: 0.01 }),
       });
-
       const prepareData = await prepareRes.json();
-      
       if (!prepareData.success) {
-        // Check if graduated redirect
-        if (prepareData.graduated) {
-          // Re-fetch token to update state, then retry will use Jupiter
-          await fetchToken();
-          setTradeResult({ success: false, error: 'Token just graduated! Please retry to trade via Raydium.' });
-          return;
-        }
-        console.error('Prepare failed:', prepareData);
-        setTradeResult({ success: false, error: prepareData.error || 'Failed to prepare transaction' });
-        return;
+        if (prepareData.graduated) { await fetchToken(); setTradeResult({ success: false, error: 'Token just graduated! Please retry to trade via Raydium.' }); return; }
+        setTradeResult({ success: false, error: prepareData.error || 'Failed to prepare transaction' }); return;
       }
-      console.log('Prepare succeeded:', prepareData);
-
-      console.log('Transaction prepared, requesting signature...');
-
-      // Step 2: User signs with wallet
       const signedTx = await signTransaction(prepareData.transaction);
-      
-      if (!signedTx) {
-        console.error('Signing failed or cancelled');
-        setTradeResult({ success: false, error: 'Transaction signing cancelled or failed' });
-        return;
-      }
-      console.log('Transaction signed successfully');
-
-      console.log('Transaction signed, executing...');
-
-      // Step 3: Execute signed transaction
+      if (!signedTx) { setTradeResult({ success: false, error: 'Transaction signing cancelled or failed' }); return; }
       const executeRes = await fetch('/api/trade/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mint: token.mint,
-          type: tradeType,
-          signedTransaction: signedTx,
-          wallet: publicKey,
+          mint: token.mint, type: tradeType, signedTransaction: signedTx, wallet: publicKey,
           expectedOutput: tradeType === 'buy' ? prepareData.output.tokens : prepareData.output.sol,
           solAmount: tradeType === 'buy' ? prepareData.input.sol : prepareData.output.sol,
           tokenAmount: tradeType === 'sell' ? prepareData.input.tokens : prepareData.output.tokens,
         }),
       });
-
       const executeData = await executeRes.json();
-      
       if (executeData.success) {
-        setTradeResult({
-          success: true,
-          trade: executeData.trade,
-          newPrice: executeData.newPrice,
-          fees: executeData.fees,
-          signature: executeData.signature,
-        });
-        setAmount('');
-        fetchToken(); fetchHolders(token?.creator); fetchOnChainStats();
-        refreshBalancesAfterTrade();
+        setTradeResult({ success: true, trade: executeData.trade, newPrice: executeData.newPrice, fees: executeData.fees, signature: executeData.signature });
+        setAmount(''); fetchToken(); fetchHolders(token?.creator); fetchOnChainStats(); refreshBalancesAfterTrade();
       } else {
         setTradeResult({ success: false, error: executeData.error || 'Trade execution failed' });
       }
-      
     } catch (err) {
       console.error('Trade error:', err);
       setTradeResult({ success: false, error: err instanceof Error ? err.message : 'Network error' });
-    } finally {
-      setTrading(false);
-    }
+    } finally { setTrading(false); }
   };
 
-  const handleQuickSell = (percent: number) => {
-    const tokenAmount = (tokenBalance * percent / 100);
-    setAmount(tokenAmount.toString());
-  };
+  const handleQuickSell = (percent: number) => { setAmount((tokenBalance * percent / 100).toString()); };
 
   const formatPrice = (price: number) => {
     if (price < 0.0000000001) return '<0.0000000001';
@@ -574,8 +327,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     return n.toFixed(2);
   };
 
-
-
   const formatSolOutput = (n: number) => {
     if (n === 0) return '0 SOL';
     if (n >= 1) return n.toFixed(4) + ' SOL';
@@ -584,37 +335,34 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     return n.toExponential(4) + ' SOL';
   };
 
-
-  // Calculate graduation market cap from bonding curve
-
-  // Calculate graduation progress from token's real_sol_reserves (updated via realtime)
-  const fundsRaised = useMemo(() => {
-    return token?.real_sol_reserves || 0;
-  }, [token?.real_sol_reserves]);
-
+  const fundsRaised = useMemo(() => token?.real_sol_reserves || 0, [token?.real_sol_reserves]);
   const progressPercent = token?.graduated ? 100 : Math.min((fundsRaised / 120) * 100, 100);
 
+  /* ---- LOADING ---- */
   if (loading) {
     return (
-      <main className="min-h-screen">
+      <main className="min-h-screen bg-vault-bg">
         <Header />
-        <div className="flex items-center justify-center py-20">
-          <div className="text-gray-400 animate-pulse">Loading...</div>
+        <div className="flex items-center justify-center py-32">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-vault-accent border-t-transparent" />
+            <span className="text-sm text-vault-muted">Loading token...</span>
+          </div>
         </div>
       </main>
     );
   }
 
+  /* ---- NOT FOUND ---- */
   if (!token) {
     return (
-      <main className="min-h-screen">
+      <main className="min-h-screen bg-vault-bg">
         <Header />
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-32">
           <div className="text-center">
-            <div className="text-6xl mb-4">🔍</div>
-            <h1 className="text-2xl font-bold text-white mb-2">Token Not Found</h1>
-            <Link href="/tokens" className="text-orange-400 hover:text-orange-300">
-              Browse all tokens →
+            <h1 className="mb-2 text-2xl font-bold text-vault-text">Token Not Found</h1>
+            <Link href="/tokens" className="text-sm font-medium text-vault-accent transition-colors hover:text-vault-accent-hover">
+              Browse all tokens
             </Link>
           </div>
         </div>
@@ -622,116 +370,102 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     );
   }
 
+  /* ---- MAIN RENDER ---- */
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-vault-bg">
       <Header />
 
-      <section className="py-8 px-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Token Header - Compact on desktop */}
-          <div className="flex items-start gap-4 mb-6">
-            <div className="w-14 h-14 lg:w-16 lg:h-16 bg-gray-700 rounded-full flex items-center justify-center text-3xl flex-shrink-0">
+      <section className="px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-[1400px]">
+          {/* Token Header */}
+          <div className="mb-6 flex items-start gap-4">
+            <div className="relative h-12 w-12 shrink-0 lg:h-14 lg:w-14">
               {token.image ? (
-                <img src={token.image} alt="" className="w-full h-full rounded-full object-cover" />
+                <img src={token.image} alt="" className="h-full w-full rounded-xl object-cover ring-1 ring-white/[0.06]" />
               ) : (
-                '🪙'
+                <div className="flex h-full w-full items-center justify-center rounded-xl bg-vault-accent/10 text-xl font-bold text-vault-accent">
+                  {token.symbol?.[0] || '?'}
+                </div>
               )}
             </div>
-            <div className="flex-1 min-w-0">
-              {/* Row 1: Symbol, Name, Badge */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl lg:text-3xl font-bold text-white">${token.symbol}</h1>
-                <span className="text-gray-400 text-lg">{token.name}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold text-vault-text lg:text-2xl">${token.symbol}</h1>
+                <span className="text-vault-muted">{token.name}</span>
                 {token.graduated && (
-                  <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-xs">
-                    🎓 Graduated
+                  <span className="rounded-md bg-vault-green/10 px-2 py-0.5 text-xs font-medium text-vault-green">
+                    Graduated
                   </span>
                 )}
               </div>
-              
-              {/* Row 2: Creator, CA, Socials - all inline on desktop */}
-              <div className="flex items-center gap-4 flex-wrap mt-1 text-sm">
-                <span className="text-gray-500">
-                  by {creatorUsername ? (
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-sm">
+                <span className="text-vault-dim">
+                  by{' '}
+                  {creatorUsername ? (
                     <ExplorerLink address={token.creator} label={creatorUsername} />
                   ) : (
                     <ExplorerLink address={token.creator} />
                   )}
                 </span>
-                <span className="text-gray-600 hidden sm:inline">•</span>
-                <span className="flex items-center gap-1">
-                  <span className="text-gray-500">CA:</span>
+                <span className="hidden text-vault-dim sm:inline">&middot;</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-vault-dim">CA:</span>
                   <a
                     href={`https://solscan.io/account/${token.mint}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-orange-400 hover:text-orange-300"
+                    className="font-mono text-vault-accent transition-colors hover:text-vault-accent-hover"
                     title={token.mint}
                   >
                     {token.mint.slice(0, 6)}...{token.mint.slice(-4)}
                   </a>
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(token.mint);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className="text-gray-400 hover:text-white transition"
+                    onClick={() => { navigator.clipboard.writeText(token.mint); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                    className="text-vault-dim transition-colors hover:text-vault-text"
                     title="Copy mint address"
                   >
-                    {copied ? '✅' : '📋'}
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      {copied ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      )}
+                    </svg>
                   </button>
                 </span>
-                {/* Social Links - inline */}
                 {(token.twitter || token.telegram || token.website) && (
                   <>
-                    <span className="text-gray-600 hidden sm:inline">•</span>
+                    <span className="hidden text-vault-dim sm:inline">&middot;</span>
                     <div className="flex items-center gap-2">
                       {token.twitter && (
-                        <a
-                          href={token.twitter.startsWith('http') ? token.twitter : `https://twitter.com/${token.twitter.replace('@', '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-white transition"
-                          title="Twitter"
-                        >𝕏</a>
+                        <a href={token.twitter.startsWith('http') ? token.twitter : `https://twitter.com/${token.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-vault-dim transition-colors hover:text-vault-text" title="Twitter">
+                          <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                        </a>
                       )}
                       {token.telegram && (
-                        <a
-                          href={token.telegram.startsWith('http') ? token.telegram : `https://t.me/${token.telegram.replace('@', '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-white transition"
-                          title="Telegram"
-                        >✈️</a>
+                        <a href={token.telegram.startsWith('http') ? token.telegram : `https://t.me/${token.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-vault-dim transition-colors hover:text-vault-text" title="Telegram">
+                          <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" /></svg>
+                        </a>
                       )}
                       {token.website && (
-                        <a
-                          href={token.website.startsWith('http') ? token.website : `https://${token.website}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-white transition"
-                          title="Website"
-                        >🌐</a>
+                        <a href={token.website.startsWith('http') ? token.website : `https://${token.website}`} target="_blank" rel="noopener noreferrer" className="text-vault-dim transition-colors hover:text-vault-text" title="Website">
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                        </a>
                       )}
                     </div>
                   </>
                 )}
               </div>
-              
-              {/* Description - only if present, compact */}
               {token.description && (
-                <p className="text-gray-500 text-sm mt-1 line-clamp-2">{token.description}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-vault-dim">{token.description}</p>
               )}
             </div>
           </div>
 
-          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 w-full min-w-0">
-            {/* MOBILE ORDER: Chart (1), Bonding (2), Trade (3), Holders (4), Chat (5) */}
-            {/* DESKTOP: Left col (Chart + Chat), Right col (Trade + Bonding + Holders) */}
-            
-            {/* Chart - order-1 mobile, spans 2 cols on desktop */}
-            <div className="order-1 lg:order-none lg:col-span-2 min-w-0">
+          {/* Main Grid */}
+          <div className="flex w-full min-w-0 flex-col gap-4 lg:grid lg:grid-cols-3">
+            {/* Chart */}
+            <div className="order-1 min-w-0 lg:order-none lg:col-span-2">
               <PriceChart
                 mint={token.mint}
                 height={500}
@@ -744,484 +478,353 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
               />
             </div>
 
-            {/* Bonding Curve - order-2 mobile, hidden on desktop (shown in sidebar) */}
-            <div className="order-2 lg:hidden bg-gray-800/50 rounded-xl p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-white font-semibold">Bonding Curve Progress</span>
-                <span className="text-orange-400 font-mono font-bold">{progressPercent.toFixed(1)}%</span>
+            {/* Mobile bonding curve */}
+            <div className="order-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 lg:hidden">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-semibold text-vault-text">Bonding Curve</span>
+                <span className="font-mono text-sm font-bold text-vault-accent">{progressPercent.toFixed(1)}%</span>
               </div>
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
-                <div 
-                  className="h-full bg-orange-400 transition-all duration-500"
-                  style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                />
+              <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="h-full rounded-full bg-vault-accent transition-all duration-500" style={{ width: `${Math.min(progressPercent, 100)}%` }} />
               </div>
-              <div className="text-sm">
+              <div className="text-xs">
                 {token.graduated ? (
-                  <span className="text-green-400">Coin has graduated!</span>
+                  <span className="text-vault-green">Graduated to Raydium</span>
                 ) : (
-                  <span className="text-gray-500">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
+                  <span className="text-vault-dim">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
                 )}
               </div>
             </div>
 
-            {/* Holder Distribution - order-5 mobile only (desktop in sidebar) */}
-            <div className="order-5 lg:hidden bg-gray-800/50 rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <span>👥</span> Holder Distribution
-                </h3>
-                {holdersLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex items-center gap-3 animate-pulse">
-                        <div className="w-8 h-8 rounded-full bg-gray-700" />
-                        <div className="flex-1">
-                          <div className="h-4 bg-gray-700 rounded w-24 mb-1" />
-                          <div className="h-3 bg-gray-700 rounded w-16" />
-                        </div>
-                        <div className="h-2 bg-gray-700 rounded w-16" />
-                      </div>
-                    ))}
-                  </div>
-                ) : holders.length === 0 ? (
-                  <div className="text-gray-500 text-center py-4 text-sm">No holder data available</div>
-                ) : (
-                  <div className="space-y-3">
-                    {holders.slice(0, 5).map((holder, i) => (
-                      <div key={holder.address} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
-                          {i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {holder.label ? (
-                            <a
-                              href={`https://solscan.io/account/${holder.address}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`font-medium text-sm hover:underline ${
-                                holder.label === 'Liquidity Pool' ? 'text-orange-400' : 'text-blue-400'
-                              }`}
-                            >{holder.label}</a>
-                          ) : (
-                            <a
-                              href={`https://solscan.io/account/${holder.address}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-gray-300 hover:text-cyan-400 font-mono text-sm truncate hover:underline"
-                            >
-                              {holder.address.slice(0, 6)}...{holder.address.slice(-4)}
-                            </a>
-                          )}
-                          <div className="text-gray-500 text-xs">{formatNumber(holder.balance)} tokens</div>
-                        </div>
-                        <div className="text-right">
-                          <div 
-                            className="h-2 rounded-full bg-gray-700 w-16 overflow-hidden"
-                            title={`${holder.percentage.toFixed(2)}%`}
-                          >
-                            <div 
-                              className={`h-full rounded-full ${
-                                holder.label === 'Liquidity Pool' ? 'bg-orange-500' : 
-                                holder.label === 'Creator (dev)' ? 'bg-blue-500' : 'bg-purple-500'
-                              }`}
-                              style={{ width: `${Math.min(holder.percentage, 100)}%` }}
-                            />
-                          </div>
-                          <div className="text-gray-400 text-xs mt-1 font-mono">{holder.percentage < 0.1 ? holder.percentage.toFixed(3) : holder.percentage.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {circulatingSupply > 0 && (
-                      <div className="pt-3 mt-3 border-t border-gray-700/50">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-500">Circulating</span>
-                          <span className="text-white font-mono">{formatNumber(circulatingSupply)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm mt-1">
-                          <span className="text-gray-500">Total Supply</span>
-                          <span className="text-gray-400 font-mono">1,000,000,000</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-            {/* Chat - order-4 mobile, spans 2 cols on desktop */}
-            <div className="order-4 lg:order-none lg:col-span-2">
-              <ChatAndTrades 
-                mint={token.mint} 
-                tokenSymbol={token.symbol} 
-                trades={trades}
-                onTradesUpdate={fetchTrades}
+            {/* Mobile holders */}
+            <div className="order-5 lg:hidden">
+              <HolderDistribution
+                holders={holders}
+                holdersLoading={holdersLoading}
+                circulatingSupply={circulatingSupply}
+                formatNumber={formatNumber}
               />
             </div>
 
-            {/* Trade Panel - order-3 mobile, in sidebar on desktop (col-3, row-start-1) */}
-            <div className="order-3 lg:order-none lg:row-span-3 lg:row-start-1 lg:col-start-3 space-y-4">
+            {/* Chat & Trades */}
+            <div className="order-4 lg:order-none lg:col-span-2">
+              <ChatAndTrades mint={token.mint} tokenSymbol={token.symbol} trades={trades} onTradesUpdate={fetchTrades} />
+            </div>
+
+            {/* Sidebar: Trade + Bonding + Holders */}
+            <div className="order-3 flex flex-col gap-4 lg:order-none lg:row-span-3 lg:row-start-1 lg:col-start-3">
               {/* Trade Panel */}
-              <div className="bg-gray-800/50 rounded-xl p-6 h-fit lg:sticky lg:top-6">
-              <h3 className="text-white font-semibold mb-4">Trade</h3>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 lg:sticky lg:top-6">
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-vault-muted">Trade</h3>
 
-              {/* Token Price from last trade (streamed realtime) */}
-              <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Price</span>
-                  <span className="text-white font-mono">
-                    {currentPrice?.sol ? formatPrice(currentPrice.sol) : (onChainStats?.price ? formatPrice(onChainStats.price) : '--')} SOL
-                  </span>
-                </div>
-                {(currentPrice?.usd || onChainStats?.priceUsd) && (
-                  <div className="flex justify-between text-sm mt-1">
-                    <span className="text-gray-400">USD</span>
-                    <span className="text-green-400 font-mono">
-                      ${(currentPrice?.usd ?? onChainStats?.priceUsd ?? 0).toFixed((currentPrice?.usd ?? onChainStats?.priceUsd ?? 0) < 0.01 ? 8 : 4)}
+                {/* Price */}
+                <div className="mb-4 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-vault-dim">Price</span>
+                    <span className="font-mono text-vault-text">
+                      {currentPrice?.sol ? formatPrice(currentPrice.sol) : (onChainStats?.price ? formatPrice(onChainStats.price) : '--')} SOL
                     </span>
                   </div>
+                  {(currentPrice?.usd || onChainStats?.priceUsd) && (
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span className="text-vault-dim">USD</span>
+                      <span className="font-mono text-vault-green">
+                        ${(currentPrice?.usd ?? onChainStats?.priceUsd ?? 0).toFixed((currentPrice?.usd ?? onChainStats?.priceUsd ?? 0) < 0.01 ? 8 : 4)}
+                      </span>
+                    </div>
+                  )}
+                  {priceChange24h !== null && priceChange24h !== undefined && (
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span className="text-vault-dim">24h</span>
+                      <span className={`font-mono ${priceChange24h >= 0 ? 'text-vault-green' : 'text-vault-red'}`}>
+                        {priceChange24h >= 0 ? '+' : ''}{priceChange24h.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* User Balance */}
+                {connected && (
+                  <div className="mb-4 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-vault-dim">Your SOL</span>
+                      <span className="font-mono text-vault-text">{solBalance !== null ? solBalance.toFixed(4) : '--'}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span className="text-vault-dim">Your ${token.symbol}</span>
+                      <span className="font-mono text-vault-text">{formatNumber(tokenBalance)}</span>
+                    </div>
+                  </div>
                 )}
-                {priceChange24h !== null && priceChange24h !== undefined && (
-                  <div className="flex justify-between text-sm mt-1">
-                    <span className="text-gray-400">24h Change</span>
-                    <span className={`font-mono ${priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {priceChange24h >= 0 ? '+' : ''}{priceChange24h.toFixed(2)}%
-                    </span>
+
+                {/* Buy/Sell Toggle */}
+                <div className="mb-4 flex rounded-lg border border-white/[0.06] bg-white/[0.02] p-1">
+                  <button
+                    onClick={() => { setTradeType('buy'); setAmount(''); }}
+                    className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
+                      tradeType === 'buy' ? 'bg-vault-green text-vault-bg' : 'text-vault-muted hover:text-vault-text'
+                    }`}
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={() => { setTradeType('sell'); setAmount(''); }}
+                    className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
+                      tradeType === 'sell' ? 'bg-vault-red text-white' : 'text-vault-muted hover:text-vault-text'
+                    }`}
+                  >
+                    Sell
+                  </button>
+                </div>
+
+                {/* Amount Input */}
+                <div className="mb-3">
+                  <div className="mb-2 flex items-center justify-between text-xs">
+                    <label className="text-vault-dim">{tradeType === 'buy' ? 'SOL Amount' : 'Token Amount'}</label>
+                    {connected && (
+                      <span className="text-vault-dim">
+                        Max: {tradeType === 'buy' ? (solBalance?.toFixed(4) || '0') + ' SOL' : formatNumber(tokenBalance)}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* User Balance - show if connected */}
-                  {connected && (
-                    <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Your SOL</span>
-                        <span className="text-white font-mono">
-                          {solBalance !== null ? solBalance.toFixed(4) : '--'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm mt-1">
-                        <span className="text-gray-400">Your ${token.symbol}</span>
-                        <span className="text-white font-mono">{formatNumber(tokenBalance)}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Buy/Sell Toggle */}
-                  <div className="flex bg-gray-700 rounded-lg p-1 mb-4">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      step="any"
+                      min="0"
+                      className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 pr-16 font-mono text-lg text-vault-text placeholder-vault-dim outline-none transition-colors focus:border-vault-accent/40"
+                    />
                     <button
-                      onClick={() => { setTradeType('buy'); setAmount(''); }}
-                      className={`flex-1 py-2 rounded-md transition ${
-                        tradeType === 'buy'
-                          ? 'bg-green-600 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
+                      onClick={() => setAmount(tradeType === 'buy' ? (solBalance || 0).toString() : tokenBalance.toString())}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-vault-accent/10 px-2 py-1 text-xs font-medium text-vault-accent transition-colors hover:bg-vault-accent/20"
                     >
-                      Buy
-                    </button>
-                    <button
-                      onClick={() => { setTradeType('sell'); setAmount(''); }}
-                      className={`flex-1 py-2 rounded-md transition ${
-                        tradeType === 'sell'
-                          ? 'bg-red-600 text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      Sell
+                      MAX
                     </button>
                   </div>
+                </div>
 
-                  {/* Amount Input */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-sm mb-2">
-                      <label className="text-gray-400">
-                        {tradeType === 'buy' ? 'SOL Amount' : 'Token Amount'}
-                      </label>
-                      {connected && (
-                        <span className="text-gray-500">
-                          Max: {tradeType === 'buy' 
-                            ? (solBalance?.toFixed(4) || '0') + ' SOL'
-                            : formatNumber(tokenBalance)
-                          }
-                        </span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                        step="any"
-                        min="0"
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white text-lg font-mono placeholder-gray-500 focus:border-orange-500 focus:outline-none pr-16"
-                      />
-                      <button
-                        onClick={() => setAmount(tradeType === 'buy' 
-                          ? (solBalance || 0).toString() 
-                          : tokenBalance.toString()
-                        )}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 px-2 py-1 rounded text-sm transition"
-                      >
-                        MAX
+                {/* Quick amounts */}
+                {tradeType === 'buy' ? (
+                  <div className="mb-4 flex gap-2">
+                    {[0.1, 0.5, 1, 5].map((val) => (
+                      <button key={val} onClick={() => setAmount(val.toString())} className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] py-1.5 text-xs font-medium text-vault-muted transition-colors hover:border-vault-accent/20 hover:text-vault-text">
+                        {val} SOL
                       </button>
-                    </div>
-                  </div>
-
-                  {/* Quick amounts */}
-                  {tradeType === 'buy' ? (
-                    <div className="flex gap-2 mb-4">
-                      {[0.1, 0.5, 1, 5].map((val) => (
-                        <button
-                          key={val}
-                          onClick={() => setAmount(val.toString())}
-                          className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 py-1.5 rounded text-sm transition"
-                        >
-                          {val} SOL
-                        </button>
-                      ))}
-                    </div>
-                  ) : connected ? (
-                    <div className="flex gap-2 mb-4">
-                      {[25, 50, 75, 100].map((percent) => (
-                        <button
-                          key={percent}
-                          onClick={() => handleQuickSell(percent)}
-                          className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 py-1.5 rounded text-sm transition"
-                        >
-                          {percent === 100 ? 'MAX' : `${percent}%`}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {/* Estimated Output */}
-                  {estimatedOutput && (
-                    <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">You&apos;ll receive (est.)</span>
-                        <span className="text-white font-mono">
-                          {tradeType === 'buy' 
-                            ? formatNumber(estimatedOutput.tokens || 0) + ' ' + token.symbol
-                            : formatSolOutput(estimatedOutput.sol || 0)
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm mt-1">
-                        <span className="text-gray-400">Price Impact</span>
-                        <span className={`font-mono ${
-                          tradeType === 'sell' ? 'text-red-400' :
-                          priceImpact > 5 ? 'text-red-400' : 
-                          priceImpact > 2 ? 'text-yellow-400' : 
-                          'text-green-400'
-                        }`}>
-                          {tradeType === 'sell' ? '-' : ''}{priceImpact.toFixed(2)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Price Impact Warning */}
-                  {priceImpact > 5 && (
-                    <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4">
-                      <div className="text-red-400 text-sm flex items-center gap-2">
-                        <span>⚠️</span>
-                        <span>High price impact! Consider smaller trade.</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Liquidity Info */}
-                  {estimatedOutput?.cappedByLiquidity && (
-                    <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 mb-4">
-                      <div className="text-blue-400 text-sm flex items-center gap-2">
-                        <span>ℹ️</span>
-                        <span>Partial fill - only tokens up to available liquidity will be sold.</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Trade Result */}
-                  {tradeResult && (
-                    <div className={`mb-4 p-3 rounded-lg ${
-                      tradeResult.success 
-                        ? 'bg-green-900/30 border border-green-500' 
-                        : 'bg-red-900/30 border border-red-500'
-                    }`}>
-                      {tradeResult.success ? (
-                        <div className="text-green-400 text-sm">
-                          ✅ Trade successful!
-                          {tradeResult.tokens_received && (
-                            <div>Received: {formatNumber(tradeResult.tokens_received)} tokens</div>
-                          )}
-                          {tradeResult.sol_received && (
-                            <div>Received: {tradeResult.sol_received.toFixed(6)} SOL</div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-red-400 text-sm">
-                          ❌ {tradeResult.error}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Trade Button */}
-                  {connected ? (
-                    <button
-                      onClick={handleTrade}
-                      disabled={trading || !amount || parseFloat(amount) <= 0}
-                      className={`w-full py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                        tradeType === 'buy'
-                          ? 'bg-green-600 hover:bg-green-500 text-white'
-                          : 'bg-red-600 hover:bg-red-500 text-white'
-                      }`}
-                    >
-                      {trading ? 'Processing...' : tradeType === 'buy' ? 'Buy Tokens' : 'Sell Tokens'}
-                    </button>
-                  ) : (
-                    <div className="space-y-3">
-                      <button
-                        onClick={connect}
-                        className="w-full py-3 rounded-lg font-semibold transition bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-5 h-5" viewBox="0 0 200 180" fill="none">
-                          <path fillRule="evenodd" clipRule="evenodd" d="M89.1138 112.613C83.1715 121.719 73.2139 133.243 59.9641 133.243C53.7005 133.243 47.6777 130.665 47.6775 119.464C47.677 90.9369 86.6235 46.777 122.76 46.7764C143.317 46.776 151.509 61.0389 151.509 77.2361C151.509 98.0264 138.018 121.799 124.608 121.799C120.352 121.799 118.264 119.462 118.264 115.756C118.264 114.789 118.424 113.741 118.746 112.613C114.168 120.429 105.335 127.683 97.0638 127.683C91.0411 127.683 87.9898 123.895 87.9897 118.576C87.9897 116.642 88.3912 114.628 89.1138 112.613ZM115.936 68.7103C112.665 68.7161 110.435 71.4952 110.442 75.4598C110.449 79.4244 112.689 82.275 115.96 82.2693C119.152 82.2636 121.381 79.4052 121.374 75.4405C121.367 71.4759 119.128 68.7047 115.936 68.7103ZM133.287 68.6914C130.016 68.6972 127.786 71.4763 127.793 75.4409C127.8 79.4055 130.039 82.2561 133.311 82.2504C136.503 82.2448 138.732 79.3863 138.725 75.4216C138.718 71.457 136.479 68.6858 133.287 68.6914Z" fill="currentColor"/>
-                        </svg>
-                        Connect Phantom Wallet
-                      </button>
-                      <div className="text-gray-500 text-xs text-center">
-                        <p>Don&apos;t have Phantom?{' '}
-                          <a 
-                            href="https://phantom.app/" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-purple-400 hover:text-purple-300 underline"
-                          >
-                            Download here
-                          </a>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="text-gray-500 text-xs text-center mt-4">
-                    {token.graduated 
-                      ? "Trades via Raydium • ~0.25% swap fee" 
-                      : "1% fee (0.5% creator + 0.5% protocol)"}
-                  </div>
-              </div>
-
-              {/* Bonding Curve Progress - in sidebar (desktop only) */}
-              <div className="hidden lg:block bg-gray-800/50 rounded-xl p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-white font-semibold">Bonding Curve Progress</span>
-                  <span className="text-orange-400 font-mono font-bold">{progressPercent.toFixed(1)}%</span>
-                </div>
-                <div className="h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
-                  <div 
-                    className="h-full bg-orange-400 transition-all duration-500"
-                    style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                  />
-                </div>
-                <div className="text-sm">
-                  {token.graduated ? (
-                    <span className="text-green-400">Coin has graduated!</span>
-                  ) : (
-                    <span className="text-gray-500">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Holder Distribution - in sidebar on desktop */}
-              <div className="bg-gray-800/50 rounded-xl p-5 hidden lg:block">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <span>👥</span> Holder Distribution
-                </h3>
-                {holdersLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex items-center gap-3 animate-pulse">
-                        <div className="w-8 h-8 rounded-full bg-gray-700" />
-                        <div className="flex-1">
-                          <div className="h-4 bg-gray-700 rounded w-24 mb-1" />
-                          <div className="h-3 bg-gray-700 rounded w-16" />
-                        </div>
-                        <div className="h-2 bg-gray-700 rounded w-16" />
-                      </div>
                     ))}
                   </div>
-                ) : holders.length === 0 ? (
-                  <div className="text-gray-500 text-center py-4 text-sm">No holder data available</div>
-                ) : (
-                  <div className="space-y-3">
-                    {holders.slice(0, 5).map((holder, i) => (
-                      <div key={holder.address} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
-                          {i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {holder.label ? (
-                            <a
-                              href={`https://solscan.io/account/${holder.address}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`font-medium text-sm hover:underline ${
-                                holder.label === 'Liquidity Pool' ? 'text-orange-400' : 'text-blue-400'
-                              }`}
-                            >{holder.label}</a>
-                          ) : (
-                            <a
-                              href={`https://solscan.io/account/${holder.address}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-gray-300 hover:text-cyan-400 font-mono text-sm truncate hover:underline"
-                            >
-                              {holder.address.slice(0, 6)}...{holder.address.slice(-4)}
-                            </a>
-                          )}
-                          <div className="text-gray-500 text-xs">{formatNumber(holder.balance)} tokens</div>
-                        </div>
-                        <div className="text-right">
-                          <div 
-                            className="h-2 rounded-full bg-gray-700 w-16 overflow-hidden"
-                            title={`${holder.percentage.toFixed(2)}%`}
-                          >
-                            <div 
-                              className={`h-full rounded-full ${
-                                holder.label === 'Liquidity Pool' ? 'bg-orange-500' : 
-                                holder.label === 'Creator (dev)' ? 'bg-blue-500' : 'bg-purple-500'
-                              }`}
-                              style={{ width: `${Math.min(holder.percentage, 100)}%` }}
-                            />
-                          </div>
-                          <div className="text-gray-400 text-xs mt-1 font-mono">{holder.percentage < 0.1 ? holder.percentage.toFixed(3) : holder.percentage.toFixed(1)}%</div>
-                        </div>
-                      </div>
+                ) : connected ? (
+                  <div className="mb-4 flex gap-2">
+                    {[25, 50, 75, 100].map((percent) => (
+                      <button key={percent} onClick={() => handleQuickSell(percent)} className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] py-1.5 text-xs font-medium text-vault-muted transition-colors hover:border-vault-accent/20 hover:text-vault-text">
+                        {percent === 100 ? 'MAX' : `${percent}%`}
+                      </button>
                     ))}
-                    
-                    {/* Circulating Supply Footer */}
-                    {circulatingSupply > 0 && (
-                      <div className="pt-3 mt-3 border-t border-gray-700/50">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-500">Circulating</span>
-                          <span className="text-white font-mono">{formatNumber(circulatingSupply)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm mt-1">
-                          <span className="text-gray-500">Total Supply</span>
-                          <span className="text-gray-400 font-mono">1,000,000,000</span>
-                        </div>
-                      </div>
+                  </div>
+                ) : null}
+
+                {/* Estimated Output */}
+                {estimatedOutput && (
+                  <div className="mb-4 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-vault-dim">{"You'll receive (est.)"}</span>
+                      <span className="font-mono text-vault-text">
+                        {tradeType === 'buy' ? formatNumber(estimatedOutput.tokens || 0) + ' ' + token.symbol : formatSolOutput(estimatedOutput.sol || 0)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span className="text-vault-dim">Price Impact</span>
+                      <span className={`font-mono ${tradeType === 'sell' ? 'text-vault-red' : priceImpact > 5 ? 'text-vault-red' : priceImpact > 2 ? 'text-yellow-400' : 'text-vault-green'}`}>
+                        {tradeType === 'sell' ? '-' : ''}{priceImpact.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Warnings */}
+                {priceImpact > 5 && (
+                  <div className="mb-4 rounded-lg border border-vault-red/30 bg-vault-red/5 p-3">
+                    <p className="flex items-center gap-2 text-xs text-vault-red">
+                      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.27 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                      High price impact! Consider a smaller trade.
+                    </p>
+                  </div>
+                )}
+                {estimatedOutput?.cappedByLiquidity && (
+                  <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+                    <p className="text-xs text-blue-400">Partial fill - only tokens up to available liquidity will be sold.</p>
+                  </div>
+                )}
+
+                {/* Trade Result */}
+                {tradeResult && (
+                  <div className={`mb-4 rounded-lg border p-3 ${tradeResult.success ? 'border-vault-green/30 bg-vault-green/5' : 'border-vault-red/30 bg-vault-red/5'}`}>
+                    {tradeResult.success ? (
+                      <p className="text-xs text-vault-green">
+                        Trade successful!
+                        {tradeResult.tokens_received && <span className="block">Received: {formatNumber(tradeResult.tokens_received)} tokens</span>}
+                        {tradeResult.sol_received && <span className="block">Received: {tradeResult.sol_received.toFixed(6)} SOL</span>}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-vault-red">{tradeResult.error}</p>
                     )}
                   </div>
                 )}
+
+                {/* Trade Button */}
+                {connected ? (
+                  <button
+                    onClick={handleTrade}
+                    disabled={trading || !amount || parseFloat(amount) <= 0}
+                    className={`w-full rounded-lg py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                      tradeType === 'buy' ? 'bg-vault-green text-vault-bg hover:brightness-110' : 'bg-vault-red text-white hover:brightness-110'
+                    }`}
+                  >
+                    {trading ? 'Processing...' : tradeType === 'buy' ? 'Buy Tokens' : 'Sell Tokens'}
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={connect}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-vault-accent py-3 text-sm font-semibold text-vault-bg transition-all hover:bg-vault-accent-hover"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 200 180" fill="none">
+                        <path fillRule="evenodd" clipRule="evenodd" d="M89.1138 112.613C83.1715 121.719 73.2139 133.243 59.9641 133.243C53.7005 133.243 47.6777 130.665 47.6775 119.464C47.677 90.9369 86.6235 46.777 122.76 46.7764C143.317 46.776 151.509 61.0389 151.509 77.2361C151.509 98.0264 138.018 121.799 124.608 121.799C120.352 121.799 118.264 119.462 118.264 115.756C118.264 114.789 118.424 113.741 118.746 112.613C114.168 120.429 105.335 127.683 97.0638 127.683C91.0411 127.683 87.9898 123.895 87.9897 118.576C87.9897 116.642 88.3912 114.628 89.1138 112.613ZM115.936 68.7103C112.665 68.7161 110.435 71.4952 110.442 75.4598C110.449 79.4244 112.689 82.275 115.96 82.2693C119.152 82.2636 121.381 79.4052 121.374 75.4405C121.367 71.4759 119.128 68.7047 115.936 68.7103ZM133.287 68.6914C130.016 68.6972 127.786 71.4763 127.793 75.4409C127.8 79.4055 130.039 82.2561 133.311 82.2504C136.503 82.2448 138.732 79.3863 138.725 75.4216C138.718 71.457 136.479 68.6858 133.287 68.6914Z" fill="currentColor" />
+                      </svg>
+                      Connect Phantom Wallet
+                    </button>
+                    <p className="text-center text-[10px] text-vault-dim">
+                      {"Don't have Phantom? "}
+                      <a href="https://phantom.app/" target="_blank" rel="noopener noreferrer" className="text-vault-accent underline">Download here</a>
+                    </p>
+                  </div>
+                )}
+
+                <p className="mt-4 text-center text-[10px] text-vault-dim">
+                  {token.graduated ? 'Trades via Raydium - ~0.25% swap fee' : '1% fee (0.5% creator + 0.5% protocol)'}
+                </p>
               </div>
 
+              {/* Bonding Curve - Desktop sidebar */}
+              <div className="hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 lg:block">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-vault-text">Bonding Curve</span>
+                  <span className="font-mono text-sm font-bold text-vault-accent">{progressPercent.toFixed(1)}%</span>
+                </div>
+                <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-vault-accent transition-all duration-500" style={{ width: `${Math.min(progressPercent, 100)}%` }} />
+                </div>
+                <div className="text-xs">
+                  {token.graduated ? (
+                    <span className="text-vault-green">Graduated to Raydium</span>
+                  ) : (
+                    <span className="text-vault-dim">{fundsRaised.toFixed(2)} / 120 SOL raised</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Holders - Desktop sidebar */}
+              <div className="hidden lg:block">
+                <HolderDistribution
+                  holders={holders}
+                  holdersLoading={holdersLoading}
+                  circulatingSupply={circulatingSupply}
+                  formatNumber={formatNumber}
+                />
+              </div>
+            </div>
           </div>
-        </div>
         </div>
       </section>
 
       <Footer />
     </main>
+  );
+}
+
+
+/* ---- Holder Distribution Component ---- */
+function HolderDistribution({ holders, holdersLoading, circulatingSupply, formatNumber }: {
+  holders: Array<{ address: string; balance: number; percentage: number; label?: string }>;
+  holdersLoading: boolean;
+  circulatingSupply: number;
+  formatNumber: (n: number) => string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-vault-text">
+        <svg className="h-4 w-4 text-vault-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        Holder Distribution
+      </h3>
+      {holdersLoading ? (
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex animate-pulse items-center gap-3">
+              <div className="h-7 w-7 rounded-full bg-white/[0.06]" />
+              <div className="flex-1"><div className="mb-1 h-3 w-20 rounded bg-white/[0.06]" /><div className="h-2 w-14 rounded bg-white/[0.04]" /></div>
+              <div className="h-1.5 w-14 rounded bg-white/[0.04]" />
+            </div>
+          ))}
+        </div>
+      ) : holders.length === 0 ? (
+        <div className="py-4 text-center text-xs text-vault-dim">No holder data available</div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {holders.slice(0, 5).map((holder, i) => (
+            <div key={holder.address} className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-[10px] font-bold text-vault-dim">
+                {i + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                {holder.label ? (
+                  <a
+                    href={`https://solscan.io/account/${holder.address}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className={`text-xs font-medium hover:underline ${holder.label === 'Liquidity Pool' ? 'text-vault-accent' : 'text-blue-400'}`}
+                  >{holder.label}</a>
+                ) : (
+                  <a
+                    href={`https://solscan.io/account/${holder.address}${process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta' ? '' : '?cluster=' + (process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet')}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="truncate font-mono text-xs text-vault-muted hover:text-vault-accent hover:underline"
+                  >
+                    {holder.address.slice(0, 6)}...{holder.address.slice(-4)}
+                  </a>
+                )}
+                <div className="text-[10px] text-vault-dim">{formatNumber(holder.balance)} tokens</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="h-1.5 w-14 overflow-hidden rounded-full bg-white/[0.06]" title={`${holder.percentage.toFixed(2)}%`}>
+                  <div
+                    className={`h-full rounded-full ${holder.label === 'Liquidity Pool' ? 'bg-vault-accent' : holder.label === 'Creator (dev)' ? 'bg-blue-500' : 'bg-vault-green'}`}
+                    style={{ width: `${Math.min(holder.percentage, 100)}%` }}
+                  />
+                </div>
+                <div className="mt-0.5 font-mono text-[10px] text-vault-dim">
+                  {holder.percentage < 0.1 ? holder.percentage.toFixed(3) : holder.percentage.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {circulatingSupply > 0 && (
+            <div className="mt-2 border-t border-white/[0.04] pt-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-vault-dim">Circulating</span>
+                <span className="font-mono text-vault-text">{formatNumber(circulatingSupply)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs">
+                <span className="text-vault-dim">Total Supply</span>
+                <span className="font-mono text-vault-dim">1,000,000,000</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

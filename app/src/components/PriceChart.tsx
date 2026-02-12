@@ -407,62 +407,56 @@ export default function PriceChart({
 
 
   return (
-    <div className="flex flex-col bg-gray-900/80 rounded-xl overflow-hidden border border-gray-700/50 min-w-0">
-      {/* Header - pump.fun style market cap + ATH display */}
-      <div className="p-4 border-b border-gray-700/30">
-        {/* Market Cap Header with ATH progress bar */}
+    <div className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden min-w-0">
+      {/* Header */}
+      <div className="p-4 border-b border-white/[0.04]">
+        {/* Market Cap + ATH */}
         <div className="flex items-start justify-between mb-2">
           <div>
-            <div className="text-gray-500 text-xs mb-1">Market Cap</div>
-            <div className="text-3xl font-bold text-white">
+            <div className="text-[10px] uppercase tracking-wider text-vault-dim mb-1">Market Cap</div>
+            <div className="text-2xl font-bold text-vault-text font-mono lg:text-3xl">
               {candleMarketCap?.usd ? formatMcap(candleMarketCap.usd) : '--'}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`text-sm font-medium ${priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              <span className={`text-sm font-medium font-mono ${priceChange24h >= 0 ? 'text-vault-green' : 'text-vault-red'}`}>
                 {priceChange24h >= 0 ? '+' : ''}
-                {candleMarketCap?.usd 
+                {candleMarketCap?.usd
                   ? formatMcap(Math.abs(priceChange24h / 100 * candleMarketCap.usd))
                   : '--'
                 } ({priceChange24h >= 0 ? '+' : ''}{priceChange24h.toFixed(2)}%)
               </span>
-              <span className="text-gray-500 text-sm">24hr</span>
+              <span className="text-vault-dim text-xs">24h</span>
             </div>
           </div>
-          
-          {/* ATH Display */}
           <div className="text-right">
-            <div className="text-gray-500 text-xs mb-1">ATH</div>
-            <div className="text-green-400 font-bold text-xl">
+            <div className="text-[10px] uppercase tracking-wider text-vault-dim mb-1">ATH</div>
+            <div className="text-vault-green font-bold text-lg font-mono">
               {athPrice > 0 ? formatMcap(athPrice * totalSupply) : '--'}
             </div>
           </div>
         </div>
 
-        {/* ATH Progress Bar - full width like pump.fun */}
+        {/* ATH progress */}
         <div className="mb-4">
-          <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${athProgress >= 95 ? 'bg-green-500' : 'bg-gradient-to-r from-gray-600 to-green-500'}`}
+              className={`h-full rounded-full transition-all ${athProgress >= 95 ? 'bg-vault-green' : 'bg-vault-accent/70'}`}
               style={{ width: `${Math.min(athProgress, 100)}%` }}
             />
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div className="flex gap-1">
             {(['1m', '5m', '15m', '1h', '1d'] as Interval[]).map((i) => (
               <button
                 key={i}
-                onClick={() => {
-                  if (i !== timeInterval) {
-                    fetchCandles(i);
-                  }
-                }}
-                className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
+                onClick={() => { if (i !== timeInterval) fetchCandles(i); }}
+                className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 ${
                   timeInterval === i
-                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
-                    : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                    ? 'bg-vault-accent text-vault-bg'
+                    : 'border border-white/[0.06] bg-white/[0.02] text-vault-muted hover:border-white/[0.1] hover:text-vault-text'
                 }`}
               >
                 {i}
@@ -472,42 +466,45 @@ export default function PriceChart({
           <div className="flex gap-1">
             <button
               onClick={() => setChartType('line')}
-              className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
+              className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 ${
                 chartType === 'line'
-                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
-                  : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                  ? 'bg-vault-accent text-vault-bg'
+                  : 'border border-white/[0.06] bg-white/[0.02] text-vault-muted hover:border-white/[0.1] hover:text-vault-text'
               }`}
               aria-label="Line chart"
             >
-              <span className="sm:hidden">📈</span>
-              <span className="hidden sm:inline">📈 Line</span>
+              <span className="sm:hidden">Line</span>
+              <span className="hidden sm:inline">Line</span>
             </button>
             <button
               onClick={() => setChartType('candle')}
-              className={`px-2 sm:px-3 py-1.5 text-xs rounded-md font-medium transition ${
+              className={`rounded-md px-2 py-1.5 text-xs font-medium transition sm:px-3 ${
                 chartType === 'candle'
-                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
-                  : 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                  ? 'bg-vault-accent text-vault-bg'
+                  : 'border border-white/[0.06] bg-white/[0.02] text-vault-muted hover:border-white/[0.1] hover:text-vault-text'
               }`}
               aria-label="Candlestick chart"
             >
-              <span className="sm:hidden">🕯️</span>
-              <span className="hidden sm:inline">🕯️ Candles</span>
+              <span className="sm:hidden">Candles</span>
+              <span className="hidden sm:inline">Candles</span>
             </button>
           </div>
         </div>
       </div>
-      
-      {/* Chart */}
+
+      {/* Chart area */}
       {loading && candlesForChart.length === 0 ? (
-        <div className="flex items-center justify-center text-gray-500" style={{ height: height - 160 }}>
-          Loading chart...
+        <div className="flex items-center justify-center text-vault-dim" style={{ height: height - 160 }}>
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-vault-accent border-t-transparent" />
+            <span className="text-xs">Loading chart...</span>
+          </div>
         </div>
       ) : candlesForChart.length === 0 && !hasChartInitializedRef.current ? (
-        <div className="flex flex-col items-center justify-center text-gray-500" style={{ height: height - 160 }}>
-          <span className="text-2xl mb-2">📊</span>
-          <span>No price history yet</span>
-          <span className="text-xs text-gray-600 mt-1">Chart appears after first trade</span>
+        <div className="flex flex-col items-center justify-center text-vault-dim" style={{ height: height - 160 }}>
+          <svg className="mb-2 h-8 w-8 text-vault-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+          <span className="text-sm">No price history yet</span>
+          <span className="text-xs text-vault-dim mt-1">Chart appears after first trade</span>
         </div>
       ) : (
         <div ref={chartContainerRef} className="w-full dark-scrollbar overflow-hidden" />
