@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAllTokens } from '@/lib/supabase-client';
 import { useWallet } from '@/contexts/WalletContext';
+import { useSolPrice } from '@/hooks/useSolPrice';
 
 type FilterTab = 'all' | 'trending' | 'new' | 'near_grad' | 'graduated';
 
@@ -17,7 +18,7 @@ export default function TokensPage() {
   const [sort, setSort] = useState('created_at');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
-  const [solPrice, setSolPrice] = useState<number | null>(null);
+  const { price: solPrice } = useSolPrice();
   const [_walletBalances, setWalletBalances] = useState<Record<string, number>>({});
   const [_balancesLoading, setBalancesLoading] = useState(false);
 
@@ -41,9 +42,8 @@ export default function TokensPage() {
 
   useEffect(() => {
     fetchTokens();
-    fetchSolPrice();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort]);
+  }, []);
 
   useAllTokens(
     (newToken) => setTokens((prev) => [newToken, ...prev]),
@@ -57,19 +57,9 @@ export default function TokensPage() {
     fetchWalletBalances();
   }, [fetchWalletBalances]);
 
-  const fetchSolPrice = async () => {
-    try {
-      const res = await fetch('/api/sol-price');
-      const data = await res.json();
-      setSolPrice(data.valid ? data.price : null);
-    } catch {
-      setSolPrice(null);
-    }
-  };
-
   const fetchTokens = async () => {
     try {
-      const res = await fetch(`/api/tokens?sort=${sort}`);
+      const res = await fetch('/api/tokens');
       const data: TokenListResponse = await res.json();
       setTokens(data.tokens || []);
     } catch (err) {
@@ -124,12 +114,23 @@ export default function TokensPage() {
       );
     }
 
-    if (sort === 'price_change') {
-      result = result.sort((a, b) => {
-        const changeA = a.price_change_24h ?? -Infinity;
-        const changeB = b.price_change_24h ?? -Infinity;
-        return changeB - changeA;
-      });
+    switch (sort) {
+      case 'market_cap':
+        result = result.sort((a, b) => (b.market_cap_sol || 0) - (a.market_cap_sol || 0));
+        break;
+      case 'volume':
+        result = result.sort((a, b) => (b.volume_24h || 0) - (a.volume_24h || 0));
+        break;
+      case 'price':
+        result = result.sort((a, b) => (b.price_sol || 0) - (a.price_sol || 0));
+        break;
+      case 'price_change':
+        result = result.sort((a, b) => (b.price_change_24h ?? -Infinity) - (a.price_change_24h ?? -Infinity));
+        break;
+      case 'created_at':
+      default:
+        result = result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
     }
 
     return result;

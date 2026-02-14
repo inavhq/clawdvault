@@ -192,20 +192,22 @@ export default function PriceChart({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount/mint change
   }, [mint]);
 
+  // Debounce candle refetch — cron updates 5 timeframes per cycle, each fires an event.
+  // SOL price updates also trigger refetches. Consolidate into one fetch per burst.
+  const chartDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedRefetch = useCallback(() => {
+    if (chartDebounceRef.current) clearTimeout(chartDebounceRef.current);
+    chartDebounceRef.current = setTimeout(() => {
+      fetchCandles(chartData.interval);
+      fetch24hCandles();
+    }, 2000);
+  }, [fetchCandles, fetch24hCandles, chartData.interval]);
+
   // Subscribe to realtime candle updates
-  useCandles(mint, () => {
-    console.log('[PriceChart] Candle update received, refetching...');
-    fetchCandles(chartData.interval);
-    fetch24hCandles();
-  });
+  useCandles(mint, debouncedRefetch);
 
   // Subscribe to SOL price updates - refetch candles when SOL price changes
-  // This updates the USD close price dynamically
-  useSolPriceHook(() => {
-    console.log('[PriceChart] SOL price update received, refetching candles...');
-    fetchCandles(chartData.interval);
-    fetch24hCandles();
-  });
+  useSolPriceHook(debouncedRefetch);
 
   // Create/update chart
   useEffect(() => {

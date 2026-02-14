@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { Token, Trade, TradeResponse } from '@/lib/types';
+import { Token, Trade, TradeResponse, INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
 import ChatAndTrades from '@/components/ChatAndTrades';
 import PriceChart from '@/components/PriceChart';
 import Header from '@/components/Header';
@@ -10,7 +10,8 @@ import Footer from '@/components/Footer';
 import ExplorerLink from '@/components/ExplorerLink';
 import { useWallet } from '@/contexts/WalletContext';
 import { fetchBalanceClient } from '@/lib/solana-client';
-import { useTokenStats, useCandles } from '@/lib/supabase-client';
+import { useTokenStats } from '@/lib/supabase-client';
+import { useSolPrice } from '@/hooks/useSolPrice';
 
 export default function TokenPage({ params }: { params: Promise<{ mint: string }> }) {
   const { mint } = use(params);
@@ -43,26 +44,25 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     bondingCurveSol: number;
   } | null>(null);
   const [creatorUsername, setCreatorUsername] = useState<string | null>(null);
-  const [lastCandle, setLastCandle] = useState<{ closeUsd: number; close: number } | null>(null);
+
+  // Streaming SOL price for computing USD values from streamed reserves
+  const { price: solPriceUsd } = useSolPrice();
 
   const priceChange24h = useMemo(() => {
-    // Realtime: current candle price vs 24h-ago reference from token record (streamed)
-    if (lastCandle?.closeUsd && token?.price_24h_ago && token.price_24h_ago > 0) {
-      const change = ((lastCandle.closeUsd - token.price_24h_ago) / token.price_24h_ago) * 100;
+    // Compute from streamed current price vs 24h-ago reference price
+    const currentUsd = token?.price_usd
+      ?? (token?.price_sol && solPriceUsd ? token.price_sol * solPriceUsd : null);
+    if (currentUsd && token?.price_24h_ago && token.price_24h_ago > 0) {
+      const change = ((currentUsd - token.price_24h_ago) / token.price_24h_ago) * 100;
       return Number(change.toFixed(2));
     }
     return token?.price_change_24h ?? null;
-  }, [lastCandle, token?.price_24h_ago, token?.price_change_24h]);
+  }, [token?.price_usd, token?.price_sol, token?.price_24h_ago, token?.price_change_24h, solPriceUsd]);
 
-  const currentPrice = useMemo(() => {
-    if (lastCandle) {
-      return { sol: lastCandle.close, usd: lastCandle.closeUsd };
-    }
-    return {
-      sol: token?.price_sol ?? onChainStats?.price ?? 0,
-      usd: token?.price_usd ?? onChainStats?.priceUsd ?? null,
-    };
-  }, [lastCandle, token, onChainStats]);
+  const currentPrice = useMemo(() => ({
+    sol: token?.price_sol ?? onChainStats?.price ?? 0,
+    usd: token?.price_usd ?? onChainStats?.priceUsd ?? null,
+  }), [token?.price_sol, token?.price_usd, onChainStats?.price, onChainStats?.priceUsd]);
 
   const fetchTokenBalance = useCallback(async () => {
     if (!connected || !publicKey || !token) { setTokenBalance(0); return; }
@@ -102,26 +102,32 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [mint]);
 
   useEffect(() => {
-    fetchToken(); fetchNetworkMode(); fetchOnChainStats(); fetchLatestCandle();
+    fetchToken(); fetchNetworkMode(); fetchOnChainStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mint]);
 
+  // Stream token updates — compute price/mcap from reserves instead of re-fetching
   useTokenStats(mint, (updatedToken) => {
+    const vSol = Number(updatedToken.virtual_sol_reserves);
+    const vTokens = Number(updatedToken.virtual_token_reserves);
+    const priceSol = vTokens > 0 ? vSol / vTokens : 0;
+    const priceUsd = solPriceUsd ? priceSol * solPriceUsd : undefined;
     setToken(prev => prev ? {
       ...prev,
-      virtual_sol_reserves: updatedToken.virtual_sol_reserves,
-      virtual_token_reserves: updatedToken.virtual_token_reserves,
-      real_sol_reserves: updatedToken.real_sol_reserves,
-      real_token_reserves: updatedToken.real_token_reserves,
+      virtual_sol_reserves: vSol,
+      virtual_token_reserves: vTokens,
+      real_sol_reserves: Number(updatedToken.real_sol_reserves),
+      real_token_reserves: Number(updatedToken.real_token_reserves),
       graduated: updatedToken.graduated,
       volume_24h: updatedToken.volume_24h,
       price_24h_ago: updatedToken.price_24h_ago ? Number(updatedToken.price_24h_ago) : undefined,
       ath: updatedToken.ath ? Number(updatedToken.ath) : undefined,
+      price_sol: priceSol,
+      price_usd: priceUsd,
+      market_cap_sol: priceSol * INITIAL_VIRTUAL_TOKENS,
+      market_cap_usd: priceUsd ? priceUsd * INITIAL_VIRTUAL_TOKENS : prev.market_cap_usd,
     } : null);
-    fetchOnChainStats();
   });
-
-  useCandles(mint, () => { fetchLatestCandle(); });
 
   useEffect(() => {
     if (token?.mint) fetchHolders(token.creator || undefined);
@@ -148,17 +154,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         });
       }
     } catch (_err) { console.warn('On-chain stats fetch failed'); }
-  };
-
-  const fetchLatestCandle = async () => {
-    try {
-      const res = await fetch(`/api/candles?mint=${mint}&interval=1m&limit=1&currency=usd`);
-      const data = await res.json();
-      if (data.candles?.length > 0) {
-        const candle = data.candles[0];
-        setLastCandle({ closeUsd: candle.close, close: candle.closeSol || candle.close });
-      }
-    } catch (err) { console.warn('Failed to fetch latest candle:', err); }
   };
 
   const fetchNetworkMode = async () => {
@@ -260,17 +255,17 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         const executeData = await executeRes.json();
         if (!executeData.success) { setTradeResult({ success: false, error: executeData.error || 'Jupiter trade failed' }); return; }
         setTradeResult({ success: true, signature: executeData.signature, trade: executeData.trade, message: 'Trade executed via Jupiter!' });
-        setAmount(''); fetchToken(); fetchOnChainStats(); refreshBalancesAfterTrade();
+        setAmount(''); refreshBalancesAfterTrade();
         return;
       }
-      
+
       const prepareRes = await fetch('/api/trade/prepare', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mint: token.mint, type: tradeType, amount: parseFloat(amount), wallet: publicKey, slippage: 0.01 }),
       });
       const prepareData = await prepareRes.json();
       if (!prepareData.success) {
-        if (prepareData.graduated) { await fetchToken(); setTradeResult({ success: false, error: 'Token just graduated! Please retry to trade via Raydium.' }); return; }
+        if (prepareData.graduated) { setTradeResult({ success: false, error: 'Token just graduated! Please retry to trade via Raydium.' }); return; }
         setTradeResult({ success: false, error: prepareData.error || 'Failed to prepare transaction' }); return;
       }
       const signedTx = await signTransaction(prepareData.transaction);
@@ -287,7 +282,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       const executeData = await executeRes.json();
       if (executeData.success) {
         setTradeResult({ success: true, trade: executeData.trade, newPrice: executeData.newPrice, fees: executeData.fees, signature: executeData.signature });
-        setAmount(''); fetchToken(); fetchHolders(token?.creator); fetchOnChainStats(); refreshBalancesAfterTrade();
+        setAmount(''); refreshBalancesAfterTrade();
       } else {
         setTradeResult({ success: false, error: executeData.error || 'Trade execution failed' });
       }
