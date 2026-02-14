@@ -7,6 +7,7 @@ interface HomeStatsProps {
   initialTokens: number;
   initialGraduated: number;
   initialVolume: number;
+  initialAgents: number;
   solPrice: number | null;
 }
 
@@ -14,11 +15,13 @@ export default function HomeStats({
   initialTokens,
   initialGraduated,
   initialVolume,
+  initialAgents,
   solPrice,
 }: HomeStatsProps) {
   const [totalTokens, setTotalTokens] = useState(initialTokens);
   const [graduatedCount, setGraduatedCount] = useState(initialGraduated);
   const [totalVolume, setTotalVolume] = useState(initialVolume);
+  const [agentCount, setAgentCount] = useState(initialAgents);
 
   useAllTokens(
     () => setTotalTokens((prev) => prev + 1),
@@ -48,7 +51,7 @@ export default function HomeStats({
     { label: 'Tokens Launched', value: totalTokens.toLocaleString(), color: 'text-vault-accent' },
     { label: 'Graduated', value: graduatedCount.toLocaleString(), color: 'text-vault-green' },
     { label: '24h Volume', value: formatValue(totalVolume), color: 'text-vault-text' },
-    { label: 'Active Agents', value: '∞', color: 'text-vault-accent' },
+    { label: 'Active Agents', value: agentCount.toLocaleString(), color: 'text-vault-accent' },
   ];
 
   return (

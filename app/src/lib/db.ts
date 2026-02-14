@@ -591,17 +591,177 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
   return !!agent;
 }
 
-// Register agent
+// ============================================
+// USER / AGENT MANAGEMENT
+// ============================================
+
+/** Get or create a User by wallet address */
+export async function getOrCreateUser(wallet: string) {
+  let user = await db().user.findUnique({ where: { wallet } });
+
+  if (!user) {
+    user = await db().user.create({
+      data: { wallet },
+    });
+  }
+
+  return user;
+}
+
+/** Register an agent (creates User if needed, generates API key + claim code) */
 export async function registerAgent(wallet: string, name?: string) {
+  // Get or create the user
+  const user = await getOrCreateUser(wallet);
+
+  // Check if user already has an agent
+  const existing = await db().agent.findUnique({
+    where: { userId: user.id },
+  });
+
+  if (existing) {
+    throw new Error('Agent already registered for this wallet');
+  }
+
+  // Generate API key and claim code
+  const apiKey = `cv_${generateMint().substring(0, 32)}`;
+  const claimCode = generateMint().substring(0, 8).toUpperCase(); // Short code for tweets
+
+  // Create agent
   const agent = await db().agent.create({
     data: {
-      wallet,
-      name,
-      apiKey: `cv_${generateMint().substring(0, 32)}`,
+      userId: user.id,
+      apiKey,
+      claimCode,
+    },
+    include: {
+      user: true,
     },
   });
-  
-  return agent;
+
+  // Update user name if provided
+  if (name) {
+    await db().user.update({
+      where: { id: user.id },
+      data: { name },
+    });
+  }
+
+  return { agent, user, apiKey, claimCode };
+}
+
+/** Verify Twitter claim (check tweet exists, contains claim code, mark verified) */
+export async function claimAgentVerification(apiKey: string, tweetUrl: string) {
+  const agent = await db().agent.findUnique({
+    where: { apiKey },
+    include: { user: true },
+  });
+
+  if (!agent) {
+    throw new Error('Agent not found');
+  }
+
+  if (agent.twitterVerified) {
+    throw new Error('Agent already verified');
+  }
+
+  if (!agent.claimCode) {
+    throw new Error('No claim code found (agent may have been verified already)');
+  }
+
+  // TODO: Verify tweet exists and contains claim code (pluggable stub for MVP)
+  // For MVP: just mark as verified and clear claim code
+
+  // Extract Twitter handle from URL (https://twitter.com/handle/status/123 or https://x.com/handle/status/123)
+  const handleMatch = tweetUrl.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status/);
+  const twitterHandle = handleMatch ? handleMatch[1] : null;
+
+  // Update agent
+  const updated = await db().agent.update({
+    where: { apiKey },
+    data: {
+      twitterVerified: true,
+      twitterHandle,
+      claimTweetUrl: tweetUrl,
+      verifiedAt: new Date(),
+      claimCode: null, // Clear claim code after verification
+    },
+    include: { user: true },
+  });
+
+  return updated;
+}
+
+/** Get agent by API key */
+export async function getAgentByApiKey(apiKey: string) {
+  return db().agent.findUnique({
+    where: { apiKey },
+    include: { user: true },
+  });
+}
+
+/** Get agents leaderboard (sorted by volume/tokens/fees) */
+export async function getAgentsLeaderboard(options?: {
+  sortBy?: 'volume' | 'tokens' | 'fees';
+  limit?: number;
+}) {
+  const { sortBy = 'volume', limit = 100 } = options || {};
+
+  let orderBy;
+  switch (sortBy) {
+    case 'tokens':
+      orderBy = { user: { tokensCreated: 'desc' as const } };
+      break;
+    case 'fees':
+      orderBy = { user: { totalFees: 'desc' as const } };
+      break;
+    case 'volume':
+    default:
+      orderBy = { user: { totalVolume: 'desc' as const } };
+  }
+
+  const agents = await db().agent.findMany({
+    where: { twitterVerified: true }, // Only show verified agents
+    include: { user: true },
+    orderBy,
+    take: limit,
+  });
+
+  return agents;
+}
+
+/** Get users leaderboard (sorted by volume/tokens/fees) */
+export async function getUsersLeaderboard(options?: {
+  sortBy?: 'volume' | 'tokens' | 'fees';
+  limit?: number;
+}) {
+  const { sortBy = 'volume', limit = 100 } = options || {};
+
+  let orderBy;
+  switch (sortBy) {
+    case 'tokens':
+      orderBy = { tokensCreated: 'desc' as const };
+      break;
+    case 'fees':
+      orderBy = { totalFees: 'desc' as const };
+      break;
+    case 'volume':
+    default:
+      orderBy = { totalVolume: 'desc' as const };
+  }
+
+  const users = await db().user.findMany({
+    orderBy,
+    take: limit,
+  });
+
+  return users;
+}
+
+/** Get total agent count */
+export async function getAgentCount() {
+  return db().agent.count({
+    where: { twitterVerified: true }, // Only count verified agents
+  });
 }
 
 // Record a trade from on-chain execution

@@ -7,6 +7,7 @@
 import type {
   Token   as PrismaToken,
   Trade   as PrismaTrade,
+  User    as PrismaUser,
   Agent   as PrismaAgent,
 } from '@prisma/client';
 import type { PrismaToApi } from './type-utils';
@@ -46,7 +47,12 @@ export type Trade = Omit<PrismaToApi<PrismaTrade>, 'trade_type' | 'token_id'> & 
 };
 
 /**
- * API Agent — straight conversion from Prisma.
+ * API User — wallet holder (auto-created on first trade).
+ */
+export type User = PrismaToApi<PrismaUser>;
+
+/**
+ * API Agent — AI agent with API key + Twitter verification.
  */
 export type Agent = PrismaToApi<PrismaAgent>;
 

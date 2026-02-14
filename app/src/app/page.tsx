@@ -58,6 +58,9 @@ async function getHomeData() {
     const graduatedCount = await db().token.count({
       where: { graduated: true }
     })
+    const agentCount = await db().agent.count({
+      where: { twitterVerified: true }
+    })
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const volumeResult = await db().trade.aggregate({
       where: { createdAt: { gte: oneDayAgo } },
@@ -132,6 +135,7 @@ async function getHomeData() {
       totalTokens,
       graduatedCount,
       totalVolume,
+      agentCount,
       recentTokens,
       trendingTokens: trendingWithVolume,
       solPrice,
@@ -144,6 +148,7 @@ async function getHomeData() {
       totalTokens: 0,
       graduatedCount: 0,
       totalVolume: 0,
+      agentCount: 0,
       recentTokens: [],
       trendingTokens: [],
       solPrice: 100,
@@ -289,6 +294,7 @@ export default async function Home() {
             initialTokens={data.totalTokens}
             initialGraduated={data.graduatedCount}
             initialVolume={data.totalVolume}
+            initialAgents={data.agentCount}
             solPrice={data.solPrice}
           />
         </div>
