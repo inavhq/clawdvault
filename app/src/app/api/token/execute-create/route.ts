@@ -3,6 +3,8 @@ import { Connection, clusterApiUrl } from '@solana/web3.js';
 import { createToken } from '@/lib/db';
 import { db } from '@/lib/prisma';
 import { announceNewToken } from '@/lib/moltx';
+import { updateCandles } from '@/lib/candles';
+import { INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
       telegram: body.telegram,
       website: body.website,
     });
-    
+
     if (!token) {
       // Token created on-chain but DB failed - still return success with warning
       console.error('Warning: Token created on-chain but failed to save to database');
@@ -118,6 +120,22 @@ export async function POST(request: Request) {
           process.env.SOLANA_NETWORK || 'devnet'
         }`,
       });
+    }
+
+    // Seed initial candle at t=0 using bonding curve starting state
+    // This ensures price always exists from token creation, eliminating "no candles" edge cases
+    const initialPrice = INITIAL_VIRTUAL_SOL / INITIAL_VIRTUAL_TOKENS;
+    try {
+      await updateCandles(
+        body.mint,
+        initialPrice,
+        0, // No volume yet
+        new Date() // Token creation time
+      );
+      console.log(`✅ Seeded initial candle for ${body.symbol} at price ${initialPrice} SOL`);
+    } catch (err) {
+      console.error('Warning: Failed to seed initial candle:', err);
+      // Don't fail token creation if candle seeding fails - it's not critical
     }
     
     // Announce new token on Moltx (fire and forget)
