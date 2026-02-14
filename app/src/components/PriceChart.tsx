@@ -139,12 +139,14 @@ export default function PriceChart({
     }
   }, [effectiveMarketCap, onMarketCapUpdate]);
 
-  // Calculate ATH progress (how close current market cap is to ATH market cap)
-  // Subtract virtual liquidity to show real tradeable value
+  // ATH market cap for display (raw, no adjustment)
+  const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
+
+  // ATH progress bar: subtract virtual liquidity so bar shows real tradeable range
   const virtualLiquidityUsd = solPriceUsd ? INITIAL_VIRTUAL_SOL * solPriceUsd : 0;
-  const athMarketCap = athPrice > 0 ? Math.max(0, athPrice * totalSupply - virtualLiquidityUsd) : 0;
+  const adjustedAthMarketCap = Math.max(0, athMarketCap - virtualLiquidityUsd);
   const adjustedEffectiveMarketCap = Math.max(0, effectiveMarketCap - virtualLiquidityUsd);
-  const athProgress = athMarketCap > 0 ? (adjustedEffectiveMarketCap / athMarketCap) * 100 : 100;
+  const athProgress = adjustedAthMarketCap > 0 ? (adjustedEffectiveMarketCap / adjustedAthMarketCap) * 100 : 100;
 
   // Track which interval fetch is in-flight to prevent stale updates
   const fetchIntervalRef = useRef<Interval | null>(null);
