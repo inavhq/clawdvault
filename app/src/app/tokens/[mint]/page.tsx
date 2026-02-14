@@ -43,16 +43,16 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
     bondingCurveSol: number;
   } | null>(null);
   const [creatorUsername, setCreatorUsername] = useState<string | null>(null);
-  const [candle24hAgo, setCandle24hAgo] = useState<{ closeUsd: number } | null>(null);
   const [lastCandle, setLastCandle] = useState<{ closeUsd: number; close: number } | null>(null);
 
   const priceChange24h = useMemo(() => {
-    if (lastCandle?.closeUsd && candle24hAgo?.closeUsd && candle24hAgo.closeUsd > 0) {
-      const change = ((lastCandle.closeUsd - candle24hAgo.closeUsd) / candle24hAgo.closeUsd) * 100;
+    // Realtime: current candle price vs 24h-ago reference from token record (streamed)
+    if (lastCandle?.closeUsd && token?.price_24h_ago && token.price_24h_ago > 0) {
+      const change = ((lastCandle.closeUsd - token.price_24h_ago) / token.price_24h_ago) * 100;
       return Number(change.toFixed(2));
     }
     return token?.price_change_24h ?? null;
-  }, [lastCandle, candle24hAgo, token?.price_change_24h]);
+  }, [lastCandle, token?.price_24h_ago, token?.price_change_24h]);
 
   const currentPrice = useMemo(() => {
     if (lastCandle) {
@@ -102,7 +102,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
   }, [mint]);
 
   useEffect(() => {
-    fetchToken(); fetchNetworkMode(); fetchOnChainStats(); fetchLatestCandle(); fetch24hAgoCandle();
+    fetchToken(); fetchNetworkMode(); fetchOnChainStats(); fetchLatestCandle();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mint]);
 
@@ -115,18 +115,13 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
       real_token_reserves: updatedToken.real_token_reserves,
       graduated: updatedToken.graduated,
       volume_24h: updatedToken.volume_24h,
+      price_24h_ago: updatedToken.price_24h_ago ? Number(updatedToken.price_24h_ago) : undefined,
+      ath: updatedToken.ath ? Number(updatedToken.ath) : undefined,
     } : null);
     fetchOnChainStats();
   });
 
   useCandles(mint, () => { fetchLatestCandle(); });
-
-  useEffect(() => {
-    fetch24hAgoCandle();
-    const interval = setInterval(fetch24hAgoCandle, 60 * 1000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mint]);
 
   useEffect(() => {
     if (token?.mint) fetchHolders(token.creator || undefined);
@@ -153,15 +148,6 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
         });
       }
     } catch (_err) { console.warn('On-chain stats fetch failed'); }
-  };
-
-  const fetch24hAgoCandle = async () => {
-    try {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const agoRes = await fetch(`/api/candles?mint=${mint}&interval=1m&limit=1&currency=usd&to=${oneDayAgo.toISOString()}`);
-      const agoData = await agoRes.json();
-      if (agoData.candles?.length > 0) setCandle24hAgo({ closeUsd: agoData.candles[0].close });
-    } catch (err) { console.warn('Failed to fetch 24h ago candle:', err); }
   };
 
   const fetchLatestCandle = async () => {

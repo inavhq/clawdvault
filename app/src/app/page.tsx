@@ -96,51 +96,33 @@ async function getHomeData() {
     ]
     const uniqueMints = Array.from(new Set(allTokenMints))
 
-    const [lastCandles, candles24hAgo] = await Promise.all([
-      db().priceCandle.findMany({
-        where: { tokenMint: { in: uniqueMints } },
-        orderBy: { bucketTime: 'desc' },
-        distinct: ['tokenMint'],
-        select: {
-          tokenMint: true,
-          close: true,
-          closeUsd: true
-        }
-      }),
-      db().priceCandle.findMany({
-        where: {
-          tokenMint: { in: uniqueMints },
-          interval: '1m',
-          bucketTime: { lte: oneDayAgo }
-        },
-        orderBy: { bucketTime: 'desc' },
-        distinct: ['tokenMint'],
-        select: {
-          tokenMint: true,
-          closeUsd: true,
-        }
-      })
-    ])
+    const lastCandles = await db().priceCandle.findMany({
+      where: { tokenMint: { in: uniqueMints } },
+      orderBy: { bucketTime: 'desc' },
+      distinct: ['tokenMint'],
+      select: {
+        tokenMint: true,
+        close: true,
+        closeUsd: true
+      }
+    })
 
     const lastCandleMap = new Map(lastCandles.map(c => [c.tokenMint, {
       priceSol: c.close ? Number(c.close) : undefined,
       priceUsd: c.closeUsd ? Number(c.closeUsd) : undefined
     }]))
 
+    // Use token's price_24h_ago field (set by heartbeat cron) for price change
+    const allTokens = [...recentTokens, ...trendingWithVolume]
     const priceChange24hMap = new Map<string, number | null>()
     for (const mint of uniqueMints) {
       const lastCandle = lastCandleMap.get(mint)
-      const candle24h = candles24hAgo.find(c => c.tokenMint === mint)
-      
-      if (lastCandle?.priceUsd && candle24h?.closeUsd) {
-        const current = lastCandle.priceUsd
-        const past = Number(candle24h.closeUsd)
-        if (past > 0) {
-          const change = ((current - past) / past) * 100
-          priceChange24hMap.set(mint, change)
-        } else {
-          priceChange24hMap.set(mint, null)
-        }
+      const token = allTokens.find(t => t.mint === mint)
+      const price24hAgo = token?.price24hAgo ? Number(token.price24hAgo) : null
+
+      if (lastCandle?.priceUsd && price24hAgo && price24hAgo > 0) {
+        const change = ((lastCandle.priceUsd - price24hAgo) / price24hAgo) * 100
+        priceChange24hMap.set(mint, change)
       } else {
         priceChange24hMap.set(mint, null)
       }

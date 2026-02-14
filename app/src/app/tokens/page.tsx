@@ -329,7 +329,10 @@ export default function TokensPage() {
               {filteredTokens.map((token) => {
                 const progress = getBondingProgress(token);
                 const isActive = hasRecentActivity(token);
-                const change = token.price_change_24h;
+                // Compute change from streamed price_24h_ago + current price, fallback to API value
+                const change = token.price_24h_ago && token.price_usd && token.price_24h_ago > 0
+                  ? ((token.price_usd - token.price_24h_ago) / token.price_24h_ago) * 100
+                  : token.price_change_24h ?? null;
 
                 return (
                   <Link

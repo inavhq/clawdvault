@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         });
       }
 
-      // Calculate 24h price change
+      // Store 24h-ago reference price (frontend calculates % change in realtime)
       const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const candle24hAgo = await db().priceCandle.findFirst({
         where: {
@@ -78,18 +78,9 @@ export async function GET(request: Request) {
       });
 
       if (candle24hAgo?.closeUsd) {
-        const price24hAgo = Number(candle24hAgo.closeUsd);
-        const priceChange24hAbsolute = currentPriceUsd - price24hAgo;
-        const priceChange24hPercent = price24hAgo > 0
-          ? ((currentPriceUsd - price24hAgo) / price24hAgo) * 100
-          : 0;
-
         await db().token.update({
           where: { mint: token.mint },
-          data: {
-            priceChange24h: priceChange24hAbsolute,
-            priceChange24hPercent: priceChange24hPercent
-          }
+          data: { price24hAgo: Number(candle24hAgo.closeUsd) }
         });
       }
 
