@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineData, CandlestickData, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import { useCandles, useSolPriceHook } from '@/lib/supabase-client';
-import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
+import { INITIAL_VIRTUAL_TOKENS, INITIAL_VIRTUAL_SOL } from '@/lib/types';
+import { useSolPrice } from '@/hooks/useSolPrice';
 
 interface Candle {
   time: number;
@@ -67,6 +68,9 @@ export default function PriceChart({
   });
   const timeInterval = chartData.interval;
   const candlesForChart = chartData.candles;
+
+  // Get SOL price for initial floor market cap calculation
+  const { price: solPriceUsd } = useSolPrice();
 
   // Use API-provided 24h change for consistency across all intervals
   // This is well-defined (1m candle 24h ago vs current) vs ambiguous "today"
@@ -138,8 +142,12 @@ export default function PriceChart({
   // ATH market cap for display
   const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
 
-  // ATH progress: how close current market cap is to ATH market cap
-  const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 0;
+  // ATH progress: position between initial floor and ATH
+  // Floor = initial virtual liquidity (bonding curve starting market cap)
+  const floorMarketCap = solPriceUsd ? INITIAL_VIRTUAL_SOL * solPriceUsd : 0;
+  const athRange = athMarketCap - floorMarketCap;
+  const currentAboveFloor = effectiveMarketCap - floorMarketCap;
+  const athProgress = athRange > 0 ? Math.max(0, Math.min((currentAboveFloor / athRange) * 100, 100)) : 0;
 
   // Track which interval fetch is in-flight to prevent stale updates
   const fetchIntervalRef = useRef<Interval | null>(null);
