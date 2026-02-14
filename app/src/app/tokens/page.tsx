@@ -114,16 +114,8 @@ export default function TokensPage() {
       );
     }
 
-    if (sort === 'price_change') {
-      result = result.sort((a, b) => {
-        const changeA = a.price_change_24h ?? -Infinity;
-        const changeB = b.price_change_24h ?? -Infinity;
-        return changeB - changeA;
-      });
-    }
-
     return result;
-  }, [tokens, filter, search, sort]);
+  }, [tokens, filter, search]);
 
   const formatMcap = (mcapSol: number, mcapUsd?: number) => {
     if (mcapUsd !== undefined && mcapUsd !== null) {

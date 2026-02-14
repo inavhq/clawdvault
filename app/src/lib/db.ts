@@ -65,9 +65,7 @@ function toApiToken(
     volume_24h: stats?.volume24h || 0,
     trades_24h: stats?.trades24h || 0,
     holders: stats?.holders || 1,
-    price_change_24h: token.price24hAgo && priceUsd
-      ? ((priceUsd - Number(token.price24hAgo)) / Number(token.price24hAgo)) * 100
-      : null,
+    price_change_24h: token.priceChange24h != null ? Number(token.priceChange24h) : null,
     ath: token.ath ? Number(token.ath) : undefined,
     price_24h_ago: token.price24hAgo ? Number(token.price24hAgo) : undefined,
     last_trade_at: lastTradeAt,
@@ -92,6 +90,9 @@ export async function getAllTokens(options?: {
   switch (sort) {
     case 'market_cap':
       orderBy = { virtualSolReserves: 'desc' };
+      break;
+    case 'price_change':
+      orderBy = { priceChange24h: 'desc' };
       break;
     case 'created_at':
     default:

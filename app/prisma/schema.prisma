@@ -40,8 +40,9 @@ model Token {
   website  String?
   
   // Price stats (updated by heartbeat cron)
-  ath        Decimal? @db.Decimal(30, 18)                 // All-time high price (USD)
-  price24hAgo Decimal? @map("price_24h_ago") @db.Decimal(30, 18) // USD price 24h ago (frontend calculates % change)
+  ath             Decimal? @db.Decimal(30, 18)                 // All-time high price (USD)
+  price24hAgo     Decimal? @map("price_24h_ago") @db.Decimal(30, 18) // USD price 24h ago
+  priceChange24h  Decimal? @map("price_change_24h") @db.Decimal(10, 4) // 24h price change (%)
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")

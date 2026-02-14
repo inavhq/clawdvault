@@ -190,9 +190,14 @@ async function updateAllTokens(solPriceUsd: number): Promise<number> {
     });
 
     if (candle24hAgo?.closeUsd) {
+      const ref = Number(candle24hAgo.closeUsd);
+      const change = ref > 0 ? ((priceUsd - ref) / ref) * 100 : null;
       await prisma.token.update({
         where: { mint: token.mint },
-        data: { price24hAgo: Number(candle24hAgo.closeUsd) }
+        data: {
+          price24hAgo: ref,
+          priceChange24h: change,
+        }
       });
     }
 
