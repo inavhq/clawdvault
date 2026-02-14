@@ -39,14 +39,19 @@ model Token {
   telegram String?
   website  String?
   
+  // Price stats (updated by heartbeat cron)
+  ath                   Decimal? @db.Decimal(30, 18)                 // All-time high price (USD)
+  priceChange24h        Decimal? @map("price_change_24h") @db.Decimal(20, 2)  // 24h price change (absolute USD)
+  priceChange24hPercent Decimal? @map("price_change_24h_percent") @db.Decimal(10, 2)  // 24h price change (%)
+
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
   trades Trade[]
   fees   Fee[]
-  
+
   @@map("tokens")
 }
 

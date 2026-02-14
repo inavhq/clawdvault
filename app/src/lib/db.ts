@@ -26,7 +26,6 @@ function toApiToken(
   token: any,
   stats?: { volume24h?: number; trades24h?: number; holders?: number },
   lastCandle?: { closeUsd?: number | null; close?: number | null } | null,
-  priceChange24h?: number | null,
   lastTradeAt?: string
 ): Token {
   const virtualSol = Number(token.virtualSolReserves);
@@ -66,7 +65,8 @@ function toApiToken(
     volume_24h: stats?.volume24h || 0,
     trades_24h: stats?.trades24h || 0,
     holders: stats?.holders || 1,
-    price_change_24h: priceChange24h ?? null,
+    price_change_24h: token.priceChange24hPercent ? Number(token.priceChange24hPercent) : null,
+    ath: token.ath ? Number(token.ath) : undefined,
     last_trade_at: lastTradeAt,
   };
 }
@@ -127,22 +127,6 @@ export async function getAllTokens(options?: {
     closeUsd: c.closeUsd ? Number(c.closeUsd) : undefined
   }]));
 
-  // Fetch 24h old candles for price change calculation (using 1m USD candles)
-  const candles24hAgo = await db().priceCandle.findMany({
-    where: {
-      tokenMint: { in: tokenMints },
-      interval: '1m',
-      bucketTime: { lte: dayAgo }
-    },
-    orderBy: { bucketTime: 'desc' },
-    distinct: ['tokenMint'],
-    select: {
-      tokenMint: true,
-      closeUsd: true,
-    }
-  });
-  const candle24hMap = new Map(candles24hAgo.map(c => [c.tokenMint, Number(c.closeUsd) || 0]));
-
   // Fetch last trade timestamp for each token (batch query)
   const lastTrades = await db().trade.findMany({
     where: { tokenMint: { in: tokenMints } },
@@ -169,17 +153,12 @@ export async function getAllTokens(options?: {
       ]);
 
       const lastCandle = lastCandleMap.get(token.mint);
-      const currentPriceUsd = lastCandle?.closeUsd ?? undefined;
-      const price24hAgo = candle24hMap.get(token.mint);
-      const priceChange24h = currentPriceUsd && price24hAgo && price24hAgo > 0
-        ? ((currentPriceUsd - price24hAgo) / price24hAgo) * 100
-        : null;
 
       return toApiToken(token, {
         volume24h: Number(volumeResult._sum.solAmount || 0),
         trades24h: tradeCount,
         holders: holderCount.length || 1,
-      }, lastCandle, priceChange24h, lastTradeMap.get(token.mint));
+      }, lastCandle, lastTradeMap.get(token.mint));
     })
   );
 
@@ -198,7 +177,7 @@ export async function getToken(mint: string): Promise<Token | null> {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [volumeResult, tradeCount, holderCount, lastCandle, candle24hAgo, lastTrade] = await Promise.all([
+  const [volumeResult, tradeCount, holderCount, lastCandle, lastTrade] = await Promise.all([
     db().trade.aggregate({
       where: { tokenMint: mint, createdAt: { gte: dayAgo } },
       _sum: { solAmount: true },
@@ -215,15 +194,6 @@ export async function getToken(mint: string): Promise<Token | null> {
       orderBy: { bucketTime: 'desc' },
       select: { close: true, closeUsd: true },
     }),
-    db().priceCandle.findFirst({
-      where: {
-        tokenMint: mint,
-        interval: '1m',
-        bucketTime: { lte: dayAgo }
-      },
-      orderBy: { bucketTime: 'desc' },
-      select: { closeUsd: true },
-    }),
     db().trade.findFirst({
       where: { tokenMint: mint },
       orderBy: { createdAt: 'desc' },
@@ -237,18 +207,11 @@ export async function getToken(mint: string): Promise<Token | null> {
     closeUsd: lastCandle.closeUsd ? Number(lastCandle.closeUsd) : undefined
   } : null;
 
-  // Calculate 24h price change using USD candles
-  const currentPriceUsd = lastCandleData?.closeUsd;
-  const price24hAgoUsd = candle24hAgo?.closeUsd ? Number(candle24hAgo.closeUsd) : null;
-  const priceChange24h = currentPriceUsd && price24hAgoUsd && price24hAgoUsd > 0
-    ? ((currentPriceUsd - price24hAgoUsd) / price24hAgoUsd) * 100
-    : null;
-
   return toApiToken(token, {
     volume24h: Number(volumeResult._sum.solAmount || 0),
     trades24h: tradeCount,
     holders: holderCount.length || 1,
-  }, lastCandleData, priceChange24h, lastTrade?.createdAt.toISOString());
+  }, lastCandleData, lastTrade?.createdAt.toISOString());
 }
 
 // Update token fields

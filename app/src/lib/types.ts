@@ -24,7 +24,8 @@ type TokenComputed = {
   volume_24h?: number;
   trades_24h?: number;
   holders?: number;
-  price_change_24h?: number | null;
+  price_change_24h?: number | null;  // Populated from priceChange24hPercent field (%)
+  ath?: number;  // Populated from ath field (USD)
   last_trade_at?: string;
 };
 
