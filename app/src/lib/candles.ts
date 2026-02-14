@@ -236,3 +236,18 @@ export async function getUsdCandles(
     };
   }).filter(c => c.close > 0); // Only return candles with USD data
 }
+
+// Get all-time high price (USD) from DB
+export async function getAthPrice(tokenMint: string): Promise<number> {
+  const result = await db().priceCandle.aggregate({
+    where: {
+      tokenMint,
+      highUsd: { not: null },
+    },
+    _max: {
+      highUsd: true,
+    },
+  });
+
+  return result._max.highUsd ? Number(result._max.highUsd) : 0;
+}

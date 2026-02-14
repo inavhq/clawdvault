@@ -57,6 +57,7 @@ export default function PriceChart({
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState<ChartType>('candle');
+  const [athPrice, setAthPrice] = useState<number>(0);
   // Group interval with candles to update atomically - prevents double render on change
   const [chartData, setChartData] = useState<{ interval: Interval; candles: Candle[] }>({
     interval: '5m',
@@ -98,26 +99,8 @@ export default function PriceChart({
     return { usd: mcapUsd };
   }, [candles, candles24h, totalSupply]);
 
-  // Calculate ATH and OHLCV from visible candles (candles are USD price)
-  const { athPrice } = useMemo(() => {
-    // Find ATH from all candle highs (use 24h candles for broader view)
-    // Candles contain USD price per token
-    const allCandles = candles24h.length > candles.length ? candles24h : candles;
-    let maxPrice = 0;
-    
-    allCandles.forEach(c => {
-      if (c.high > maxPrice) {
-        maxPrice = c.high;
-      }
-    });
-    
-    // If no candles, use current market cap as fallback (convert back to price)
-    if (maxPrice === 0 && currentMarketCap > 0) {
-      maxPrice = currentMarketCap / totalSupply;
-    }
-    
-    return { athPrice: maxPrice };
-  }, [candles, candles24h, currentMarketCap, totalSupply]);
+  // ATH is now fetched from DB via API (see useEffect below)
+  // Removed client-side calculation to improve performance
 
   // Effective market cap: last candle close * totalSupply (in USD)
   const effectiveMarketCap = useMemo(() => {
@@ -174,10 +157,22 @@ export default function PriceChart({
     }
   }, [mint]);
 
+  // Fetch ATH from DB
+  const fetchAth = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/token/stats?mint=${mint}`);
+      const data = await res.json();
+      setAthPrice(data.athPrice ?? 0);
+    } catch (err) {
+      console.error('Failed to fetch ATH:', err);
+    }
+  }, [mint]);
+
   // Initial fetch on mount
   useEffect(() => {
     fetchCandles('5m').finally(() => setLoading(false));
     fetch24hCandles();
+    fetchAth();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount/mint change
   }, [mint]);
 
@@ -186,6 +181,7 @@ export default function PriceChart({
     console.log('[PriceChart] Candle update received, refetching...');
     fetchCandles(chartData.interval);
     fetch24hCandles();
+    fetchAth(); // Refetch ATH in case new high was set
   });
 
   // Subscribe to SOL price updates - refetch candles when SOL price changes
