@@ -1344,6 +1344,15 @@ components:
           description: Market cap in USD
         volume_24h:
           type: number
+        ath:
+          type: number
+          description: All-time high price in USD
+        price_24h_ago:
+          type: number
+          description: Price 24 hours ago in USD
+        price_change_24h:
+          type: number
+          description: 24-hour price change percentage
         virtual_sol_reserves:
           type: number
         virtual_token_reserves:
