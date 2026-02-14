@@ -129,7 +129,7 @@ export default function PriceChart({
     // Mark this interval as the one we're loading
     fetchIntervalRef.current = targetInterval;
     try {
-      // Fetch USD candles directly from API
+      // Fetch USD candles + ATH from API
       const res = await fetch(`/api/candles?mint=${mint}&interval=${targetInterval}&limit=200&currency=usd`);
       const data = await res.json();
       // Only apply if this is still the interval we want (prevents stale race conditions)
@@ -138,6 +138,10 @@ export default function PriceChart({
       setCandles(newCandles);
       // Update chartData atomically with interval and candles together
       setChartData({ interval: targetInterval, candles: newCandles });
+      // Update ATH from response (streamed with candles)
+      if (data.athPrice !== undefined && data.athPrice !== null) {
+        setAthPrice(data.athPrice);
+      }
     } catch (err) {
       console.error('Failed to fetch candles:', err);
       if (fetchIntervalRef.current !== targetInterval) return;
@@ -148,23 +152,16 @@ export default function PriceChart({
 
   const fetch24hCandles = useCallback(async () => {
     try {
-      // Fetch USD candles for 24h view
+      // Fetch USD candles for 24h view (ATH included in response)
       const res = await fetch(`/api/candles?mint=${mint}&interval=1h&limit=30&currency=usd`);
       const data = await res.json();
       setCandles24h(data.candles?.length > 0 ? data.candles : []);
+      // Update ATH from 24h candles response as well
+      if (data.athPrice !== undefined && data.athPrice !== null) {
+        setAthPrice(data.athPrice);
+      }
     } catch (err) {
       console.error('Failed to fetch 24h candles:', err);
-    }
-  }, [mint]);
-
-  // Fetch ATH from DB
-  const fetchAth = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/token/stats?mint=${mint}`);
-      const data = await res.json();
-      setAthPrice(data.athPrice ?? 0);
-    } catch (err) {
-      console.error('Failed to fetch ATH:', err);
     }
   }, [mint]);
 
@@ -172,7 +169,6 @@ export default function PriceChart({
   useEffect(() => {
     fetchCandles('5m').finally(() => setLoading(false));
     fetch24hCandles();
-    fetchAth();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount/mint change
   }, [mint]);
 
@@ -181,7 +177,7 @@ export default function PriceChart({
     console.log('[PriceChart] Candle update received, refetching...');
     fetchCandles(chartData.interval);
     fetch24hCandles();
-    fetchAth(); // Refetch ATH in case new high was set
+    // ATH is now included in candles response, no separate fetch needed
   });
 
   // Subscribe to SOL price updates - refetch candles when SOL price changes

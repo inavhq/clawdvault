@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCandles, getUsdCandles } from '@/lib/candles';
+import { getCandles, getUsdCandles, getAthPrice } from '@/lib/candles';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,22 +29,25 @@ export async function GET(request: NextRequest) {
     const from = fromParam ? new Date(fromParam) : undefined;
     const to = toParam ? new Date(toParam) : undefined;
 
-    // Fetch candles in requested currency
-    const candles = currency === 'usd'
-      ? await getUsdCandles(
-          mint,
-          interval as '1m' | '5m' | '15m' | '1h' | '1d',
-          Math.min(limit, 1000),
-          to,
-          from
-        )
-      : await getCandles(
-          mint,
-          interval as '1m' | '5m' | '15m' | '1h' | '1d',
-          Math.min(limit, 1000),
-          to,
-          from
-        );
+    // Fetch candles and ATH in parallel
+    const [candles, athPrice] = await Promise.all([
+      currency === 'usd'
+        ? getUsdCandles(
+            mint,
+            interval as '1m' | '5m' | '15m' | '1h' | '1d',
+            Math.min(limit, 1000),
+            to,
+            from
+          )
+        : getCandles(
+            mint,
+            interval as '1m' | '5m' | '15m' | '1h' | '1d',
+            Math.min(limit, 1000),
+            to,
+            from
+          ),
+      getAthPrice(mint),
+    ]);
 
     return NextResponse.json({
       mint,
@@ -53,6 +56,7 @@ export async function GET(request: NextRequest) {
       from: from?.toISOString(),
       to: to?.toISOString(),
       candles,
+      athPrice,
     });
   } catch (error) {
     console.error('Failed to fetch candles:', error);
