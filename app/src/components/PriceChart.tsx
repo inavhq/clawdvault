@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineData, CandlestickData, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import { useCandles, useSolPriceHook } from '@/lib/supabase-client';
-import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
+import { INITIAL_VIRTUAL_TOKENS, INITIAL_VIRTUAL_SOL } from '@/lib/types';
+import { useSolPrice } from '@/hooks/useSolPrice';
 
 interface Candle {
   time: number;
@@ -52,7 +53,7 @@ export default function PriceChart({
   const hasChartInitializedRef = useRef(false);
   // Track last candle count to detect actual data updates vs just re-renders
   const lastCandleCountRef = useRef<number>(0);
-  
+
   const [candles, setCandles] = useState<Candle[]>([]);
   const [candles24h, setCandles24h] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,9 @@ export default function PriceChart({
   });
   const timeInterval = chartData.interval;
   const candlesForChart = chartData.candles;
+
+  // Get SOL price for virtual liquidity adjustment
+  const { price: solPriceUsd } = useSolPrice();
 
   // Use API-provided 24h change for consistency across all intervals
   // This is well-defined (1m candle 24h ago vs current) vs ambiguous "today"
@@ -135,8 +139,11 @@ export default function PriceChart({
   }, [effectiveMarketCap, onMarketCapUpdate]);
 
   // Calculate ATH progress (how close current market cap is to ATH market cap)
-  const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
-  const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 100;
+  // Subtract virtual liquidity to show real tradeable value
+  const virtualLiquidityUsd = solPriceUsd ? INITIAL_VIRTUAL_SOL * solPriceUsd : 0;
+  const athMarketCap = athPrice > 0 ? Math.max(0, athPrice * totalSupply - virtualLiquidityUsd) : 0;
+  const adjustedEffectiveMarketCap = Math.max(0, effectiveMarketCap - virtualLiquidityUsd);
+  const athProgress = athMarketCap > 0 ? (adjustedEffectiveMarketCap / athMarketCap) * 100 : 100;
 
   // Track which interval fetch is in-flight to prevent stale updates
   const fetchIntervalRef = useRef<Interval | null>(null);
@@ -431,7 +438,7 @@ export default function PriceChart({
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wider text-vault-dim mb-1">ATH</div>
             <div className="text-vault-green font-bold text-lg font-mono">
-              {athPrice > 0 ? formatMcap(athPrice * totalSupply) : '--'}
+              {athMarketCap > 0 ? formatMcap(athMarketCap) : '--'}
             </div>
           </div>
         </div>
