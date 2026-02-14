@@ -21,14 +21,14 @@ function calculatePrice(virtualSol: number, virtualTokens: number): number {
 
 
 // Convert Prisma token to API token
-function toApiToken(
+async function toApiToken(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma token
   token: any,
   stats?: { volume24h?: number; trades24h?: number; holders?: number },
   lastCandle?: { closeUsd?: number | null; close?: number | null } | null,
   priceChange24h?: number | null,
   lastTradeAt?: string
-): Token {
+): Promise<Token> {
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
 
@@ -36,6 +36,15 @@ function toApiToken(
   // Last candle is the source of truth for current price since heartbeat candles keep USD values updated
   let priceSol = lastCandle?.close ?? calculatePrice(virtualSol, virtualTokens);
   let priceUsd = lastCandle?.closeUsd ?? undefined;
+
+  // If no USD price from candles, calculate from current SOL price
+  if (!priceUsd) {
+    const solPriceUsd = await getSolPrice();
+    if (solPriceUsd) {
+      priceUsd = priceSol * solPriceUsd;
+    }
+  }
+
   let marketCapSol = priceSol * INITIAL_VIRTUAL_TOKENS;
   let marketCapUsd = priceUsd ? priceUsd * INITIAL_VIRTUAL_TOKENS : undefined;
 
@@ -175,7 +184,7 @@ export async function getAllTokens(options?: {
         ? ((currentPriceUsd - price24hAgo) / price24hAgo) * 100
         : null;
 
-      return toApiToken(token, {
+      return await toApiToken(token, {
         volume24h: Number(volumeResult._sum.solAmount || 0),
         trades24h: tradeCount,
         holders: holderCount.length || 1,
@@ -244,7 +253,7 @@ export async function getToken(mint: string): Promise<Token | null> {
     ? ((currentPriceUsd - price24hAgoUsd) / price24hAgoUsd) * 100
     : null;
 
-  return toApiToken(token, {
+  return await toApiToken(token, {
     volume24h: Number(volumeResult._sum.solAmount || 0),
     trades24h: tradeCount,
     holders: holderCount.length || 1,
@@ -271,7 +280,7 @@ export async function updateToken(mint: string, data: {
       realTokenReserves: data.realTokenReserves,
     },
   });
-  return toApiToken(updated);
+  return await toApiToken(updated);
 }
 
 // Update token reserves only (for syncing on-chain state)
@@ -357,8 +366,8 @@ export async function createToken(data: {
         realTokenReserves: INITIAL_VIRTUAL_TOKENS,
       },
     });
-    
-    return toApiToken(token);
+
+    return await toApiToken(token);
   } catch (error) {
     console.error('Error creating token:', error);
     return null;
