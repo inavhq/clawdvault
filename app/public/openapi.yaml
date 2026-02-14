@@ -192,7 +192,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [created_at, market_cap, volume, price]
+            enum: [created_at, market_cap, price_change]
             default: created_at
         - name: page
           in: query
@@ -1344,6 +1344,22 @@ components:
           description: Market cap in USD
         volume_24h:
           type: number
+        trades_24h:
+          type: integer
+          description: Number of trades in last 24 hours
+        holders:
+          type: integer
+          description: Number of unique holders
+        price_change_24h:
+          type: number
+          nullable: true
+          description: 24-hour price change percentage (computed from price_24h_ago)
+        ath:
+          type: number
+          description: All-time high price in USD
+        price_24h_ago:
+          type: number
+          description: USD price 24 hours ago (for realtime % change calculation)
         virtual_sol_reserves:
           type: number
         virtual_token_reserves:
@@ -1354,15 +1370,23 @@ components:
           type: number
         graduated:
           type: boolean
-        migrated_to_raydium:
-          type: boolean
+        raydium_pool:
+          type: string
+          description: Raydium pool address (set after graduation)
         twitter:
           type: string
         telegram:
           type: string
         website:
           type: string
+        last_trade_at:
+          type: string
+          format: date-time
+          description: Timestamp of most recent trade
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
