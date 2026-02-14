@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, IChartApi, ISeriesApi, LineData, CandlestickData, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
 import { useCandles, useSolPriceHook } from '@/lib/supabase-client';
-import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
+import { INITIAL_VIRTUAL_TOKENS, INITIAL_VIRTUAL_SOL } from '@/lib/types';
+import { useSolPrice } from '@/hooks/useSolPrice';
 
 interface Candle {
   time: number;
@@ -25,6 +26,8 @@ interface PriceChartProps {
   volume24h?: number;
   holders?: number;
   priceChange24h?: number | null;
+  // ATH from token record (streamed via Supabase realtime)
+  athUsd?: number;
   // Callback when market cap updates (source of truth)
   onMarketCapUpdate?: (marketCap: number) => void;
 }
@@ -39,6 +42,7 @@ export default function PriceChart({
   totalSupply = INITIAL_VIRTUAL_TOKENS,
   currentMarketCap = 0,
   priceChange24h: priceChange24hProp,
+  athUsd: athUsdProp,
   onMarketCapUpdate,
 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -64,6 +68,9 @@ export default function PriceChart({
   });
   const timeInterval = chartData.interval;
   const candlesForChart = chartData.candles;
+
+  // Get SOL price for virtual liquidity adjustment
+  const { price: solPriceUsd } = useSolPrice();
 
   // Use API-provided 24h change for consistency across all intervals
   // This is well-defined (1m candle 24h ago vs current) vs ambiguous "today"
@@ -98,26 +105,24 @@ export default function PriceChart({
     return { usd: mcapUsd };
   }, [candles, candles24h, totalSupply]);
 
-  // Calculate ATH and OHLCV from visible candles (candles are USD price)
-  const { athPrice } = useMemo(() => {
-    // Find ATH from all candle highs (use 24h candles for broader view)
-    // Candles contain USD price per token
+  // ATH price: prefer DB value (streamed), fallback to visible candle highs
+  const athPrice = useMemo(() => {
+    // DB ATH is the source of truth (set by heartbeat cron, covers all history)
+    if (athUsdProp && athUsdProp > 0) {
+      return athUsdProp; // Already USD price per token
+    }
+
+    // Fallback: find ATH from visible candle highs
     const allCandles = candles24h.length > candles.length ? candles24h : candles;
     let maxPrice = 0;
-    
     allCandles.forEach(c => {
-      if (c.high > maxPrice) {
-        maxPrice = c.high;
-      }
+      if (c.high > maxPrice) maxPrice = c.high;
     });
-    
-    // If no candles, use current market cap as fallback (convert back to price)
     if (maxPrice === 0 && currentMarketCap > 0) {
       maxPrice = currentMarketCap / totalSupply;
     }
-    
-    return { athPrice: maxPrice };
-  }, [candles, candles24h, currentMarketCap, totalSupply]);
+    return maxPrice;
+  }, [athUsdProp, candles, candles24h, currentMarketCap, totalSupply]);
 
   // Effective market cap: last candle close * totalSupply (in USD)
   const effectiveMarketCap = useMemo(() => {
@@ -135,8 +140,11 @@ export default function PriceChart({
   }, [effectiveMarketCap, onMarketCapUpdate]);
 
   // Calculate ATH progress (how close current market cap is to ATH market cap)
-  const athMarketCap = athPrice > 0 ? athPrice * totalSupply : 0;
-  const athProgress = athMarketCap > 0 ? (effectiveMarketCap / athMarketCap) * 100 : 100;
+  // Subtract virtual liquidity to show real tradeable value
+  const virtualLiquidityUsd = solPriceUsd ? INITIAL_VIRTUAL_SOL * solPriceUsd : 0;
+  const athMarketCap = athPrice > 0 ? Math.max(0, athPrice * totalSupply - virtualLiquidityUsd) : 0;
+  const adjustedEffectiveMarketCap = Math.max(0, effectiveMarketCap - virtualLiquidityUsd);
+  const athProgress = athMarketCap > 0 ? (adjustedEffectiveMarketCap / athMarketCap) * 100 : 100;
 
   // Track which interval fetch is in-flight to prevent stale updates
   const fetchIntervalRef = useRef<Interval | null>(null);
@@ -431,7 +439,7 @@ export default function PriceChart({
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wider text-vault-dim mb-1">ATH</div>
             <div className="text-vault-green font-bold text-lg font-mono">
-              {athPrice > 0 ? formatMcap(athPrice * totalSupply) : '--'}
+              {athMarketCap > 0 ? formatMcap(athMarketCap) : '--'}
             </div>
           </div>
         </div>

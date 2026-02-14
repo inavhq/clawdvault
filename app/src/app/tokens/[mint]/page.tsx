@@ -461,6 +461,7 @@ export default function TokenPage({ params }: { params: Promise<{ mint: string }
                 volume24h={token.volume_24h || 0}
                 holders={holders.length > 0 ? holders.length : (token.holders || 0)}
                 priceChange24h={priceChange24h}
+                athUsd={token.ath}
               />
             </div>
 
