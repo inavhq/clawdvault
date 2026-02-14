@@ -43,7 +43,7 @@ export default function TokensPage() {
   useEffect(() => {
     fetchTokens();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sort]);
 
   useAllTokens(
     (newToken) => setTokens((prev) => [newToken, ...prev]),
@@ -59,7 +59,7 @@ export default function TokensPage() {
 
   const fetchTokens = async () => {
     try {
-      const res = await fetch('/api/tokens');
+      const res = await fetch(`/api/tokens?sort=${sort}`);
       const data: TokenListResponse = await res.json();
       setTokens(data.tokens || []);
     } catch (err) {
@@ -114,23 +114,12 @@ export default function TokensPage() {
       );
     }
 
-    switch (sort) {
-      case 'market_cap':
-        result = result.sort((a, b) => (b.market_cap_sol || 0) - (a.market_cap_sol || 0));
-        break;
-      case 'volume':
-        result = result.sort((a, b) => (b.volume_24h || 0) - (a.volume_24h || 0));
-        break;
-      case 'price':
-        result = result.sort((a, b) => (b.price_sol || 0) - (a.price_sol || 0));
-        break;
-      case 'price_change':
-        result = result.sort((a, b) => (b.price_change_24h ?? -Infinity) - (a.price_change_24h ?? -Infinity));
-        break;
-      case 'created_at':
-      default:
-        result = result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        break;
+    if (sort === 'price_change') {
+      result = result.sort((a, b) => {
+        const changeA = a.price_change_24h ?? -Infinity;
+        const changeB = b.price_change_24h ?? -Infinity;
+        return changeB - changeA;
+      });
     }
 
     return result;
