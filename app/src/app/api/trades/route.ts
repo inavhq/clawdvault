@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const traderWallets = Array.from(new Set(trades.map(t => t.trader)));
     
     // Fetch all profiles in one query
-    const profiles = await db().userProfile.findMany({
+    const profiles = await db().user.findMany({
       where: { wallet: { in: traderWallets } },
     });
     
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       id: trade.id,
       type: trade.tradeType.toLowerCase(),
       trader: trade.trader,
-      username: profileMap.get(trade.trader)?.username || null,
+      username: profileMap.get(trade.trader)?.name || null,
       sol_amount: Number(trade.solAmount),
       token_amount: Number(trade.tokenAmount),
       price_sol: Number(trade.priceSol),

@@ -14,13 +14,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profile = await db().userProfile.findUnique({
+    const user = await db().user.findUnique({
       where: { wallet },
     });
 
+    // Return in the same shape the frontend expects
     return NextResponse.json({
       success: true,
-      profile: profile || null,
+      profile: user
+        ? { wallet: user.wallet, username: user.name, avatar: user.avatar }
+        : null,
     });
   } catch (error) {
     console.error('Error fetching profile:', error);
@@ -74,23 +77,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Upsert profile
-    const profile = await db().userProfile.upsert({
+    // Upsert user
+    const user = await db().user.upsert({
       where: { wallet },
       create: {
         wallet,
-        username: username || null,
+        name: username || null,
         avatar: avatar || null,
       },
       update: {
-        username: username || null,
+        name: username || null,
         avatar: avatar || null,
       },
     });
 
     return NextResponse.json({
       success: true,
-      profile,
+      profile: { wallet: user.wallet, username: user.name, avatar: user.avatar },
     });
   } catch (error) {
     console.error('Error updating profile:', error);

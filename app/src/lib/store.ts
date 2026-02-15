@@ -192,20 +192,19 @@ export function getTokenTrades(mint: string): Trade[] {
 }
 
 // Agent functions
-export function createAgent(wallet: string, name?: string): Agent {
+export function createAgent(_wallet: string, _name?: string): Agent {
   const apiKey = `cv_${generateMint().substring(0, 32)}`;
   const agent: Agent = {
     id: `agent_${Date.now()}`,
-    wallet,
-    name,
+    user_id: `user_${Date.now()}`,
     api_key: apiKey,
+    claim_code: undefined,
+    twitter_verified: false,
+    twitter_handle: undefined,
+    claim_tweet_url: undefined,
+    verified_at: undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    moltbook_verified: false,
-    moltx_verified: false,
-    tokens_created: 0,
-    total_volume: 0,
-    total_fees: 0,
   };
   agents.set(apiKey, agent);
   return agent;

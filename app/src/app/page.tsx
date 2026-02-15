@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { db } from '@/lib/prisma'
+import { getSiteStats } from '@/lib/db'
 import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -58,6 +59,9 @@ async function getHomeData() {
     const graduatedCount = await db().token.count({
       where: { graduated: true }
     })
+    const agentCount = await db().agent.count()
+    const userCount = await db().user.count({ where: { agent: { is: null } } })
+    const pageViews = await getSiteStats('page_views')
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const volumeResult = await db().trade.aggregate({
       where: { createdAt: { gte: oneDayAgo } },
@@ -132,6 +136,9 @@ async function getHomeData() {
       totalTokens,
       graduatedCount,
       totalVolume,
+      agentCount,
+      userCount,
+      pageViews,
       recentTokens,
       trendingTokens: trendingWithVolume,
       solPrice,
@@ -144,6 +151,9 @@ async function getHomeData() {
       totalTokens: 0,
       graduatedCount: 0,
       totalVolume: 0,
+      agentCount: 0,
+      userCount: 0,
+      pageViews: 0,
       recentTokens: [],
       trendingTokens: [],
       solPrice: 100,
@@ -173,8 +183,7 @@ function formatValue(solAmount: number, solPrice: number | null): string {
   return formatSol(solAmount);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }): { sol: number; usd: number | null } {
+function getMarketCap(token: { virtualSolReserves: unknown; virtualTokenReserves: unknown }, lastCandle?: { priceUsd?: number | null; priceSol?: number | null }): { sol: number; usd: number | null } {
   if (lastCandle?.priceUsd) {
     return {
       sol: (lastCandle.priceUsd / (lastCandle.priceSol || 1)) * INITIAL_VIRTUAL_TOKENS,
@@ -190,8 +199,7 @@ function getMarketCap(token: any, lastCandle?: { priceUsd?: number | null; price
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function TokenCard({ token, solPrice, lastCandle, priceChange24h }: { token: any; solPrice: number | null; lastCandle?: { priceUsd?: number | null; priceSol?: number | null }; priceChange24h?: number | null }) {
+function TokenCard({ token, solPrice, lastCandle, priceChange24h }: { token: { mint: string; name: string; symbol: string; image: string | null; graduated: boolean; virtualSolReserves: unknown; virtualTokenReserves: unknown }; solPrice: number | null; lastCandle?: { priceUsd?: number | null; priceSol?: number | null }; priceChange24h?: number | null }) {
   const mcap = getMarketCap(token, lastCandle)
   const formatPriceChange = (change: number | null | undefined) => {
     if (change === null || change === undefined) return null
@@ -289,6 +297,9 @@ export default async function Home() {
             initialTokens={data.totalTokens}
             initialGraduated={data.graduatedCount}
             initialVolume={data.totalVolume}
+            initialAgents={data.agentCount}
+            initialUsers={data.userCount}
+            initialPageViews={data.pageViews}
             solPrice={data.solPrice}
           />
         </div>
@@ -317,8 +328,7 @@ export default async function Home() {
               </h3>
               {data.trendingTokens.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {data.trendingTokens.slice(0, 4).map((token: any) => (
+                  {data.trendingTokens.slice(0, 4).map((token) => (
                     <TokenCard
                       key={token.mint}
                       token={token}
@@ -342,8 +352,7 @@ export default async function Home() {
               </h3>
               {data.recentTokens.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {data.recentTokens.slice(0, 4).map((token: any) => (
+                  {data.recentTokens.slice(0, 4).map((token) => (
                     <TokenCard
                       key={token.mint}
                       token={token}

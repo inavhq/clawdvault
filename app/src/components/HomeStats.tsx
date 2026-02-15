@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAllTokens, useAllTrades } from '@/lib/supabase-client';
 
 interface HomeStatsProps {
   initialTokens: number;
   initialGraduated: number;
   initialVolume: number;
+  initialAgents: number;
+  initialUsers: number;
+  initialPageViews: number;
   solPrice: number | null;
 }
 
@@ -14,11 +17,39 @@ export default function HomeStats({
   initialTokens,
   initialGraduated,
   initialVolume,
+  initialAgents,
+  initialUsers,
+  initialPageViews,
   solPrice,
 }: HomeStatsProps) {
   const [totalTokens, setTotalTokens] = useState(initialTokens);
   const [graduatedCount, setGraduatedCount] = useState(initialGraduated);
   const [totalVolume, setTotalVolume] = useState(initialVolume);
+  const [agentCount, setAgentCount] = useState(initialAgents);
+  const [userCount, setUserCount] = useState(initialUsers);
+  const [pageViews, setPageViews] = useState(initialPageViews);
+  const tracked = useRef(false);
+
+  // Fire page view beacon + refresh stats from API on mount
+  useEffect(() => {
+    if (tracked.current) return;
+    tracked.current = true;
+    setPageViews((prev) => prev + 1);
+    fetch('/api/track', { method: 'POST' }).catch(() => {});
+
+    // Hydrate from API (catches any drift from SSR snapshot)
+    fetch('/api/site-stats')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.totalTokens !== undefined) setTotalTokens(data.totalTokens);
+        if (data.graduatedCount !== undefined) setGraduatedCount(data.graduatedCount);
+        if (data.totalVolume !== undefined) setTotalVolume(data.totalVolume);
+        if (data.agentCount !== undefined) setAgentCount(data.agentCount);
+        if (data.userCount !== undefined) setUserCount(data.userCount);
+        if (data.pageViews !== undefined) setPageViews(data.pageViews + 1); // +1 for this visit
+      })
+      .catch(() => {});
+  }, []);
 
   useAllTokens(
     () => setTotalTokens((prev) => prev + 1),
@@ -45,14 +76,16 @@ export default function HomeStats({
   };
 
   const stats = [
+    { label: 'Site Visits', value: pageViews.toLocaleString(), color: 'text-vault-muted' },
     { label: 'Tokens Launched', value: totalTokens.toLocaleString(), color: 'text-vault-accent' },
     { label: 'Graduated', value: graduatedCount.toLocaleString(), color: 'text-vault-green' },
     { label: '24h Volume', value: formatValue(totalVolume), color: 'text-vault-text' },
-    { label: 'Active Agents', value: '∞', color: 'text-vault-accent' },
+    { label: 'Registered Agents', value: agentCount.toLocaleString(), color: 'text-vault-accent' },
+    { label: 'Users', value: userCount.toLocaleString(), color: 'text-vault-text' },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.04] md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.04] sm:grid-cols-3 md:grid-cols-6">
       {stats.map((stat) => (
         <div
           key={stat.label}

@@ -324,7 +324,12 @@ export async function createToken(data: {
         realTokenReserves: INITIAL_VIRTUAL_TOKENS,
       },
     });
-    
+
+    // Update creator's user stats (fire and forget)
+    updateUserStats(data.creator, { tokensCreated: 1 }).catch((e) =>
+      console.error('[createToken] Failed to update user stats:', e)
+    );
+
     return toApiToken(token);
   } catch (error) {
     console.error('Error creating token:', error);
@@ -349,7 +354,10 @@ export async function executeTrade(
     console.error('Token not found:', mint);
     return null;
   }
-  
+
+  // Fetch SOL price for USD tracking (outside transaction to avoid blocking)
+  const solPriceUsd = await getSolPrice();
+
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
   const realSol = Number(token.realSolReserves);
@@ -404,13 +412,14 @@ export async function executeTrade(
           totalFee: fees.total,
           protocolFee: fees.protocol,
           creatorFee: fees.creator,
+          solPriceUsd: solPriceUsd ?? null,
           signature: signature || `db_${Date.now()}`,
         },
       });
-      
+
       // Create fee records
       const feeRecords = [];
-      
+
       if (fees.protocol > 0) {
         feeRecords.push({
           tokenId: token.id,
@@ -439,7 +448,17 @@ export async function executeTrade(
     });
     
     const finalToken = await getToken(mint);
-    
+
+    // Update user stats (fire and forget)
+    updateUserStats(trader, { volume: solAmount }, solPriceUsd).catch((e) =>
+      console.error('[executeTrade] Failed to update trader stats:', e)
+    );
+    if (fees.creator > 0) {
+      updateUserStats(token.creator, { fees: fees.creator }, solPriceUsd).catch((e) =>
+        console.error('[executeTrade] Failed to update creator stats:', e)
+      );
+    }
+
     return {
       token: finalToken!,
       trade: {
@@ -498,10 +517,11 @@ export async function executeTrade(
           totalFee: fees.total,
           protocolFee: fees.protocol,
           creatorFee: fees.creator,
+          solPriceUsd: solPriceUsd ?? null,
           signature: signature || `db_${Date.now()}`,
         },
       });
-      
+
       // Create fee records
       const feeRecords = [];
       if (fees.protocol > 0) {
@@ -530,7 +550,17 @@ export async function executeTrade(
     });
     
     const finalToken = await getToken(mint);
-    
+
+    // Update user stats (fire and forget)
+    updateUserStats(trader, { volume: solAmount }, solPriceUsd).catch((e) =>
+      console.error('[executeTrade] Failed to update trader stats:', e)
+    );
+    if (fees.creator > 0) {
+      updateUserStats(token.creator, { fees: fees.creator }, solPriceUsd).catch((e) =>
+        console.error('[executeTrade] Failed to update creator stats:', e)
+      );
+    }
+
     return {
       token: finalToken!,
       trade: {
@@ -591,17 +621,239 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
   return !!agent;
 }
 
-// Register agent
-export async function registerAgent(wallet: string, name?: string) {
-  const agent = await db().agent.create({
-    data: {
+// ============================================
+// USER STATS
+// ============================================
+
+/** Upsert a User by wallet and atomically increment stats.
+ *  Volume and fees are stored in USD. SOL amounts are converted using
+ *  the current SOL price (or provided solPriceUsd). */
+export async function updateUserStats(
+  wallet: string,
+  increments: { volume?: number; tokensCreated?: number; fees?: number },
+  solPriceUsd?: number | null
+) {
+  // Convert SOL -> USD if we have volume or fees to record
+  let volumeUsd = 0;
+  let feesUsd = 0;
+
+  if (increments.volume || increments.fees) {
+    const price = solPriceUsd ?? (await getSolPrice());
+    if (price) {
+      volumeUsd = (increments.volume || 0) * price;
+      feesUsd = (increments.fees || 0) * price;
+    }
+    // If no SOL price available, skip USD tracking (values stay 0)
+  }
+
+  await db().user.upsert({
+    where: { wallet },
+    create: {
       wallet,
-      name,
-      apiKey: `cv_${generateMint().substring(0, 32)}`,
+      totalVolume: volumeUsd,
+      tokensCreated: increments.tokensCreated || 0,
+      totalFees: feesUsd,
+    },
+    update: {
+      ...(volumeUsd && { totalVolume: { increment: volumeUsd } }),
+      ...(increments.tokensCreated && { tokensCreated: { increment: increments.tokensCreated } }),
+      ...(feesUsd && { totalFees: { increment: feesUsd } }),
     },
   });
-  
-  return agent;
+}
+
+// ============================================
+// USER / AGENT MANAGEMENT
+// ============================================
+
+/** Get or create a User by wallet address */
+export async function getOrCreateUser(wallet: string) {
+  let user = await db().user.findUnique({ where: { wallet } });
+
+  if (!user) {
+    user = await db().user.create({
+      data: { wallet },
+    });
+  }
+
+  return user;
+}
+
+/** Register an agent (creates User if needed, generates API key + claim code) */
+export async function registerAgent(wallet: string, name?: string, avatar?: string) {
+  // Get or create the user
+  const user = await getOrCreateUser(wallet);
+
+  // Check if user already has an agent
+  const existing = await db().agent.findUnique({
+    where: { userId: user.id },
+  });
+
+  if (existing) {
+    throw new Error('Agent already registered for this wallet');
+  }
+
+  // Generate API key and claim code
+  const apiKey = `cv_${generateMint().substring(0, 32)}`;
+  const claimCode = generateMint().substring(0, 16).toUpperCase(); // Code for tweets
+
+  // Create agent
+  const agent = await db().agent.create({
+    data: {
+      userId: user.id,
+      apiKey,
+      claimCode,
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  // Update user name/avatar if provided
+  if (name || avatar) {
+    await db().user.update({
+      where: { id: user.id },
+      data: {
+        ...(name && { name }),
+        ...(avatar && { avatar }),
+      },
+    });
+  }
+
+  return { agent, user, apiKey, claimCode };
+}
+
+/** Verify Twitter claim (check tweet exists, contains claim code, mark verified) */
+export async function claimAgentVerification(apiKey: string, tweetUrl: string) {
+  const agent = await db().agent.findUnique({
+    where: { apiKey },
+    include: { user: true },
+  });
+
+  if (!agent) {
+    throw new Error('Agent not found');
+  }
+
+  if (agent.twitterVerified) {
+    throw new Error('Agent already verified');
+  }
+
+  if (!agent.claimCode) {
+    throw new Error('No claim code found (agent may have been verified already)');
+  }
+
+  // Verify tweet via SocialData API (falls back to stub if no API key)
+  const { verifyClaimTweet } = await import('./twitter');
+  const result = await verifyClaimTweet(tweetUrl, agent.claimCode);
+
+  if (!result.verified) {
+    throw new Error(result.error || 'Tweet verification failed');
+  }
+
+  // Update agent
+  const updated = await db().agent.update({
+    where: { apiKey },
+    data: {
+      twitterVerified: true,
+      twitterHandle: result.handle,
+      claimTweetUrl: tweetUrl,
+      verifiedAt: new Date(),
+      claimCode: null, // Clear claim code after verification
+    },
+    include: { user: true },
+  });
+
+  return updated;
+}
+
+/** Get agent by API key */
+export async function getAgentByApiKey(apiKey: string) {
+  return db().agent.findUnique({
+    where: { apiKey },
+    include: { user: true },
+  });
+}
+
+/** Get agents leaderboard (sorted by volume/tokens/fees) */
+export async function getAgentsLeaderboard(options?: {
+  sortBy?: 'volume' | 'tokens' | 'fees';
+  limit?: number;
+  page?: number;
+}) {
+  const { sortBy = 'volume', limit = 25, page = 1 } = options || {};
+
+  let orderBy;
+  switch (sortBy) {
+    case 'tokens':
+      orderBy = { user: { tokensCreated: 'desc' as const } };
+      break;
+    case 'fees':
+      orderBy = { user: { totalFees: 'desc' as const } };
+      break;
+    case 'volume':
+    default:
+      orderBy = { user: { totalVolume: 'desc' as const } };
+  }
+
+  const [agents, total] = await Promise.all([
+    db().agent.findMany({
+      where: {}, // Show all registered agents (verified badge shown in UI)
+      include: { user: true },
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    db().agent.count(),
+  ]);
+
+  return { agents, total };
+}
+
+/** Get users leaderboard (sorted by volume/tokens/fees) */
+export async function getUsersLeaderboard(options?: {
+  sortBy?: 'volume' | 'tokens' | 'fees';
+  limit?: number;
+  page?: number;
+}) {
+  const { sortBy = 'volume', limit = 25, page = 1 } = options || {};
+
+  let orderBy;
+  switch (sortBy) {
+    case 'tokens':
+      orderBy = { tokensCreated: 'desc' as const };
+      break;
+    case 'fees':
+      orderBy = { totalFees: 'desc' as const };
+      break;
+    case 'volume':
+    default:
+      orderBy = { totalVolume: 'desc' as const };
+  }
+
+  const where = { agent: { is: null } }; // Exclude users who are registered agents
+
+  const [users, total] = await Promise.all([
+    db().user.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    db().user.count({ where }),
+  ]);
+
+  return { users, total };
+}
+
+/** Get total agent count (all registered agents, not just verified) */
+export async function getAgentCount() {
+  return db().agent.count();
+}
+
+/** Get a site stats counter value */
+export async function getSiteStats(key: string): Promise<number> {
+  const row = await db().siteStats.findUnique({ where: { key } });
+  return row?.value ?? 0;
 }
 
 // Record a trade from on-chain execution
@@ -762,6 +1014,16 @@ export async function recordTrade(params: RecordTradeParams) {
     console.error('[recordTrade] Failed to update candles:', candleError);
     // Don't fail the trade if candle update fails
   }
-  
+
+  // Update user stats (fire and forget) — pass solPriceUsd to avoid re-fetch
+  updateUserStats(params.wallet, { volume: params.solAmount }, solPriceUsd).catch((e) =>
+    console.error('[recordTrade] Failed to update trader stats:', e)
+  );
+  if (creatorFee > 0) {
+    updateUserStats(token.creator, { fees: creatorFee }, solPriceUsd).catch((e) =>
+      console.error('[recordTrade] Failed to update creator stats:', e)
+    );
+  }
+
   return result.trade;
 }

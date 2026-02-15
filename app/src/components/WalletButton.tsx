@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
-import { authenticatedPost } from '@/lib/signRequest';
+import { authenticatedPost, signRequest } from '@/lib/signRequest';
 
 function PhantomIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -21,9 +21,13 @@ export default function WalletButton() {
   const { connected, connecting, initializing, publicKey, balance, connect, disconnect } = wallet;
   const [showDropdown, setShowDropdown] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [savingUsername, setSavingUsername] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchProfile = useCallback(async () => {
@@ -34,6 +38,8 @@ export default function WalletButton() {
       if (data.success && data.profile) {
         setUsername(data.profile.username);
         setNewUsername(data.profile.username || '');
+        setAvatar(data.profile.avatar);
+        setAvatarError(false);
       }
     } catch (err) {
       console.error('Failed to fetch profile:', err);
@@ -45,27 +51,77 @@ export default function WalletButton() {
       fetchProfile();
     } else {
       setUsername(null);
+      setAvatar(null);
     }
   }, [connected, publicKey, fetchProfile]);
 
-  const saveUsername = async () => {
-    if (!publicKey || savingUsername) return;
-    setSavingUsername(true);
+  const saveProfile = async (updates: { username?: string | null; avatar?: string | null }) => {
+    if (!publicKey) return;
     try {
       const profileData = {
-        username: newUsername.trim() || null,
-        avatar: null,
+        username: updates.username !== undefined ? updates.username : (username || null),
+        avatar: updates.avatar !== undefined ? updates.avatar : (avatar || null),
       };
       const res = await authenticatedPost(wallet, '/api/profile', 'profile', profileData);
       const data = await res.json();
       if (data.success) {
         setUsername(data.profile.username);
+        setAvatar(data.profile.avatar);
+        setAvatarError(false);
+      }
+      return data;
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+    }
+  };
+
+  const saveUsername = async () => {
+    if (!publicKey || savingUsername) return;
+    setSavingUsername(true);
+    try {
+      const data = await saveProfile({ username: newUsername.trim() || null });
+      if (data?.success) {
         setEditingUsername(false);
       }
     } catch (err) {
       console.error('Failed to save username:', err);
     } finally {
       setSavingUsername(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !publicKey) return;
+
+    setUploadingAvatar(true);
+    try {
+      // Upload file as avatar (replaces existing)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'avatar');
+      formData.append('wallet', publicKey);
+      const authHeaders = await signRequest(wallet, 'upload', { wallet: publicKey });
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: authHeaders || {},
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.success) {
+        console.error('Upload failed:', uploadData.error);
+        return;
+      }
+
+      // Save avatar URL to profile
+      await saveProfile({ avatar: uploadData.url });
+    } catch (err) {
+      console.error('Failed to upload avatar:', err);
+    } finally {
+      setUploadingAvatar(false);
+      // Reset input so same file can be re-selected
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
 
@@ -119,7 +175,11 @@ export default function WalletButton() {
         onClick={() => setShowDropdown(!showDropdown)}
         className="glass-card flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors hover:border-white/10 sm:gap-2 sm:px-3"
       >
-        <div className="h-2 w-2 shrink-0 rounded-full bg-vault-green" />
+        {avatar && !avatarError ? (
+          <img src={avatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" onError={() => setAvatarError(true)} />
+        ) : (
+          <div className="h-2 w-2 shrink-0 rounded-full bg-vault-green" />
+        )}
         <span className="max-w-[60px] truncate font-mono text-xs text-vault-text sm:max-w-none sm:text-sm">
           {username || shortenAddress(publicKey!)}
         </span>
@@ -135,6 +195,46 @@ export default function WalletButton() {
 
       {showDropdown && (
         <div className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0d0d14] shadow-2xl shadow-black/50">
+          {/* Avatar Section */}
+          <div className="border-b border-white/[0.06] p-4">
+            <div className="mb-2 text-xs text-vault-muted">Avatar</div>
+            <div className="flex items-center gap-3">
+              {avatar && !avatarError ? (
+                <img src={avatar} alt="" className="h-10 w-10 rounded-full object-cover border border-white/[0.08]" onError={() => setAvatarError(true)} />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-vault-muted">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                </div>
+              )}
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="rounded-lg bg-white/[0.05] px-3 py-1.5 text-sm text-vault-secondary transition hover:bg-white/[0.08] disabled:opacity-50"
+              >
+                {uploadingAvatar ? 'Uploading...' : avatar ? 'Change' : 'Upload'}
+              </button>
+              {avatar && (
+                <button
+                  onClick={async () => {
+                    await saveProfile({ avatar: null });
+                  }}
+                  className="text-sm text-vault-muted transition hover:text-vault-red"
+                >
+                  Remove
+                </button>
+              )}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </div>
+          </div>
+
           {/* Username Section */}
           <div className="border-b border-white/[0.06] p-4">
             <div className="mb-2 text-xs text-vault-muted">Display Name</div>

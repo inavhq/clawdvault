@@ -9,6 +9,7 @@ import SolPriceDisplay from './SolPriceDisplay';
 const navLinks = [
   { href: '/create', label: 'Launch', mobileLabel: 'Launch' },
   { href: '/tokens', label: 'Browse', mobileLabel: 'Browse' },
+  { href: '/leaderboard', label: 'Leaderboard', mobileLabel: 'LB' },
   { href: '/docs', label: 'Docs', mobileLabel: 'Docs' },
 ];
 

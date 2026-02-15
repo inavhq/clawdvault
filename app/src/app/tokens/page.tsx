@@ -1,49 +1,37 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Token, TokenListResponse } from '@/lib/types';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Pagination from '@/components/Pagination';
 import { useAllTokens } from '@/lib/supabase-client';
-import { useWallet } from '@/contexts/WalletContext';
 import { useSolPrice } from '@/hooks/useSolPrice';
 
 type FilterTab = 'all' | 'trending' | 'new' | 'near_grad' | 'graduated';
 
 export default function TokensPage() {
-  const { connected, publicKey } = useWallet();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('created_at');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [page, setPage] = useState(1);
+  const [totalTokens, setTotalTokens] = useState(0);
+  const perPage = 20;
+  const totalPages = Math.ceil(totalTokens / perPage);
   const { price: solPrice } = useSolPrice();
-  const [_walletBalances, setWalletBalances] = useState<Record<string, number>>({});
-  const [_balancesLoading, setBalancesLoading] = useState(false);
 
-  const fetchWalletBalances = useCallback(async () => {
-    if (!connected || !publicKey) {
-      setWalletBalances({});
-      return;
-    }
-    setBalancesLoading(true);
-    try {
-      const res = await fetch(`/api/wallet/balances?wallet=${publicKey}`);
-      const data = await res.json();
-      if (data.success) setWalletBalances(data.balances || {});
-    } catch (err) {
-      console.warn('Failed to fetch wallet balances:', err);
-      setWalletBalances({});
-    } finally {
-      setBalancesLoading(false);
-    }
-  }, [connected, publicKey]);
+  // Reset page when sort or filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [sort, filter]);
 
   useEffect(() => {
     fetchTokens();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sort]);
+  }, [sort, page]);
 
   useAllTokens(
     (newToken) => setTokens((prev) => [newToken, ...prev]),
@@ -53,18 +41,16 @@ export default function TokensPage() {
       )
   );
 
-  useEffect(() => {
-    fetchWalletBalances();
-  }, [fetchWalletBalances]);
-
   const fetchTokens = async () => {
     try {
-      const res = await fetch(`/api/tokens?sort=${sort}`);
+      const res = await fetch(`/api/tokens?sort=${sort}&page=${page}&per_page=${perPage}`);
       const data: TokenListResponse = await res.json();
       setTokens(data.tokens || []);
+      setTotalTokens(data.total || 0);
     } catch (err) {
       console.error('Failed to fetch tokens:', err);
       setTokens([]);
+      setTotalTokens(0);
     } finally {
       setLoading(false);
     }
@@ -307,6 +293,7 @@ export default function TokensPage() {
               )}
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredTokens.map((token) => {
                 const progress = getBondingProgress(token);
@@ -400,6 +387,11 @@ export default function TokensPage() {
                 );
               })}
             </div>
+
+            {filter === 'all' && !search.trim() && (
+              <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+            )}
+            </>
           )}
         </div>
       </section>

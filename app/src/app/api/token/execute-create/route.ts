@@ -8,14 +8,14 @@ import { INITIAL_VIRTUAL_SOL, INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-// Look up username from user_profiles
+// Look up username from users table
 async function getUsername(wallet: string): Promise<string | null> {
   try {
-    const profile = await db().userProfile.findUnique({
+    const profile = await db().user.findUnique({
       where: { wallet },
-      select: { username: true },
+      select: { name: true },
     });
-    return profile?.username || null;
+    return profile?.name || null;
   } catch {
     return null;
   }
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     
     console.log(`✅ Token created on-chain: ${signature}`);
     
-    // Look up creator's username from user_profiles
+    // Look up creator's username from users table
     const creatorName = body.creatorName || await getUsername(body.creator) || undefined;
     
     // Record the token in database

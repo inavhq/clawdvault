@@ -15,24 +15,29 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const profile = await db().userProfile.findUnique({
+    const profile = await db().user.findUnique({
       where: { wallet },
-      select: { 
-        username: true, 
+      select: {
+        name: true,
         avatar: true,
         wallet: true,
       },
     });
 
     if (!profile) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         wallet,
         username: null,
         avatar: null,
       });
     }
 
-    return NextResponse.json(profile);
+    // Map 'name' to 'username' for frontend compatibility
+    return NextResponse.json({
+      wallet: profile.wallet,
+      username: profile.name,
+      avatar: profile.avatar,
+    });
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });

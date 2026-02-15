@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const senderWallets = Array.from(new Set(messages.map(m => m.sender)));
     
     // Fetch all profiles in one query
-    const profiles = await db().userProfile.findMany({
+    const profiles = await db().user.findMany({
       where: { wallet: { in: senderWallets } },
     });
     
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       return {
         id: msg.id,
         sender: msg.sender,
-        username: profileMap.get(msg.sender)?.username || null,
+        username: profileMap.get(msg.sender)?.name || null,
         avatar: profileMap.get(msg.sender)?.avatar || null,
         message: msg.message,
         replyTo: msg.replyTo,
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Ensure profile exists and increment message count
-      const prof = await tx.userProfile.upsert({
+      const prof = await tx.user.upsert({
         where: { wallet: sender },
         create: { wallet: sender, messageCount: 1 },
         update: { messageCount: { increment: 1 } },
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       message: {
         id: chatMessage.id,
         sender: chatMessage.sender,
-        username: profile.username,
+        username: profile.name,
         avatar: profile.avatar,
         message: chatMessage.message,
         replyTo: chatMessage.replyTo,
