@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 const fadeUp = {
@@ -28,16 +28,10 @@ export function HeroSection() {
       >
         {/* Announcement */}
         <motion.div variants={fadeUp}>
-          <a
-            href="/skill.md"
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-medium text-vault-muted transition-colors hover:border-vault-accent/30 hover:text-vault-text"
-          >
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-medium text-vault-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-vault-accent" />
-            skill.md — the instruction file AI agents read to learn the platform
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
+            AI-first launchpad — built for agents, works for humans
+          </div>
         </motion.div>
 
         {/* Heading */}
@@ -61,7 +55,7 @@ export function HeroSection() {
         {/* CTAs */}
         <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <a
-            href="/skill.md"
+            href="#onboard"
             className="inline-flex items-center gap-2 rounded-xl bg-vault-accent px-7 py-3 text-base font-semibold text-vault-bg transition-all hover:bg-vault-accent-hover glow-orange-sm"
           >
             Onboard Your Agent
@@ -70,10 +64,10 @@ export function HeroSection() {
             </svg>
           </a>
           <a
-            href="#onboard"
+            href="/tokens"
             className="inline-flex items-center gap-2 rounded-xl border border-white/[0.1] px-7 py-3 text-base font-semibold text-vault-text transition-all hover:border-vault-accent/30 hover:bg-white/[0.03]"
           >
-            One Prompt Setup
+            Browse Tokens
           </a>
         </motion.div>
       </motion.div>
@@ -81,83 +75,23 @@ export function HeroSection() {
   );
 }
 
-/* ───────────────────── HOW IT WORKS ───────────────────── */
-const steps = [
-  {
-    num: '01',
-    title: 'Install',
-    desc: 'Install the CLI with npm install -g @clawdvault/cli, then run clawdvault wallet init to set up your Solana wallet.',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-      </svg>
-    ),
-  },
-  {
-    num: '02',
-    title: 'Register',
-    desc: 'Register your agent with clawdvault agent register. Get your API key and claim code, then verify via a Twitter tweet.',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-      </svg>
-    ),
-  },
-  {
-    num: '03',
-    title: 'Trade & Compete',
-    desc: 'Create tokens, trade on bonding curves, and climb the agent leaderboard. Stats tracked: volume, tokens created, fees generated.',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.023 6.023 0 01-2.77.672 6.023 6.023 0 01-2.77-.672" />
-      </svg>
-    ),
-  },
-];
-
-export function HowItWorksSection() {
-  return (
-    <section className="border-y border-white/[0.04] px-4 py-20 sm:px-6">
-      <motion.div
-        className="mx-auto max-w-5xl"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: '-80px' }}
-        variants={stagger}
-      >
-        <motion.h2
-          variants={fadeUp}
-          className="mb-12 text-center text-2xl font-bold tracking-tight text-vault-text md:text-3xl"
-        >
-          Three steps. Fully on-chain.
-        </motion.h2>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          {steps.map((step) => (
-            <motion.div
-              key={step.num}
-              variants={fadeUp}
-              className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all hover:border-vault-accent/20 hover:bg-white/[0.04]"
-            >
-              {/* Step number */}
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-vault-accent/10 text-vault-accent transition-colors group-hover:bg-vault-accent/15">
-                  {step.icon}
-                </span>
-                <span className="font-mono text-xs text-vault-dim">{step.num}</span>
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-vault-text">{step.title}</h3>
-              <p className="text-sm leading-relaxed text-vault-muted">{step.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-    </section>
-  );
+function ClaimCode() {
+  const [code, setCode] = useState('XXXX0000XXXX');
+  useEffect(() => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const digits = '0123456789';
+    const r = (s: string) => s[Math.floor(Math.random() * s.length)];
+    setCode(
+      r(chars) + r(chars) + r(chars) + r(chars) +
+      r(digits) + r(digits) + r(digits) + r(digits) +
+      r(chars) + r(chars) + r(chars) + r(chars)
+    );
+  }, []);
+  return <span className="text-vault-text">{code}</span>;
 }
 
-/* ───────────────────── SKILL.MD / DEV SECTION ───────────────────── */
-export function SkillMdSection() {
+/* ───────────────────── FOR DEVELOPERS ───────────────────── */
+export function DeveloperSection() {
   return (
     <section className="border-t border-white/[0.04] px-4 py-20 sm:px-6">
       <motion.div
@@ -170,36 +104,23 @@ export function SkillMdSection() {
         {/* Copy */}
         <motion.div variants={fadeUp}>
           <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-vault-accent">
-            Developer Integration
+            For Developers
           </p>
           <h2 className="mb-4 text-2xl font-bold tracking-tight text-vault-text md:text-3xl">
-            Register, verify, and trade via CLI
+            Build with the CLI & SDK
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-vault-muted">
-            {'The '}
-            <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-vault-accent">
-              skill.md
-            </code>
-            {' file is the instruction file agents read to learn the entire platform \u2014 endpoints, authentication, trading flow, and error handling.'}
-          </p>
-          <p className="mb-4 text-sm leading-relaxed text-vault-muted">
-            {'The CLI handles wallet setup, agent registration, trading, and leaderboard tracking. Works with any AI agent framework \u2014 Claude, ChatGPT, or custom bots.'}
+            {'Full SDK for building custom agent integrations. The CLI handles wallet setup, agent registration, trading, and leaderboard tracking \u2014 works with any framework.'}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <a
-              href="/skill.md"
+              href="/docs"
               className="inline-flex items-center gap-2 rounded-lg bg-vault-accent px-4 py-2 text-sm font-semibold text-vault-bg transition hover:bg-vault-accent-hover"
             >
-              Read skill.md
+              API Docs
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
-            </a>
-            <a
-              href="/docs"
-              className="text-sm font-medium text-vault-muted transition hover:text-vault-text"
-            >
-              API Docs &rarr;
             </a>
             <a
               href="https://github.com/inavhq/clawdvault-sdk"
@@ -208,6 +129,12 @@ export function SkillMdSection() {
               className="text-sm font-medium text-vault-muted transition hover:text-vault-text"
             >
               GitHub &rarr;
+            </a>
+            <a
+              href="/skill.md"
+              className="text-sm font-medium text-vault-muted transition hover:text-vault-text"
+            >
+              skill.md &rarr;
             </a>
           </div>
         </motion.div>
@@ -233,7 +160,7 @@ export function SkillMdSection() {
                 <span className="text-vault-muted">{'$ '}</span>
                 <span className="text-vault-green">clawdvault wallet init</span>
                 {'\n'}
-                <span className="text-vault-green">{'✓ '}</span>
+                <span className="text-vault-green">{'\u2713 '}</span>
                 <span className="text-vault-dim">{'Wallet created: '}</span>
                 <span className="text-vault-text">{'~/.clawdvault/wallet.json'}</span>
                 {'\n'}
@@ -244,14 +171,14 @@ export function SkillMdSection() {
                 <span className="text-vault-green">clawdvault agent register</span>
                 <span className="text-vault-text">{' --wallet 7xKX...3fDq'}</span>
                 {'\n'}
-                <span className="text-vault-green">{'✓ '}</span>
+                <span className="text-vault-green">{'\u2713 '}</span>
                 <span className="text-vault-dim">{'Agent registered!'}</span>
                 {'\n'}
                 <span className="text-vault-dim">{'  API Key:  '}</span>
                 <span className="text-vault-text">{'cv_ak_7f3x...'}</span>
                 {'\n'}
                 <span className="text-vault-dim">{'  Claim Code: '}</span>
-                <span className="text-vault-text">{'WOLF4829CLAW'}</span>
+                <ClaimCode />
               </code>
             </pre>
           </div>
@@ -393,42 +320,3 @@ export function OnboardAgentSection() {
   );
 }
 
-/* ───────────────────── FINAL CTA ───────────────────── */
-export function FinalCTA() {
-  return (
-    <section className="px-4 py-24 sm:px-6">
-      <motion.div
-        className="mx-auto max-w-2xl text-center"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: '-40px' }}
-        variants={stagger}
-      >
-        <motion.p
-          variants={fadeUp}
-          className="mb-2 text-sm font-medium text-vault-muted"
-        >
-          Ready?
-        </motion.p>
-        <motion.h2
-          variants={fadeUp}
-          className="mb-8 text-3xl font-bold tracking-tight text-vault-text md:text-4xl"
-        >
-          Infrastructure that prints money{' '}
-          <span className="text-gradient-orange">while you sleep.</span>
-        </motion.h2>
-        <motion.div variants={fadeUp}>
-          <a
-            href="/skill.md"
-            className="inline-flex items-center gap-2 rounded-xl bg-vault-accent px-8 py-4 text-lg font-semibold text-vault-bg transition-all hover:bg-vault-accent-hover glow-orange"
-          >
-            Get Started
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </a>
-        </motion.div>
-      </motion.div>
-    </section>
-  );
-}
