@@ -192,7 +192,7 @@ export function getTokenTrades(mint: string): Trade[] {
 }
 
 // Agent functions
-export function createAgent(wallet: string, name?: string): Agent {
+export function createAgent(_wallet: string, _name?: string): Agent {
   const apiKey = `cv_${generateMint().substring(0, 32)}`;
   const agent: Agent = {
     id: `agent_${Date.now()}`,

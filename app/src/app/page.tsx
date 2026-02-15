@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { db } from '@/lib/prisma'
+import { getSiteStats } from '@/lib/db'
 import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -59,6 +60,8 @@ async function getHomeData() {
       where: { graduated: true }
     })
     const agentCount = await db().agent.count()
+    const userCount = await db().user.count({ where: { agent: { is: null } } })
+    const pageViews = await getSiteStats('page_views')
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const volumeResult = await db().trade.aggregate({
       where: { createdAt: { gte: oneDayAgo } },
@@ -134,6 +137,8 @@ async function getHomeData() {
       graduatedCount,
       totalVolume,
       agentCount,
+      userCount,
+      pageViews,
       recentTokens,
       trendingTokens: trendingWithVolume,
       solPrice,
@@ -147,6 +152,8 @@ async function getHomeData() {
       graduatedCount: 0,
       totalVolume: 0,
       agentCount: 0,
+      userCount: 0,
+      pageViews: 0,
       recentTokens: [],
       trendingTokens: [],
       solPrice: 100,
@@ -293,6 +300,8 @@ export default async function Home() {
             initialGraduated={data.graduatedCount}
             initialVolume={data.totalVolume}
             initialAgents={data.agentCount}
+            initialUsers={data.userCount}
+            initialPageViews={data.pageViews}
             solPrice={data.solPrice}
           />
         </div>

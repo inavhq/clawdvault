@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import Pagination from '@/components/Pagination';
 
 type Tab = 'agents' | 'users';
 type SortBy = 'volume' | 'tokens' | 'fees';
@@ -70,11 +71,20 @@ export default function LeaderboardPage() {
   const [agents, setAgents] = useState<AgentEntry[]>([]);
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const perPage = 25;
+  const totalPages = Math.ceil(total / perPage);
+
+  // Reset page when tab or sort changes
+  useEffect(() => {
+    setPage(1);
+  }, [tab, sortBy]);
 
   useEffect(() => {
     setLoading(true);
     const endpoint = tab === 'agents' ? '/api/agents' : '/api/users';
-    fetch(`${endpoint}?sortBy=${sortBy}&limit=100`)
+    fetch(`${endpoint}?sortBy=${sortBy}&limit=${perPage}&page=${page}`)
       .then((res) => res.json())
       .then((data) => {
         if (tab === 'agents') {
@@ -82,14 +92,16 @@ export default function LeaderboardPage() {
         } else {
           setUsers(data.users || []);
         }
+        setTotal(data.total || 0);
       })
       .catch((err) => {
         console.error('Failed to fetch leaderboard:', err);
         if (tab === 'agents') setAgents([]);
         else setUsers([]);
+        setTotal(0);
       })
       .finally(() => setLoading(false));
-  }, [tab, sortBy]);
+  }, [tab, sortBy, page]);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'agents', label: 'Agents' },
@@ -201,16 +213,22 @@ export default function LeaderboardPage() {
                         className="flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
                       >
                         <span className="w-8 text-center font-mono text-sm font-bold text-vault-muted">
-                          {i + 1}
+                          {(page - 1) * perPage + i + 1}
                         </span>
                         <Avatar src={agent.avatar} fallback={agent.name || agent.wallet} />
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-vault-text">
                             {agent.name || truncateWallet(agent.wallet)}
                           </div>
-                          <div className="font-mono text-xs text-vault-dim">
+                          <a
+                            href={`https://solscan.io/account/${agent.wallet}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-xs text-vault-muted hover:text-vault-accent hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {truncateWallet(agent.wallet)}
-                          </div>
+                          </a>
                         </div>
                         <div className="w-28">
                           {agent.twitter_handle ? (
@@ -253,16 +271,22 @@ export default function LeaderboardPage() {
                         className="flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
                       >
                         <span className="w-8 text-center font-mono text-sm font-bold text-vault-muted">
-                          {i + 1}
+                          {(page - 1) * perPage + i + 1}
                         </span>
                         <Avatar src={user.avatar} fallback={user.name || user.wallet} />
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-vault-text">
                             {user.name || truncateWallet(user.wallet)}
                           </div>
-                          <div className="font-mono text-xs text-vault-dim">
+                          <a
+                            href={`https://solscan.io/account/${user.wallet}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-xs text-vault-muted hover:text-vault-accent hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {truncateWallet(user.wallet)}
-                          </div>
+                          </a>
                         </div>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
                           {formatUsd(user.total_volume)}
@@ -276,6 +300,8 @@ export default function LeaderboardPage() {
                       </div>
                     ))}
               </div>
+
+              <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
             </div>
           )}
         </div>

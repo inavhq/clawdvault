@@ -354,7 +354,10 @@ export async function executeTrade(
     console.error('Token not found:', mint);
     return null;
   }
-  
+
+  // Fetch SOL price for USD tracking (outside transaction to avoid blocking)
+  const solPriceUsd = await getSolPrice();
+
   const virtualSol = Number(token.virtualSolReserves);
   const virtualTokens = Number(token.virtualTokenReserves);
   const realSol = Number(token.realSolReserves);
@@ -409,13 +412,14 @@ export async function executeTrade(
           totalFee: fees.total,
           protocolFee: fees.protocol,
           creatorFee: fees.creator,
+          solPriceUsd: solPriceUsd ?? null,
           signature: signature || `db_${Date.now()}`,
         },
       });
-      
+
       // Create fee records
       const feeRecords = [];
-      
+
       if (fees.protocol > 0) {
         feeRecords.push({
           tokenId: token.id,
@@ -446,11 +450,11 @@ export async function executeTrade(
     const finalToken = await getToken(mint);
 
     // Update user stats (fire and forget)
-    updateUserStats(trader, { volume: solAmount }).catch((e) =>
+    updateUserStats(trader, { volume: solAmount }, solPriceUsd).catch((e) =>
       console.error('[executeTrade] Failed to update trader stats:', e)
     );
     if (fees.creator > 0) {
-      updateUserStats(token.creator, { fees: fees.creator }).catch((e) =>
+      updateUserStats(token.creator, { fees: fees.creator }, solPriceUsd).catch((e) =>
         console.error('[executeTrade] Failed to update creator stats:', e)
       );
     }
@@ -513,10 +517,11 @@ export async function executeTrade(
           totalFee: fees.total,
           protocolFee: fees.protocol,
           creatorFee: fees.creator,
+          solPriceUsd: solPriceUsd ?? null,
           signature: signature || `db_${Date.now()}`,
         },
       });
-      
+
       // Create fee records
       const feeRecords = [];
       if (fees.protocol > 0) {
@@ -547,11 +552,11 @@ export async function executeTrade(
     const finalToken = await getToken(mint);
 
     // Update user stats (fire and forget)
-    updateUserStats(trader, { volume: solAmount }).catch((e) =>
+    updateUserStats(trader, { volume: solAmount }, solPriceUsd).catch((e) =>
       console.error('[executeTrade] Failed to update trader stats:', e)
     );
     if (fees.creator > 0) {
-      updateUserStats(token.creator, { fees: fees.creator }).catch((e) =>
+      updateUserStats(token.creator, { fees: fees.creator }, solPriceUsd).catch((e) =>
         console.error('[executeTrade] Failed to update creator stats:', e)
       );
     }
@@ -773,8 +778,9 @@ export async function getAgentByApiKey(apiKey: string) {
 export async function getAgentsLeaderboard(options?: {
   sortBy?: 'volume' | 'tokens' | 'fees';
   limit?: number;
+  page?: number;
 }) {
-  const { sortBy = 'volume', limit = 100 } = options || {};
+  const { sortBy = 'volume', limit = 25, page = 1 } = options || {};
 
   let orderBy;
   switch (sortBy) {
@@ -789,22 +795,27 @@ export async function getAgentsLeaderboard(options?: {
       orderBy = { user: { totalVolume: 'desc' as const } };
   }
 
-  const agents = await db().agent.findMany({
-    where: {}, // Show all registered agents (verified badge shown in UI)
-    include: { user: true },
-    orderBy,
-    take: limit,
-  });
+  const [agents, total] = await Promise.all([
+    db().agent.findMany({
+      where: {}, // Show all registered agents (verified badge shown in UI)
+      include: { user: true },
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    db().agent.count(),
+  ]);
 
-  return agents;
+  return { agents, total };
 }
 
 /** Get users leaderboard (sorted by volume/tokens/fees) */
 export async function getUsersLeaderboard(options?: {
   sortBy?: 'volume' | 'tokens' | 'fees';
   limit?: number;
+  page?: number;
 }) {
-  const { sortBy = 'volume', limit = 100 } = options || {};
+  const { sortBy = 'volume', limit = 25, page = 1 } = options || {};
 
   let orderBy;
   switch (sortBy) {
@@ -819,18 +830,30 @@ export async function getUsersLeaderboard(options?: {
       orderBy = { totalVolume: 'desc' as const };
   }
 
-  const users = await db().user.findMany({
-    where: { agent: { is: null } }, // Exclude users who are registered agents
-    orderBy,
-    take: limit,
-  });
+  const where = { agent: { is: null } }; // Exclude users who are registered agents
 
-  return users;
+  const [users, total] = await Promise.all([
+    db().user.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    db().user.count({ where }),
+  ]);
+
+  return { users, total };
 }
 
 /** Get total agent count (all registered agents, not just verified) */
 export async function getAgentCount() {
   return db().agent.count();
+}
+
+/** Get a site stats counter value */
+export async function getSiteStats(key: string): Promise<number> {
+  const row = await db().siteStats.findUnique({ where: { key } });
+  return row?.value ?? 0;
 }
 
 // Record a trade from on-chain execution

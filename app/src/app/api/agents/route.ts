@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const sortBy = (searchParams.get('sortBy') as 'volume' | 'tokens' | 'fees') || 'volume';
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 500);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '25'), 500);
+    const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
 
     if (!['volume', 'tokens', 'fees'].includes(sortBy)) {
       return NextResponse.json(
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const agents = await getAgentsLeaderboard({ sortBy, limit });
+    const { agents, total } = await getAgentsLeaderboard({ sortBy, limit, page });
 
     // Transform to API response format
     const result = agents.map((agent) => ({
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
       created_at: agent.createdAt.toISOString(),
     }));
 
-    return NextResponse.json({ agents: result });
+    return NextResponse.json({ agents: result, total, page, per_page: limit });
   } catch (error) {
     console.error('Agents leaderboard error:', error);
     return NextResponse.json(

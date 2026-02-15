@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { rateLimit } from '@/lib/rate-limit';
+import { db } from '@/lib/prisma';
+import { verifyWalletAuth } from '@/lib/auth';
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -62,12 +64,52 @@ function getPublicUrl(bucket: string, path: string): string {
 }
 
 /**
+ * Authenticate an avatar upload request. Supports two methods:
+ * 1. Wallet signature: X-Wallet + X-Signature headers (browser users)
+ * 2. Agent API key: Authorization: Bearer <apiKey> (agents)
+ *
+ * Returns the authenticated wallet address, or null if auth fails.
+ */
+async function authenticateAvatarUpload(req: NextRequest, wallet: string): Promise<string | null> {
+  // Method 1: Wallet signature (X-Wallet + X-Signature)
+  const xWallet = req.headers.get('X-Wallet');
+  const xSignature = req.headers.get('X-Signature');
+  if (xWallet && xSignature) {
+    if (xWallet !== wallet) return null;
+    if (verifyWalletAuth(xWallet, xSignature, 'upload', { wallet })) {
+      return xWallet;
+    }
+    return null;
+  }
+
+  // Method 2: Agent API key (Authorization: Bearer <key>)
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const apiKey = authHeader.slice(7);
+    const agent = await db().agent.findUnique({
+      where: { apiKey },
+      select: { user: { select: { wallet: true } } },
+    });
+    if (agent?.user.wallet === wallet) {
+      return wallet;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/**
  * POST /api/upload
  *
  * FormData fields:
  * - file: File (required)
  * - type: 'avatar' | 'token' (optional, defaults to 'token')
  * - wallet: string (required when type=avatar)
+ *
+ * Auth (required for avatar uploads):
+ * - Wallet signature: X-Wallet + X-Signature headers
+ * - Agent API key: Authorization: Bearer <apiKey>
  *
  * Storage layout:
  * - token-images bucket: {uuid}.{ext} — one per token image
@@ -124,6 +166,13 @@ export async function POST(req: NextRequest) {
       if (!wallet) {
         return NextResponse.json({ error: 'wallet is required for avatar uploads' }, { status: 400 });
       }
+
+      // Verify caller owns this wallet
+      const authedWallet = await authenticateAvatarUpload(req, wallet);
+      if (!authedWallet) {
+        return NextResponse.json({ error: 'Unauthorized — wallet signature or agent API key required' }, { status: 401 });
+      }
+
       bucket = BUCKETS.avatar;
       await ensureBucket(bucket);
 
@@ -156,9 +205,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
     }
 
+    const url = getPublicUrl(bucket, storagePath);
+
+    // For avatar uploads, save the URL to the user record
+    if (type === 'avatar' && wallet) {
+      await db().user.updateMany({
+        where: { wallet },
+        data: { avatar: url },
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      url: getPublicUrl(bucket, storagePath),
+      url,
     });
   } catch (error) {
     console.error('Upload error:', error);

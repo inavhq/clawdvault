@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate tweet URL format
-    if (!tweetUrl.match(/^https?:\/\/(twitter\.com|x\.com)\/[^\/]+\/status\/\d+/)) {
+    if (!tweetUrl.match(/^https?:\/\/(twitter\.com|x\.com)\/[^/]+\/status\/\d+/)) {
       return NextResponse.json(
         { error: 'Invalid tweet URL format (must be https://twitter.com/handle/status/ID or https://x.com/handle/status/ID)' },
         { status: 400 }

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
-import { authenticatedPost } from '@/lib/signRequest';
+import { authenticatedPost, signRequest } from '@/lib/signRequest';
 
 function PhantomIcon({ className = "w-6 h-6" }: { className?: string }) {
   return (
@@ -97,7 +97,12 @@ export default function WalletButton() {
       formData.append('file', file);
       formData.append('type', 'avatar');
       formData.append('wallet', publicKey);
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+      const authHeaders = await signRequest(wallet, 'upload', { wallet: publicKey });
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: authHeaders || {},
+        body: formData,
+      });
       const uploadData = await uploadRes.json();
 
       if (!uploadData.success) {

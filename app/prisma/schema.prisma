@@ -178,6 +178,16 @@ model Agent {
 }
 
 // ============================================
+// SITE STATS (atomic counters)
+// ============================================
+model SiteStats {
+  key   String @id
+  value Int    @default(0)
+
+  @@map("site_stats")
+}
+
+// ============================================
 // PROTOCOL CONFIG
 // ============================================
 model Config {
