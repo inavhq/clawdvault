@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { rateLimit } from '@/lib/rate-limit';
 
 const BUCKET = 'images';
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
@@ -70,6 +71,15 @@ function getPublicUrl(path: string): string {
  */
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: 20 uploads per hour per IP
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    if (!rateLimit(ip, 'upload', 20, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Try again later.' },
+        { status: 429 }
+      );
+    }
+
     if (!isUploadEnabled()) {
       return NextResponse.json({ error: 'Upload not configured' }, { status: 503 });
     }
