@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { rateLimit } from '@/lib/rate-limit';
 
-const BUCKET = 'images';
+const BUCKET = 'token-images'; // Existing prod bucket — token images at root, avatars in subfolder
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -36,7 +36,6 @@ async function ensureBucket() {
   const client = getSupabase();
   const { data: buckets } = await client.storage.listBuckets();
 
-  // Create new 'images' bucket if needed
   if (!buckets?.some(b => b.name === BUCKET)) {
     const { error } = await client.storage.createBucket(BUCKET, {
       public: true,
@@ -65,9 +64,9 @@ function getPublicUrl(path: string): string {
  * - type: 'avatar' | 'token' (optional, defaults to 'token')
  * - wallet: string (required when type=avatar)
  *
- * Storage layout:
- * - avatars/{wallet}.{ext}  — one per wallet, upsert replaces old
- * - tokens/{uuid}.{ext}     — unique per token image
+ * Storage layout (all in 'token-images' bucket):
+ * - {uuid}.{ext}             — token images at root (matches existing prod URLs)
+ * - avatars/{wallet}.{ext}   — one per wallet, upsert replaces old
  */
 export async function POST(req: NextRequest) {
   try {
@@ -133,7 +132,8 @@ export async function POST(req: NextRequest) {
       storagePath = `avatars/${wallet}.${ext}`;
       upsert = true;
     } else {
-      storagePath = `tokens/${uuidv4()}.${ext}`;
+      // Token images at bucket root — matches existing prod URLs
+      storagePath = `${uuidv4()}.${ext}`;
     }
 
     const { error } = await client.storage

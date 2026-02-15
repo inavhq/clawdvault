@@ -1,8 +1,9 @@
 /**
  * Cron: Clean up orphaned token images
  *
- * Scans the images/tokens/ storage folder and deletes any files
+ * Scans root-level files in the 'token-images' bucket and deletes any
  * whose URL doesn't match a token's image field in the database.
+ * Skips the avatars/ subfolder.
  *
  * Usage: GET /api/cron/cleanup-images (with CRON_SECRET auth)
  */
@@ -13,7 +14,7 @@ import { db } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-const BUCKET = 'images';
+const BUCKET = 'token-images';
 
 function getSupabase() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -37,10 +38,10 @@ export async function GET(request: Request) {
   try {
     const client = getSupabase();
 
-    // List all files in tokens/ folder
+    // List root-level files in the bucket (token images live at root)
     const { data: files, error: listError } = await client.storage
       .from(BUCKET)
-      .list('tokens', { limit: 1000 });
+      .list('', { limit: 1000 });
 
     if (listError) {
       return NextResponse.json({ error: 'Failed to list files', details: listError.message }, { status: 500 });
@@ -50,7 +51,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: 'No token images found', deleted: 0 });
     }
 
-    // Build set of URLs that are actually in use
+    // Filter out folders (like avatars/) — only look at actual files
+    const imageFiles = files.filter(f => f.id && !f.name.startsWith('.'));
+
+    if (imageFiles.length === 0) {
+      return NextResponse.json({ success: true, message: 'No token images found', deleted: 0 });
+    }
+
+    // Build set of image URLs that are actually in use
     const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
     const tokens = await db().token.findMany({
       where: { image: { not: null } },
@@ -58,12 +66,21 @@ export async function GET(request: Request) {
     });
     const usedUrls = new Set(tokens.map(t => t.image));
 
-    // Find orphans
+    // Also check user avatars so we don't accidentally delete avatar subfolder contents
+    const users = await db().user.findMany({
+      where: { avatar: { not: null } },
+      select: { avatar: true },
+    });
+    for (const u of users) {
+      if (u.avatar) usedUrls.add(u.avatar);
+    }
+
+    // Find orphans — root-level files not referenced by any token
     const orphans: string[] = [];
-    for (const file of files) {
-      const url = `${publicSupabaseUrl}/storage/v1/object/public/${BUCKET}/tokens/${file.name}`;
+    for (const file of imageFiles) {
+      const url = `${publicSupabaseUrl}/storage/v1/object/public/${BUCKET}/${file.name}`;
       if (!usedUrls.has(url)) {
-        orphans.push(`tokens/${file.name}`);
+        orphans.push(file.name);
       }
     }
 
@@ -88,7 +105,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       deleted,
-      total: files.length,
+      total: imageFiles.length,
     });
   } catch (error) {
     console.error('Cleanup images error:', error);
