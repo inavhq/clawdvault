@@ -9,25 +9,22 @@ type SortBy = 'volume' | 'tokens' | 'fees';
 
 interface AgentEntry {
   id: string;
-  twitterHandle: string | null;
-  twitterVerified: boolean;
-  user: {
-    id: string;
-    wallet: string;
-    name: string | null;
-    totalVolume: string;
-    tokensCreated: number;
-    totalFees: string;
-  };
+  wallet: string;
+  name: string | null;
+  twitter_handle: string | null;
+  twitter_verified: boolean;
+  tokens_created: number;
+  total_volume: number;
+  total_fees: number;
 }
 
 interface UserEntry {
   id: string;
   wallet: string;
   name: string | null;
-  totalVolume: string;
-  tokensCreated: number;
-  totalFees: string;
+  tokens_created: number;
+  total_volume: number;
+  total_fees: number;
 }
 
 function truncateWallet(wallet: string): string {
@@ -184,17 +181,23 @@ export default function LeaderboardPage() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-vault-text">
-                            {agent.user.name || truncateWallet(agent.user.wallet)}
+                            {agent.name || truncateWallet(agent.wallet)}
                           </div>
                           <div className="font-mono text-xs text-vault-dim">
-                            {truncateWallet(agent.user.wallet)}
+                            {truncateWallet(agent.wallet)}
                           </div>
                         </div>
                         <div className="w-28">
-                          {agent.twitterHandle ? (
-                            <span className="flex items-center gap-1 text-xs text-vault-muted">
-                              @{agent.twitterHandle}
-                              {agent.twitterVerified && (
+                          {agent.twitter_handle ? (
+                            <a
+                              href={`https://x.com/${agent.twitter_handle}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-vault-muted hover:text-vault-accent transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              @{agent.twitter_handle}
+                              {agent.twitter_verified && (
                                 <svg className="h-3.5 w-3.5 text-vault-accent" viewBox="0 0 20 20" fill="currentColor">
                                   <path
                                     fillRule="evenodd"
@@ -203,19 +206,19 @@ export default function LeaderboardPage() {
                                   />
                                 </svg>
                               )}
-                            </span>
+                            </a>
                           ) : (
                             <span className="text-xs text-vault-dim">-</span>
                           )}
                         </div>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(agent.user.totalVolume)}
+                          {formatSol(agent.total_volume)}
                         </span>
                         <span className="w-16 text-right font-mono text-sm text-vault-text">
-                          {agent.user.tokensCreated}
+                          {agent.tokens_created}
                         </span>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(agent.user.totalFees)}
+                          {formatSol(agent.total_fees)}
                         </span>
                       </div>
                     ))
@@ -236,13 +239,13 @@ export default function LeaderboardPage() {
                           </div>
                         </div>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(user.totalVolume)}
+                          {formatSol(user.total_volume)}
                         </span>
                         <span className="w-16 text-right font-mono text-sm text-vault-text">
-                          {user.tokensCreated}
+                          {user.tokens_created}
                         </span>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(user.totalFees)}
+                          {formatSol(user.total_fees)}
                         </span>
                       </div>
                     ))}

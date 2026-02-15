@@ -324,7 +324,12 @@ export async function createToken(data: {
         realTokenReserves: INITIAL_VIRTUAL_TOKENS,
       },
     });
-    
+
+    // Update creator's user stats (fire and forget)
+    updateUserStats(data.creator, { tokensCreated: 1 }).catch((e) =>
+      console.error('[createToken] Failed to update user stats:', e)
+    );
+
     return toApiToken(token);
   } catch (error) {
     console.error('Error creating token:', error);
@@ -439,7 +444,17 @@ export async function executeTrade(
     });
     
     const finalToken = await getToken(mint);
-    
+
+    // Update user stats (fire and forget)
+    updateUserStats(trader, { volume: solAmount }).catch((e) =>
+      console.error('[executeTrade] Failed to update trader stats:', e)
+    );
+    if (fees.creator > 0) {
+      updateUserStats(token.creator, { fees: fees.creator }).catch((e) =>
+        console.error('[executeTrade] Failed to update creator stats:', e)
+      );
+    }
+
     return {
       token: finalToken!,
       trade: {
@@ -530,7 +545,17 @@ export async function executeTrade(
     });
     
     const finalToken = await getToken(mint);
-    
+
+    // Update user stats (fire and forget)
+    updateUserStats(trader, { volume: solAmount }).catch((e) =>
+      console.error('[executeTrade] Failed to update trader stats:', e)
+    );
+    if (fees.creator > 0) {
+      updateUserStats(token.creator, { fees: fees.creator }).catch((e) =>
+        console.error('[executeTrade] Failed to update creator stats:', e)
+      );
+    }
+
     return {
       token: finalToken!,
       trade: {
@@ -589,6 +614,31 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
   });
   
   return !!agent;
+}
+
+// ============================================
+// USER STATS
+// ============================================
+
+/** Upsert a User by wallet and atomically increment stats */
+export async function updateUserStats(
+  wallet: string,
+  increments: { volume?: number; tokensCreated?: number; fees?: number }
+) {
+  await db().user.upsert({
+    where: { wallet },
+    create: {
+      wallet,
+      totalVolume: increments.volume || 0,
+      tokensCreated: increments.tokensCreated || 0,
+      totalFees: increments.fees || 0,
+    },
+    update: {
+      ...(increments.volume && { totalVolume: { increment: increments.volume } }),
+      ...(increments.tokensCreated && { tokensCreated: { increment: increments.tokensCreated } }),
+      ...(increments.fees && { totalFees: { increment: increments.fees } }),
+    },
+  });
 }
 
 // ============================================
@@ -921,6 +971,16 @@ export async function recordTrade(params: RecordTradeParams) {
     console.error('[recordTrade] Failed to update candles:', candleError);
     // Don't fail the trade if candle update fails
   }
-  
+
+  // Update user stats (fire and forget)
+  updateUserStats(params.wallet, { volume: params.solAmount }).catch((e) =>
+    console.error('[recordTrade] Failed to update trader stats:', e)
+  );
+  if (creatorFee > 0) {
+    updateUserStats(token.creator, { fees: creatorFee }).catch((e) =>
+      console.error('[recordTrade] Failed to update creator stats:', e)
+    );
+  }
+
   return result.trade;
 }

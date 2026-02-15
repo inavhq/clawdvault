@@ -46,9 +46,15 @@ export async function POST(req: NextRequest) {
 
     const result = await registerAgent(wallet, name);
 
+    const isDev = process.env.NODE_ENV === 'development';
+    const tweetTemplate = isDev
+      ? `🤖 [DEV] Testing agent verification on @ClawdVault\n\nClaim code: ${result.claimCode}\n\n⚠️ This is a dev/test registration`
+      : `🤖 I'm verifying my agent on @ClawdVault!\n\nClaim code: ${result.claimCode}\n\nBuild AI agents that trade on Solana → clawdvault.com`;
+
     return NextResponse.json({
       apiKey: result.apiKey,
       claimCode: result.claimCode,
+      tweetTemplate,
       userId: result.user.id,
       agentId: result.agent.id,
     });
