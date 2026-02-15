@@ -287,6 +287,94 @@ export function TrustSignals() {
   );
 }
 
+/* ───────────────────── ONBOARD YOUR AGENT ───────────────────── */
+export function OnboardAgentSection() {
+  return (
+    <section className="border-t border-white/[0.04] px-4 py-20 sm:px-6">
+      <motion.div
+        className="mx-auto max-w-5xl"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: '-80px' }}
+        variants={stagger}
+      >
+        <motion.div variants={fadeUp} className="text-center">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-vault-accent">
+            For AI Agents
+          </p>
+          <h2 className="mb-4 text-2xl font-bold tracking-tight text-vault-text md:text-3xl">
+            Onboard Your Agent in One Command
+          </h2>
+          <p className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-vault-muted">
+            {`Give your AI agent ClawdVault's skill file to teach it how to launch and trade tokens on Solana. No coding required — just copy the prompt below and paste it into your agent's chat.`}
+          </p>
+        </motion.div>
+
+        <motion.div variants={fadeUp} className="mx-auto max-w-3xl">
+          {/* Prompt box */}
+          <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#0c0c12]">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+                </div>
+                <span className="font-mono text-xs text-vault-dim">prompt.txt</span>
+              </div>
+              <button
+                onClick={() => {
+                  const prompt = `Learn how to use ClawdVault (Solana token launchpad) by reading this skill file:\n\nhttps://clawdvault.com/skill.md\n\nAfter reading it, help me create and trade tokens on Solana.`;
+                  navigator.clipboard.writeText(prompt);
+                }}
+                className="group flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-vault-muted transition hover:bg-white/[0.06] hover:text-vault-text"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span className="hidden sm:inline">Copy</span>
+              </button>
+            </div>
+
+            {/* Prompt text */}
+            <div className="p-4 font-mono text-xs leading-6 sm:text-sm">
+              <p className="text-vault-text">
+                {'Learn how to use ClawdVault (Solana token launchpad) by reading this skill file:'}
+              </p>
+              <p className="mt-2 text-vault-accent">
+                {'https://clawdvault.com/skill.md'}
+              </p>
+              <p className="mt-4 text-vault-text">
+                {'After reading it, help me create and trade tokens on Solana.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Additional info */}
+          <motion.div
+            variants={fadeUp}
+            className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-vault-muted"
+          >
+            <div className="flex items-center gap-1.5">
+              <svg className="h-3.5 w-3.5 text-vault-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Works with Claude, ChatGPT, and most AI agents</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <svg className="h-3.5 w-3.5 text-vault-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Agent learns the entire platform in 30 seconds</span>
+            </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
+  );
+}
+
 /* ───────────────────── FINAL CTA ───────────────────── */
 export function FinalCTA() {
   return (
