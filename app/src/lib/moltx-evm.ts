@@ -15,6 +15,46 @@ interface MoltxConfig {
 }
 
 /**
+ * Engage with MoltX feed before posting (like a few posts).
+ * MoltX requires engagement activity before allowing new posts.
+ * Best-effort — failures here don't block posting attempts.
+ */
+async function engageWithFeed(apiKey: string, count = 3): Promise<number> {
+  let liked = 0;
+  try {
+    const feedRes = await fetch(`${MOLTX_BASE_URL}/feed/global?limit=10`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+    if (!feedRes.ok) return 0;
+
+    const feedData = await feedRes.json();
+    const posts = feedData?.data?.posts || feedData?.data || [];
+
+    for (const post of posts) {
+      if (liked >= count) break;
+      const postId = post.id || post._id;
+      if (!postId) continue;
+
+      try {
+        const likeRes = await fetch(`${MOLTX_BASE_URL}/posts/${postId}/like`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (likeRes.ok) liked++;
+      } catch {
+        // skip individual like failures
+      }
+    }
+  } catch {
+    // feed fetch failed, continue anyway
+  }
+  return liked;
+}
+
+/**
  * Sign and post content to Moltx with EVM wallet
  */
 export async function postToMoltx(
@@ -22,6 +62,10 @@ export async function postToMoltx(
   content: string
 ): Promise<{ success: boolean; postId?: string; error?: string }> {
   try {
+    // Step 0: Engage with feed (MoltX requires activity before posting)
+    const liked = await engageWithFeed(config.apiKey);
+    console.log(`[Moltx] Engaged with ${liked} posts before posting`);
+
     // Step 1: Get challenge
     const challengeRes = await fetch(`${MOLTX_BASE_URL}/agents/me/evm/challenge`, {
       method: 'POST',
