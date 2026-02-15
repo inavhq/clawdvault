@@ -42,18 +42,19 @@ export async function GET(request: Request) {
       tokensByCreator.map((t) => [t.creator, t._count])
     );
 
-    // 3. Compute USD creator fees per recipient
-    //    Fee amount is in SOL, use the trade's solPriceUsd for conversion
-    const fees = await db().fee.findMany({
-      where: { feeType: 'CREATOR' },
-      select: { recipient: true, amount: true, trade: { select: { solPriceUsd: true } } },
+    // 3. Compute USD creator fees per token creator from Trade.creatorFee
+    //    Each trade has creatorFee (SOL) — join with token to get creator wallet
+    const tradesWithToken = await db().trade.findMany({
+      where: { creatorFee: { gt: 0 } },
+      select: { creatorFee: true, solPriceUsd: true, token: { select: { creator: true } } },
     });
 
     const feesMap = new Map<string, number>();
-    for (const f of fees) {
-      const solPrice = f.trade.solPriceUsd ? Number(f.trade.solPriceUsd) : 0;
-      const usdFee = Number(f.amount) * solPrice;
-      feesMap.set(f.recipient, (feesMap.get(f.recipient) || 0) + usdFee);
+    for (const t of tradesWithToken) {
+      const solPrice = t.solPriceUsd ? Number(t.solPriceUsd) : 0;
+      const usdFee = Number(t.creatorFee) * solPrice;
+      const creator = t.token.creator;
+      feesMap.set(creator, (feesMap.get(creator) || 0) + usdFee);
     }
 
     // Collect all unique wallets

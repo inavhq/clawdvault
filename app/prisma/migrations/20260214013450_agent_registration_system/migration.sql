@@ -11,7 +11,8 @@ CREATE TABLE "users" (
     "total_volume" DECIMAL(20,9) NOT NULL DEFAULT 0,
     "total_fees" DECIMAL(20,9) NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "message_count" INTEGER NOT NULL DEFAULT 0,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -27,7 +28,7 @@ CREATE TABLE "agents" (
     "claim_tweet_url" TEXT,
     "verified_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "agents_pkey" PRIMARY KEY ("id")
 );
