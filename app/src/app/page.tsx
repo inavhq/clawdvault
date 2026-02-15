@@ -5,7 +5,7 @@ import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import HomeStats from '@/components/HomeStats'
-import { HeroSection, HowItWorksSection, SkillMdSection, OnboardAgentSection, TrustSignals, FinalCTA } from '@/components/HomeSections'
+import { HeroSection, HowItWorksSection, SkillMdSection, OnboardAgentSection, TrustSignals } from '@/components/HomeSections'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -386,7 +386,6 @@ export default async function Home() {
       <SkillMdSection />
       <OnboardAgentSection />
       <TrustSignals />
-      <FinalCTA />
 
       <Footer />
     </main>
