@@ -89,9 +89,11 @@ export default function WalletButton() {
 
     setUploadingAvatar(true);
     try {
-      // Upload file
+      // Upload file as avatar (replaces existing)
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('type', 'avatar');
+      formData.append('wallet', publicKey);
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json();
 
