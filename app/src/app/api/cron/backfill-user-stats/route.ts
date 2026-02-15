@@ -8,50 +8,57 @@ export const maxDuration = 60;
  * GET /api/cron/backfill-user-stats
  *
  * One-time backfill to compute User stats from existing trades and tokens.
+ * Volume and fees are stored in USD using the SOL price at each trade time.
  * Safe to run multiple times — it recalculates from scratch each time.
  */
 export async function GET() {
   try {
-    // 1. Aggregate volume per trader from all trades
-    const volumeByTrader = await db().trade.groupBy({
-      by: ['trader'],
-      _sum: { solAmount: true },
+    // 1. Compute USD volume per trader from all trades
+    //    Each trade has solAmount (SOL) and solPriceUsd at trade time
+    const trades = await db().trade.findMany({
+      select: { trader: true, solAmount: true, solPriceUsd: true, creatorFee: true, tokenMint: true },
     });
+
+    const volumeMap = new Map<string, number>();
+    for (const t of trades) {
+      const solPrice = t.solPriceUsd ? Number(t.solPriceUsd) : 0;
+      const usdVolume = Number(t.solAmount) * solPrice;
+      volumeMap.set(t.trader, (volumeMap.get(t.trader) || 0) + usdVolume);
+    }
 
     // 2. Count tokens created per creator
     const tokensByCreator = await db().token.groupBy({
       by: ['creator'],
       _count: true,
     });
-
-    // 3. Aggregate creator fees earned per recipient
-    const feesByRecipient = await db().fee.groupBy({
-      by: ['recipient'],
-      where: { feeType: 'CREATOR' },
-      _sum: { amount: true },
-    });
-
-    // Collect all unique wallets
-    const wallets = new Set<string>();
-    volumeByTrader.forEach((v) => wallets.add(v.trader));
-    tokensByCreator.forEach((t) => wallets.add(t.creator));
-    feesByRecipient.forEach((f) => wallets.add(f.recipient));
-
-    // Build lookup maps
-    const volumeMap = new Map(
-      volumeByTrader.map((v) => [v.trader, Number(v._sum.solAmount || 0)])
-    );
     const tokensMap = new Map(
       tokensByCreator.map((t) => [t.creator, t._count])
     );
-    const feesMap = new Map(
-      feesByRecipient.map((f) => [f.recipient, Number(f._sum.amount || 0)])
-    );
+
+    // 3. Compute USD creator fees per recipient
+    //    Fee amount is in SOL, use the trade's solPriceUsd for conversion
+    const fees = await db().fee.findMany({
+      where: { feeType: 'CREATOR' },
+      select: { recipient: true, amount: true, trade: { select: { solPriceUsd: true } } },
+    });
+
+    const feesMap = new Map<string, number>();
+    for (const f of fees) {
+      const solPrice = f.trade.solPriceUsd ? Number(f.trade.solPriceUsd) : 0;
+      const usdFee = Number(f.amount) * solPrice;
+      feesMap.set(f.recipient, (feesMap.get(f.recipient) || 0) + usdFee);
+    }
+
+    // Collect all unique wallets
+    const wallets = new Set<string>();
+    Array.from(volumeMap.keys()).forEach((w) => wallets.add(w));
+    Array.from(tokensMap.keys()).forEach((w) => wallets.add(w));
+    Array.from(feesMap.keys()).forEach((w) => wallets.add(w));
 
     // Upsert all users with computed stats
     let updated = 0;
     for (const wallet of Array.from(wallets)) {
-      if (wallet === 'PROTOCOL_TREASURY') continue; // Skip protocol treasury placeholder
+      if (wallet === 'PROTOCOL_TREASURY') continue;
 
       await db().user.upsert({
         where: { wallet },
@@ -73,9 +80,9 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       usersUpdated: updated,
-      uniqueTraders: volumeByTrader.length,
+      uniqueTraders: volumeMap.size,
       uniqueCreators: tokensByCreator.length,
-      uniqueFeeRecipients: feesByRecipient.length,
+      uniqueFeeRecipients: feesMap.size,
     });
   } catch (error) {
     console.error('[backfill-user-stats] Error:', error);

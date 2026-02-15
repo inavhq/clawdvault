@@ -55,12 +55,13 @@ function Avatar({ src, fallback }: { src: string | null; fallback: string }) {
   );
 }
 
-function formatSol(value: string | number): string {
+function formatUsd(value: string | number): string {
   const num = Number(value);
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-  if (num >= 1) return num.toFixed(2);
-  if (num > 0) return num.toFixed(4);
-  return '0';
+  if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
+  if (num >= 1) return `$${num.toFixed(2)}`;
+  if (num > 0) return `$${num.toFixed(2)}`;
+  return '$0';
 }
 
 export default function LeaderboardPage() {
@@ -236,13 +237,13 @@ export default function LeaderboardPage() {
                           )}
                         </div>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(agent.total_volume)}
+                          {formatUsd(agent.total_volume)}
                         </span>
                         <span className="w-16 text-right font-mono text-sm text-vault-text">
                           {agent.tokens_created}
                         </span>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(agent.total_fees)}
+                          {formatUsd(agent.total_fees)}
                         </span>
                       </div>
                     ))
@@ -264,13 +265,13 @@ export default function LeaderboardPage() {
                           </div>
                         </div>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(user.total_volume)}
+                          {formatUsd(user.total_volume)}
                         </span>
                         <span className="w-16 text-right font-mono text-sm text-vault-text">
                           {user.tokens_created}
                         </span>
                         <span className="w-20 text-right font-mono text-sm text-vault-text">
-                          {formatSol(user.total_fees)}
+                          {formatUsd(user.total_fees)}
                         </span>
                       </div>
                     ))}

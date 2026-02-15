@@ -620,23 +620,39 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
 // USER STATS
 // ============================================
 
-/** Upsert a User by wallet and atomically increment stats */
+/** Upsert a User by wallet and atomically increment stats.
+ *  Volume and fees are stored in USD. SOL amounts are converted using
+ *  the current SOL price (or provided solPriceUsd). */
 export async function updateUserStats(
   wallet: string,
-  increments: { volume?: number; tokensCreated?: number; fees?: number }
+  increments: { volume?: number; tokensCreated?: number; fees?: number },
+  solPriceUsd?: number | null
 ) {
+  // Convert SOL -> USD if we have volume or fees to record
+  let volumeUsd = 0;
+  let feesUsd = 0;
+
+  if (increments.volume || increments.fees) {
+    const price = solPriceUsd ?? (await getSolPrice());
+    if (price) {
+      volumeUsd = (increments.volume || 0) * price;
+      feesUsd = (increments.fees || 0) * price;
+    }
+    // If no SOL price available, skip USD tracking (values stay 0)
+  }
+
   await db().user.upsert({
     where: { wallet },
     create: {
       wallet,
-      totalVolume: increments.volume || 0,
+      totalVolume: volumeUsd,
       tokensCreated: increments.tokensCreated || 0,
-      totalFees: increments.fees || 0,
+      totalFees: feesUsd,
     },
     update: {
-      ...(increments.volume && { totalVolume: { increment: increments.volume } }),
+      ...(volumeUsd && { totalVolume: { increment: volumeUsd } }),
       ...(increments.tokensCreated && { tokensCreated: { increment: increments.tokensCreated } }),
-      ...(increments.fees && { totalFees: { increment: increments.fees } }),
+      ...(feesUsd && { totalFees: { increment: feesUsd } }),
     },
   });
 }
@@ -976,12 +992,12 @@ export async function recordTrade(params: RecordTradeParams) {
     // Don't fail the trade if candle update fails
   }
 
-  // Update user stats (fire and forget)
-  updateUserStats(params.wallet, { volume: params.solAmount }).catch((e) =>
+  // Update user stats (fire and forget) — pass solPriceUsd to avoid re-fetch
+  updateUserStats(params.wallet, { volume: params.solAmount }, solPriceUsd).catch((e) =>
     console.error('[recordTrade] Failed to update trader stats:', e)
   );
   if (creatorFee > 0) {
-    updateUserStats(token.creator, { fees: creatorFee }).catch((e) =>
+    updateUserStats(token.creator, { fees: creatorFee }, solPriceUsd).catch((e) =>
       console.error('[recordTrade] Failed to update creator stats:', e)
     );
   }
