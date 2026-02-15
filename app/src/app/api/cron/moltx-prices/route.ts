@@ -78,11 +78,20 @@ export async function GET(request: Request) {
       const token = tokens[i];
       const rank = i + 1;
       const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
-      
+
       // Use market_cap_usd directly from database (calculated from candles)
       const mcapUsd = token.market_cap_usd ? ` (${formatUsd(token.market_cap_usd)})` : '';
-      
-      content += `${medal} $${token.symbol}\n`;
+
+      // Format 24h price change
+      let priceChange = '';
+      if (token.price_change_24h !== null && token.price_change_24h !== undefined) {
+        const change = Number(token.price_change_24h);
+        const arrow = change >= 0 ? '📈' : '📉';
+        const sign = change >= 0 ? '+' : '';
+        priceChange = ` ${arrow} ${sign}${change.toFixed(2)}%`;
+      }
+
+      content += `${medal} $${token.symbol}${priceChange}\n`;
       content += `   🏦 MCap: ${formatMcap(token.market_cap_sol)} SOL${mcapUsd}\n`;
     }
 
