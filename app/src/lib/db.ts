@@ -779,8 +779,9 @@ export async function getAgentsLeaderboard(options?: {
   sortBy?: 'volume' | 'tokens' | 'fees';
   limit?: number;
   page?: number;
+  search?: string;
 }) {
-  const { sortBy = 'volume', limit = 25, page = 1 } = options || {};
+  const { sortBy = 'volume', limit = 25, page = 1, search } = options || {};
 
   let orderBy;
   switch (sortBy) {
@@ -795,15 +796,26 @@ export async function getAgentsLeaderboard(options?: {
       orderBy = { user: { totalVolume: 'desc' as const } };
   }
 
+  // Build search filter (case-insensitive search across name, wallet, twitter handle)
+  const where = search
+    ? {
+        OR: [
+          { user: { name: { contains: search, mode: 'insensitive' as const } } },
+          { user: { wallet: { contains: search, mode: 'insensitive' as const } } },
+          { twitterHandle: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }
+    : {};
+
   const [agents, total] = await Promise.all([
     db().agent.findMany({
-      where: {}, // Show all registered agents (verified badge shown in UI)
+      where,
       include: { user: true },
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),
-    db().agent.count(),
+    db().agent.count({ where }),
   ]);
 
   return { agents, total };
@@ -814,8 +826,9 @@ export async function getUsersLeaderboard(options?: {
   sortBy?: 'volume' | 'tokens' | 'fees';
   limit?: number;
   page?: number;
+  search?: string;
 }) {
-  const { sortBy = 'volume', limit = 25, page = 1 } = options || {};
+  const { sortBy = 'volume', limit = 25, page = 1, search } = options || {};
 
   let orderBy;
   switch (sortBy) {
@@ -830,7 +843,16 @@ export async function getUsersLeaderboard(options?: {
       orderBy = { totalVolume: 'desc' as const };
   }
 
-  const where = { agent: { is: null } }; // Exclude users who are registered agents
+  // Build search filter (case-insensitive search across name and wallet)
+  const where = {
+    agent: { is: null }, // Exclude users who are registered agents
+    ...(search && {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { wallet: { contains: search, mode: 'insensitive' as const } },
+      ],
+    }),
+  };
 
   const [users, total] = await Promise.all([
     db().user.findMany({

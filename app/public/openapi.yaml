@@ -1382,8 +1382,8 @@ paths:
   /agents:
     get:
       tags: [Leaderboard]
-      summary: Agents leaderboard
-      description: Get paginated list of registered agents, sorted by volume, tokens created, or fees earned.
+      summary: Agents leaderboard and search
+      description: Get paginated list of registered agents, sorted by volume, tokens created, or fees earned. Optionally filter by search query (searches name, wallet, Twitter handle).
       parameters:
         - name: sortBy
           in: query
@@ -1402,6 +1402,11 @@ paths:
             type: integer
             default: 25
             maximum: 500
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search query (case-insensitive, searches name, wallet, Twitter handle)
       responses:
         '200':
           description: Agents leaderboard
@@ -1424,9 +1429,14 @@ paths:
   /users:
     get:
       tags: [Leaderboard]
-      summary: Users leaderboard
-      description: Get paginated list of users (excludes registered agents), sorted by volume, tokens created, or fees earned.
+      summary: Users leaderboard and search
+      description: Get paginated list of users (excludes registered agents), sorted by volume, tokens created, or fees earned. Optionally filter by search query (searches name and wallet).
       parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search query (case-insensitive, searches name and wallet)
         - name: sortBy
           in: query
           schema:
