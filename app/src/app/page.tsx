@@ -5,7 +5,7 @@ import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import HomeStats from '@/components/HomeStats'
-import { HeroSection, HowItWorksSection, SkillMdSection, OnboardAgentSection, TrustSignals } from '@/components/HomeSections'
+import { HeroSection, DeveloperSection, OnboardAgentSection, TrustSignals } from '@/components/HomeSections'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -305,7 +305,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <HowItWorksSection />
+      <OnboardAgentSection />
 
       {/* Live Activity Feed */}
       <section className="px-4 py-20 sm:px-6">
@@ -383,8 +383,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <SkillMdSection />
-      <OnboardAgentSection />
+      <DeveloperSection />
       <TrustSignals />
 
       <Footer />
