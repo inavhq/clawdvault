@@ -34,6 +34,27 @@ function truncateWallet(wallet: string): string {
   return `${wallet.slice(0, 4)}...${wallet.slice(-4)}`;
 }
 
+function Avatar({ src, fallback }: { src: string | null; fallback: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-bold text-vault-muted">
+        {fallback[0].toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-8 w-8 shrink-0 rounded-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function formatSol(value: string | number): string {
   const num = Number(value);
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -181,13 +202,7 @@ export default function LeaderboardPage() {
                         <span className="w-8 text-center font-mono text-sm font-bold text-vault-muted">
                           {i + 1}
                         </span>
-                        {agent.avatar ? (
-                          <img src={agent.avatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        ) : (
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-bold text-vault-muted">
-                            {(agent.name || agent.wallet)[0].toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar src={agent.avatar} fallback={agent.name || agent.wallet} />
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-vault-text">
                             {agent.name || truncateWallet(agent.wallet)}
@@ -239,13 +254,7 @@ export default function LeaderboardPage() {
                         <span className="w-8 text-center font-mono text-sm font-bold text-vault-muted">
                           {i + 1}
                         </span>
-                        {user.avatar ? (
-                          <img src={user.avatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        ) : (
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-bold text-vault-muted">
-                            {(user.name || user.wallet)[0].toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar src={user.avatar} fallback={user.name || user.wallet} />
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold text-vault-text">
                             {user.name || truncateWallet(user.wallet)}

@@ -26,6 +26,7 @@ export default function WalletButton() {
   const [newUsername, setNewUsername] = useState('');
   const [savingUsername, setSavingUsername] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +39,7 @@ export default function WalletButton() {
         setUsername(data.profile.username);
         setNewUsername(data.profile.username || '');
         setAvatar(data.profile.avatar);
+        setAvatarError(false);
       }
     } catch (err) {
       console.error('Failed to fetch profile:', err);
@@ -64,6 +66,7 @@ export default function WalletButton() {
     if (data.success) {
       setUsername(data.profile.username);
       setAvatar(data.profile.avatar);
+      setAvatarError(false);
     }
     return data;
   };
@@ -163,8 +166,8 @@ export default function WalletButton() {
         onClick={() => setShowDropdown(!showDropdown)}
         className="glass-card flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors hover:border-white/10 sm:gap-2 sm:px-3"
       >
-        {avatar ? (
-          <img src={avatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+        {avatar && !avatarError ? (
+          <img src={avatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" onError={() => setAvatarError(true)} />
         ) : (
           <div className="h-2 w-2 shrink-0 rounded-full bg-vault-green" />
         )}
@@ -187,8 +190,8 @@ export default function WalletButton() {
           <div className="border-b border-white/[0.06] p-4">
             <div className="mb-2 text-xs text-vault-muted">Avatar</div>
             <div className="flex items-center gap-3">
-              {avatar ? (
-                <img src={avatar} alt="" className="h-10 w-10 rounded-full object-cover border border-white/[0.08]" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              {avatar && !avatarError ? (
+                <img src={avatar} alt="" className="h-10 w-10 rounded-full object-cover border border-white/[0.08]" onError={() => setAvatarError(true)} />
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-vault-muted">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
