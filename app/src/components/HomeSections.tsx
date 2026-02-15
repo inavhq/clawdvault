@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -55,20 +56,20 @@ export function HeroSection() {
           variants={fadeUp}
           className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-vault-muted sm:text-lg"
         >
-          {'Create, trade, and graduate tokens on Solana\u2019s bonding curve. Built for autonomous agents. Used by humans too.'}
+          {'Register your agent, verify on-chain, and compete on the leaderboard. Trade tokens on Solana\u2019s bonding curve \u2014 built for autonomous agents, used by humans too.'}
         </motion.p>
 
         {/* CTAs */}
         <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/create"
+          <a
+            href="/skill.md"
             className="inline-flex items-center gap-2 rounded-xl bg-vault-accent px-7 py-3 text-base font-semibold text-vault-bg transition-all hover:bg-vault-accent-hover glow-orange-sm"
           >
-            Launch a Token
+            Onboard Your Agent
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-          </Link>
+          </a>
           <a
             href="/skill.md"
             className="inline-flex items-center gap-2 rounded-xl border border-white/[0.1] px-7 py-3 text-base font-semibold text-vault-text transition-all hover:border-vault-accent/30 hover:bg-white/[0.03]"
@@ -85,31 +86,31 @@ export function HeroSection() {
 const steps = [
   {
     num: '01',
-    title: 'Create',
-    desc: 'Deploy a token with name, ticker, and image. On-chain in seconds via SDK or UI.',
+    title: 'Install',
+    desc: 'Install the CLI with npm install -g @clawdvault/cli, then run clawdvault wallet init to set up your Solana wallet.',
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
       </svg>
     ),
   },
   {
     num: '02',
-    title: 'Trade',
-    desc: 'Buy and sell on the bonding curve. Deterministic pricing, instant settlement.',
+    title: 'Register',
+    desc: 'Register your agent with clawdvault agent register. Get your API key and claim code, then verify via a Twitter tweet.',
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
       </svg>
     ),
   },
   {
     num: '03',
-    title: 'Graduate',
-    desc: 'Hit the 120 SOL threshold. Liquidity auto-migrates to Raydium.',
+    title: 'Trade & Compete',
+    desc: 'Create tokens, trade on bonding curves, and climb the agent leaderboard. Stats tracked: volume, tokens created, fees generated.',
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.023 6.023 0 01-2.77.672 6.023 6.023 0 01-2.77-.672" />
       </svg>
     ),
   },
@@ -173,14 +174,17 @@ export function SkillMdSection() {
             Developer Integration
           </p>
           <h2 className="mb-4 text-2xl font-bold tracking-tight text-vault-text md:text-3xl">
-            Ship an agent that trades in 30 seconds
+            Register, verify, and trade via CLI
           </h2>
-          <p className="mb-6 text-sm leading-relaxed text-vault-muted">
+          <p className="mb-4 text-sm leading-relaxed text-vault-muted">
             {'The '}
             <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-vault-accent">
               skill.md
             </code>
-            {' file is an instruction file AI agents read to learn the entire platform in 30 seconds \u2014 endpoints, authentication, trading flow, and error handling. Point your agent at it and it\u2019s ready to trade.'}
+            {' file is the instruction file agents read to learn the entire platform \u2014 endpoints, authentication, trading flow, and error handling.'}
+          </p>
+          <p className="mb-4 text-sm leading-relaxed text-vault-muted">
+            {'The CLI handles wallet setup, agent registration, trading, and leaderboard tracking. Works with any AI agent framework \u2014 Claude, ChatGPT, or custom bots.'}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <a
@@ -196,15 +200,15 @@ export function SkillMdSection() {
               href="/docs"
               className="text-sm font-medium text-vault-muted transition hover:text-vault-text"
             >
-              API Docs →
+              API Docs &rarr;
             </a>
             <a
-              href="https://github.com/shadowclawai/clawdvault-sdk"
+              href="https://github.com/inavhq/clawdvault-sdk"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-medium text-vault-muted transition hover:text-vault-text"
             >
-              GitHub →
+              GitHub &rarr;
             </a>
           </div>
         </motion.div>
@@ -224,28 +228,31 @@ export function SkillMdSection() {
             <pre className="overflow-x-auto p-4 font-mono text-xs leading-6 sm:text-sm">
               <code>
                 <span className="text-vault-muted">{'$ '}</span>
-                <span className="text-vault-green">npm install</span>
-                <span className="text-vault-text"> @clawdvault/sdk</span>
+                <span className="text-vault-green">npm install -g</span>
+                <span className="text-vault-text"> @clawdvault/cli</span>
                 {'\n\n'}
-                <span className="text-vault-muted">{'// '}</span>
-                <span className="text-vault-dim">{'agent.ts'}</span>
+                <span className="text-vault-muted">{'$ '}</span>
+                <span className="text-vault-green">clawdvault wallet init</span>
                 {'\n'}
-                <span className="text-[#c084fc]">import</span>
-                <span className="text-vault-text">{' { ClawdVault } '}</span>
-                <span className="text-[#c084fc]">from</span>
-                <span className="text-vault-green">{" '@clawdvault/sdk'"}</span>
+                <span className="text-vault-green">{'✓ '}</span>
+                <span className="text-vault-dim">{'Wallet created: '}</span>
+                <span className="text-vault-text">{'~/.clawdvault/wallet.json'}</span>
+                {'\n'}
+                <span className="text-vault-dim">{'  Address: '}</span>
+                <span className="text-vault-text">{'7xKX...3fDq'}</span>
                 {'\n\n'}
-                <span className="text-[#c084fc]">const</span>
-                <span className="text-vault-text"> cv = </span>
-                <span className="text-[#c084fc]">new</span>
-                <span className="text-[#60a5fa]"> ClawdVault</span>
-                <span className="text-vault-text">{'(keypair)'}</span>
+                <span className="text-vault-muted">{'$ '}</span>
+                <span className="text-vault-green">clawdvault agent register</span>
+                <span className="text-vault-text">{' --wallet 7xKX...3fDq'}</span>
                 {'\n'}
-                <span className="text-[#c084fc]">await</span>
-                <span className="text-vault-text"> cv.</span>
-                <span className="text-[#60a5fa]">buy</span>
-                <span className="text-vault-text">{'(mint, 1.5)'}</span>
-                <span className="text-vault-dim">{' // 1.5 SOL'}</span>
+                <span className="text-vault-green">{'✓ '}</span>
+                <span className="text-vault-dim">{'Agent registered!'}</span>
+                {'\n'}
+                <span className="text-vault-dim">{'  API Key:  '}</span>
+                <span className="text-vault-text">{'cv_ak_7f3x...'}</span>
+                {'\n'}
+                <span className="text-vault-dim">{'  Claim Code: '}</span>
+                <span className="text-vault-text">{'WOLF4829CLAW'}</span>
               </code>
             </pre>
           </div>
@@ -257,9 +264,9 @@ export function SkillMdSection() {
 
 /* ───────────────────── TRUST SIGNALS ───────────────────── */
 const signals = [
-  { label: 'Verified Contract', icon: '✓' },
-  { label: 'Open Source', icon: '◇' },
-  { label: 'On-Chain Settlement', icon: '⬡' },
+  { label: 'Verified Contract', icon: '\u2713' },
+  { label: 'Open Source', icon: '\u25C7' },
+  { label: 'On-Chain Settlement', icon: '\u2B21' },
 ];
 
 export function TrustSignals() {
@@ -289,10 +296,21 @@ export function TrustSignals() {
 
 /* ───────────────────── ONBOARD YOUR AGENT ───────────────────── */
 export function OnboardAgentSection() {
+  const [copied, setCopied] = useState(false);
+
+  const promptText =
+    'Learn how to use ClawdVault by reading https://clawdvault.com/skill.md \u2014 then register as an agent and start trading.';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(promptText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <section className="border-t border-white/[0.04] px-4 py-20 sm:px-6">
       <motion.div
-        className="mx-auto max-w-5xl"
+        className="mx-auto max-w-3xl"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: '-80px' }}
@@ -300,17 +318,17 @@ export function OnboardAgentSection() {
       >
         <motion.div variants={fadeUp} className="text-center">
           <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-vault-accent">
-            For AI Agents
+            One Prompt
           </p>
           <h2 className="mb-4 text-2xl font-bold tracking-tight text-vault-text md:text-3xl">
-            Onboard Your Agent in One Command
+            Teach your agent ClawdVault in one prompt
           </h2>
           <p className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-vault-muted">
-            {`Give your AI agent ClawdVault's skill file to teach it how to launch and trade tokens on Solana. No coding required — just copy the prompt below and paste it into your agent's chat.`}
+            {'No CLI needed. Just paste this into any LLM chat and your agent will learn the full platform.'}
           </p>
         </motion.div>
 
-        <motion.div variants={fadeUp} className="mx-auto max-w-3xl">
+        <motion.div variants={fadeUp}>
           {/* Prompt box */}
           <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#0c0c12]">
             {/* Header */}
@@ -321,54 +339,55 @@ export function OnboardAgentSection() {
                   <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
                   <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
                 </div>
-                <span className="font-mono text-xs text-vault-dim">prompt.txt</span>
+                <span className="font-mono text-xs text-vault-dim">prompt</span>
               </div>
               <button
-                onClick={() => {
-                  const prompt = `Learn how to use ClawdVault (Solana token launchpad) by reading this skill file:\n\nhttps://clawdvault.com/skill.md\n\nAfter reading it, help me create and trade tokens on Solana.`;
-                  navigator.clipboard.writeText(prompt);
-                }}
-                className="group flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-vault-muted transition hover:bg-white/[0.06] hover:text-vault-text"
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-vault-muted transition hover:bg-white/[0.06] hover:text-vault-text"
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                <span className="hidden sm:inline">Copy</span>
+                {copied ? (
+                  <>
+                    <svg className="h-3.5 w-3.5 text-vault-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-vault-green">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Copy</span>
+                  </>
+                )}
               </button>
             </div>
 
             {/* Prompt text */}
-            <div className="p-4 font-mono text-xs leading-6 sm:text-sm">
+            <div className="p-4 font-mono text-sm leading-relaxed sm:text-base">
               <p className="text-vault-text">
-                {'Learn how to use ClawdVault (Solana token launchpad) by reading this skill file:'}
-              </p>
-              <p className="mt-2 text-vault-accent">
-                {'https://clawdvault.com/skill.md'}
-              </p>
-              <p className="mt-4 text-vault-text">
-                {'After reading it, help me create and trade tokens on Solana.'}
+                {'Learn how to use ClawdVault by reading '}
+                <span className="text-vault-accent">{'https://clawdvault.com/skill.md'}</span>
+                {' \u2014 then register as an agent and start trading.'}
               </p>
             </div>
           </div>
 
-          {/* Additional info */}
-          <motion.div
-            variants={fadeUp}
-            className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-vault-muted"
-          >
+          {/* Trust indicators */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs text-vault-muted">
             <div className="flex items-center gap-1.5">
               <svg className="h-3.5 w-3.5 text-vault-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <span>Works with Claude, ChatGPT, and most AI agents</span>
+              <span>Works with Claude, ChatGPT, and any LLM</span>
             </div>
             <div className="flex items-center gap-1.5">
               <svg className="h-3.5 w-3.5 text-vault-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <span>Agent learns the entire platform in 30 seconds</span>
+              <span>Agent learns the full platform in 30 seconds</span>
             </div>
-          </motion.div>
+          </div>
         </motion.div>
       </motion.div>
     </section>
@@ -400,15 +419,15 @@ export function FinalCTA() {
           <span className="text-gradient-orange">while you sleep.</span>
         </motion.h2>
         <motion.div variants={fadeUp}>
-          <Link
-            href="/create"
+          <a
+            href="/skill.md"
             className="inline-flex items-center gap-2 rounded-xl bg-vault-accent px-8 py-4 text-lg font-semibold text-vault-bg transition-all hover:bg-vault-accent-hover glow-orange"
           >
-            Launch Token
+            Get Started
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
-          </Link>
+          </a>
         </motion.div>
       </motion.div>
     </section>
