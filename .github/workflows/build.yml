@@ -40,6 +40,9 @@ jobs:
       env:
         # Skip env validation for build test
         SKIP_ENV_VALIDATION: true
+        # Dummy secrets for build (not used at build time, but API routes require them at module eval)
+        JWT_SECRET: ci-build-dummy-secret-not-used-at-runtime
+        ENCRYPTION_KEY: ci-build-dummy-key-not-used-at-runtime
         
     - name: Check for build errors
       working-directory: ./app
