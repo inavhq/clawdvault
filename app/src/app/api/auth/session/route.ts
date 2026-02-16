@@ -4,10 +4,11 @@ import { SignJWT, jwtVerify } from 'jose';
 
 export const dynamic = 'force-dynamic';
 
-// Secret for JWT signing (in production, use env var)
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'clawdvault-session-secret-change-in-production'
-);
+// Secret for JWT signing - must be set in environment
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const SESSION_DURATION = 24 * 60 * 60; // 24 hours in seconds
 

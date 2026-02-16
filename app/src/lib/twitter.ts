@@ -29,10 +29,9 @@ export async function verifyClaimTweet(
 ): Promise<VerifyResult> {
   const apiKey = process.env.SOCIALDATA_API_KEY;
 
-  // Graceful degradation: no API key = stub behavior (local dev)
+  // Require API key for verification
   if (!apiKey) {
-    const handle = extractHandle(tweetUrl);
-    return { verified: true, handle };
+    return { verified: false, handle: null, error: 'Twitter API key not configured' };
   }
 
   const tweetId = extractTweetId(tweetUrl);

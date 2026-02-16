@@ -129,16 +129,14 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    // Check authorization
+    // Check authorization - only allow cron
     const cronSecret = process.env.CRON_SECRET;
     const requestCronSecret = request.headers.get('x-cron-secret');
     const isFromCron = cronSecret && requestCronSecret === cronSecret;
-    const isApiEnabled = process.env.ENABLE_GRADUATION_API === 'true';
-    const isDev = process.env.NODE_ENV !== 'production';
-    
-    if (!isDev && !isApiEnabled && !isFromCron) {
+
+    if (!isFromCron) {
       return NextResponse.json(
-        { success: false, error: 'Graduation API disabled. Enable via ENABLE_GRADUATION_API or cron.' },
+        { success: false, error: 'Unauthorized' },
         { status: 403 }
       );
     }

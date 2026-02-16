@@ -5,10 +5,11 @@ import { jwtVerify } from 'jose';
 
 export const dynamic = 'force-dynamic';
 
-// JWT secret for session verification
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'clawdvault-session-secret-change-in-production'
-);
+// JWT secret for session verification - must be set in environment
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 // Verify session token
 async function verifySession(request: NextRequest): Promise<string | null> {

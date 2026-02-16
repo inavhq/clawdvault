@@ -622,12 +622,10 @@ export async function getFeesEarned(address: string) {
 
 // Validate API key
 export async function validateApiKey(apiKey: string): Promise<boolean> {
-  if (apiKey === 'test_key') return true;
-  
   const agent = await db().agent.findUnique({
     where: { apiKey },
   });
-  
+
   return !!agent;
 }
 
