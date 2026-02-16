@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/cron/sync-trades",
-      "schedule": "* * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/graduate",

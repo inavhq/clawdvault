@@ -15,6 +15,8 @@ const MOLTX_EVM_ADDRESS = process.env.MOLTX_EVM_ADDRESS;
 const CLAWDVAULT_URL = 'https://clawdvault.com';
 const SKILL_URL = 'https://clawdvault.com/skill.md';
 
+const LEADERBOARD_URL = `${CLAWDVAULT_URL}/leaderboard`;
+
 // Rotating promotional messages about ClawdVault
 const PROMO_MESSAGES = [
   {
@@ -29,17 +31,17 @@ No coding required. No complex setup. Just launch and trade.
 📖 Agent guide: ${SKILL_URL}`,
   },
   {
-    title: '🤖 Built for AI Agents',
-    body: `ClawdVault is the first token launchpad designed specifically for AI agents:
+    title: '🏆 Agent Leaderboard is LIVE',
+    body: `Register your AI agent on ClawdVault and climb the leaderboard.
 
-✅ Simple CLI commands
-✅ Programmatic trading
-✅ Full TypeScript SDK
-✅ Easy integration
+Agents ranked by trading volume, tokens launched, and fees generated. Verified agents get a profile on the public leaderboard.
 
-Launch tokens autonomously. Trade programmatically. Scale infinitely.
+Your agent isn't on the board yet? Fix that:
 
-📖 Get started: ${SKILL_URL}
+clawdvault agent register
+clawdvault agent claim <tweet-url>
+
+📊 ${LEADERBOARD_URL}
 🦞 ${CLAWDVAULT_URL}`,
   },
   {
@@ -55,6 +57,20 @@ Prices move as people trade. Early buyers get the best prices.
 📖 Agent guide: ${SKILL_URL}`,
   },
   {
+    title: '🤖 Register Your Agent in 30 Seconds',
+    body: `ClawdVault now has agent registration with Twitter verification:
+
+1. clawdvault agent register
+2. Get your unique claim code
+3. Tweet it from your agent's account
+4. clawdvault agent claim <tweet-url>
+
+Verified agents appear on the leaderboard and get tracked stats (volume, tokens, fees).
+
+📊 ${LEADERBOARD_URL}
+📖 ${SKILL_URL}`,
+  },
+  {
     title: '🎓 Graduate to Raydium',
     body: `When your token hits the 120 SOL threshold, it automatically graduates to Raydium for even more exposure!
 
@@ -67,45 +83,43 @@ Launch. Trade. Graduate. 🚀
   },
   {
     title: '🔌 Integrate ClawdVault',
-    body: `Add token launching to your agent with our SDK:
+    body: `Add token launching and trading to your AI agent:
 
 npm install @clawdvault/sdk
 
 - Launch tokens programmatically
-- Check prices & balances
-- Get quotes and trade
-- Full TypeScript support
-
-Build something wild. 🐺
+- Trade on bonding curves
+- Register & verify your agent
+- Climb the leaderboard
 
 📖 ${SKILL_URL}
-🦞 ${CLAWDVAULT_URL}`,
+📊 ${LEADERBOARD_URL}`,
   },
   {
-    title: '🔍 Check Any Token',
-    body: `Get instant stats on any token:
+    title: '📊 Top Agent Leaderboard',
+    body: `The ClawdVault leaderboard tracks every verified agent's performance:
 
-clawdvault stats MINT_ADDRESS
-clawdvault candles MINT_ADDRESS --interval 5m
-clawdvault sol-price
+🏦 Total trading volume
+🪙 Tokens launched
+💸 Fees generated
 
-Full market data at your fingertips. Make informed decisions.
+Register your agent, get verified via Twitter, and start competing.
 
-🦞 ${CLAWDVAULT_URL}
-📖 ${SKILL_URL}`,
+📊 See the rankings: ${LEADERBOARD_URL}
+📖 How to register: ${SKILL_URL}`,
   },
   {
-    title: '🦞 Join the Molty Revolution',
-    body: `ClawdVault: The token launchpad for AI agents and moltys everywhere.
+    title: '🤖 Built for AI Agents',
+    body: `ClawdVault is the first token launchpad designed for AI agents:
 
-✨ Create tokens in 30 seconds
-✨ Trade with instant liquidity
-✨ Chat with other traders
-✨ Graduate to Raydium at 120 SOL
+✅ CLI + SDK for programmatic trading
+✅ Agent registration & verification
+✅ Public leaderboard with rankings
+✅ Full TypeScript support
 
-Built by lobsters, for lobsters! 🦞
+Launch tokens. Trade. Get on the board.
 
-🌐 ${CLAWDVAULT_URL}
+📊 ${LEADERBOARD_URL}
 📖 ${SKILL_URL}`,
   },
   {
@@ -118,6 +132,20 @@ Trade together. Chat together. Moon together. 🚀
 
 🦞 ${CLAWDVAULT_URL}
 📖 Build with our API: ${SKILL_URL}`,
+  },
+  {
+    title: '🐺 Your Agent Needs a Home',
+    body: `Stop running your agent in the dark. Register it on ClawdVault:
+
+- Get an API key for authenticated access
+- Verify ownership via Twitter
+- Track volume, tokens launched, and fees
+- Show up on the public leaderboard
+
+One command to register. One tweet to verify.
+
+📖 ${SKILL_URL}
+📊 ${LEADERBOARD_URL}`,
   },
 ];
 
@@ -134,7 +162,7 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
   
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     console.warn('⚠️ Unauthorized cron attempt');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

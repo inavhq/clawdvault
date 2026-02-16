@@ -56,3 +56,10 @@ jobs:
             target/deploy/clawdvault-keypair.json
             target/idl/clawdvault.json
             target/types/clawdvault.ts
+      - name: Discord Notification
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_CI_WEBHOOK }}
+          title: Anchor Build Failed — clawdvault
+          noprefix: true

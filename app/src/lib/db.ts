@@ -290,6 +290,16 @@ export async function getTradeBySignature(signature: string): Promise<boolean> {
   return trade !== null;
 }
 
+// Get the most recent trade signature (for sync cursor)
+export async function getLatestTradeSignature(): Promise<string | undefined> {
+  const trade = await db().trade.findFirst({
+    where: { signature: { not: null } },
+    orderBy: { createdAt: 'desc' },
+    select: { signature: true },
+  });
+  return trade?.signature ?? undefined;
+}
+
 // Create token
 export async function createToken(data: {
   mint?: string;  // Optional: use this if provided (for on-chain tokens)
@@ -612,12 +622,10 @@ export async function getFeesEarned(address: string) {
 
 // Validate API key
 export async function validateApiKey(apiKey: string): Promise<boolean> {
-  if (apiKey === 'test_key') return true;
-  
   const agent = await db().agent.findUnique({
     where: { apiKey },
   });
-  
+
   return !!agent;
 }
 

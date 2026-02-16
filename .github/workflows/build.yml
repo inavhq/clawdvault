@@ -49,3 +49,10 @@ jobs:
           exit 1
         fi
         echo "✅ Build successful"
+    - name: Discord Notification
+      if: failure()
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_CI_WEBHOOK }}
+        title: Build Failed — clawdvault
+        noprefix: true

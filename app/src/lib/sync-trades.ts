@@ -5,7 +5,7 @@
 import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PROGRAM_ID } from '@/lib/anchor/client';
 import { INITIAL_VIRTUAL_TOKENS } from '@/lib/types';
-import { getTradeBySignature, recordTrade, getToken } from '@/lib/db';
+import { getTradeBySignature, getLatestTradeSignature, recordTrade, getToken } from '@/lib/db';
 import { announceTrade } from '@/lib/moltx';
 
 // Event discriminators (first 8 bytes of sha256("event:EventName"))
@@ -190,24 +190,35 @@ export async function syncTrades(options: {
   try {
     const connection = getConnection();
     
-    console.log(`🔄 Syncing trades from on-chain (limit: ${limit})...`);
-    
+    // Use last synced trade as cursor to only fetch new signatures
+    const lastSig = await getLatestTradeSignature();
+    const sigOpts: { limit: number; until?: string } = { limit: Math.min(limit, 500) };
+    if (lastSig) {
+      sigOpts.until = lastSig;
+    }
+
+    console.log(`🔄 Syncing trades from on-chain (limit: ${limit}, cursor: ${lastSig ? lastSig.slice(0, 8) + '...' : 'none'})...`);
+
     const signatures = await connection.getSignaturesForAddress(
       PROGRAM_ID,
-      { limit: Math.min(limit, 500) },
+      sigOpts,
       'confirmed'
     );
-    
-    console.log(`Found ${signatures.length} recent program transactions`);
-    
+
+    console.log(`Found ${signatures.length} new program transactions`);
+
+    if (signatures.length === 0) {
+      return { success: true, checked: 0, synced: 0, skipped: 0, errors: 0, syncedSignatures: [] };
+    }
+
     let synced = 0;
     let skipped = 0;
     let errors = 0;
     const syncedTrades: string[] = [];
-    
+
     for (const sigInfo of signatures) {
       try {
-        // Check if we already have this trade
+        // Check if we already have this trade (safety check for edge cases)
         const exists = await getTradeBySignature(sigInfo.signature);
         if (exists) {
           skipped++;

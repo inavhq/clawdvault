@@ -21,3 +21,10 @@ jobs:
           cache-dependency-path: app/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      - name: Discord Notification
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_CI_WEBHOOK }}
+          title: Lint Failed — clawdvault
+          noprefix: true

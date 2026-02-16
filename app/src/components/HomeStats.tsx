@@ -77,9 +77,9 @@ export default function HomeStats({
 
   const stats = [
     { label: 'Site Visits', value: pageViews.toLocaleString(), color: 'text-vault-muted' },
+    { label: '24h Volume', value: formatValue(totalVolume), color: 'text-vault-text' },
     { label: 'Tokens Launched', value: totalTokens.toLocaleString(), color: 'text-vault-accent' },
     { label: 'Graduated', value: graduatedCount.toLocaleString(), color: 'text-vault-green' },
-    { label: '24h Volume', value: formatValue(totalVolume), color: 'text-vault-text' },
     { label: 'Registered Agents', value: agentCount.toLocaleString(), color: 'text-vault-accent' },
     { label: 'Users', value: userCount.toLocaleString(), color: 'text-vault-text' },
   ];
