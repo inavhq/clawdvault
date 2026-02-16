@@ -5,3 +5,7 @@
 .env*.local
 *.tsbuildinfo
 supabase/config.toml
+
+# SQLite databases
+*.db
+prisma/dev.db
