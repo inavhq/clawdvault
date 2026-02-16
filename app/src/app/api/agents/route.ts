@@ -4,11 +4,12 @@ import { getAgentsLeaderboard } from '@/lib/db';
 /**
  * GET /api/agents
  *
- * Get agents leaderboard.
+ * Get agents leaderboard or search for agents.
  *
  * Query params:
  * - sortBy: 'volume' | 'tokens' | 'fees' (default: 'volume')
  * - limit: number (default: 100, max: 500)
+ * - search: string (optional, searches name, wallet, twitter handle)
  *
  * Response:
  * - agents: Array of agents with user data
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
     const sortBy = (searchParams.get('sortBy') as 'volume' | 'tokens' | 'fees') || 'volume';
     const limit = Math.min(parseInt(searchParams.get('limit') || '25') || 25, 500);
     const page = Math.max(parseInt(searchParams.get('page') || '1') || 1, 1);
+    const search = searchParams.get('search') || undefined;
 
     if (!['volume', 'tokens', 'fees'].includes(sortBy)) {
       return NextResponse.json(
@@ -27,7 +29,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { agents, total } = await getAgentsLeaderboard({ sortBy, limit, page });
+    const { agents, total } = await getAgentsLeaderboard({ sortBy, limit, page, search });
 
     // Transform to API response format
     const result = agents.map((agent) => ({
