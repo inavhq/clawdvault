@@ -52,10 +52,12 @@ jobs:
           exit 1
         fi
         echo "✅ Build successful"
-    - name: Discord Notification
+    - name: Telegram Notification
       if: failure()
-      uses: sarisia/actions-status-discord@v1
-      with:
-        webhook: ${{ secrets.DISCORD_CI_WEBHOOK }}
-        title: Build Failed — clawdvault
-        noprefix: true
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d "{\"chat_id\": 198769209, \"text\": \"🚨 CI Failed — clawdvault\n\nBranch: ${GITHUB_HEAD_REF}\nPR: #${PR_NUMBER}\nRun: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}"
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
